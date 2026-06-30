@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -9,31 +9,67 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ChatBubble } from '@/components/chat-bubble';
+import { ChatBubble, ChatTypingBubble } from '@/components/chat-bubble';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { sendChatMessage } from '@/services/chat-api';
 import type { ChatMessage } from '@/types/chat';
 
 export default function ChatScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const listRef = useRef<FlatList<ChatMessage>>(null);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSend() {
+  async function handleSend() {
     const trimmed = input.trim();
-    if (!trimmed) return;
+    if (!trimmed || isLoading) return;
 
-    const newMessage: ChatMessage = {
-      id: Date.now().toString(),
+    const userMessage: ChatMessage = {
+      id: `${Date.now()}-user`,
       text: trimmed,
+      role: 'user',
       createdAt: Date.now(),
     };
 
-    setMessages((current) => [...current, newMessage]);
+    const nextMessages = [...messages, userMessage];
+
+    setMessages(nextMessages);
     setInput('');
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const reply = await sendChatMessage(
+        nextMessages.map((message) => ({
+          role: message.role,
+          content: message.text,
+        }))
+      );
+
+      const assistantMessage: ChatMessage = {
+        id: `${Date.now()}-assistant`,
+        text: reply,
+        role: 'assistant',
+        createdAt: Date.now(),
+      };
+
+      setMessages((current) => [...current, assistantMessage]);
+    } catch (sendError) {
+      const message =
+        sendError instanceof Error ? sendError.message : 'Something went wrong. Please try again.';
+      setError(message);
+    } finally {
+      setIsLoading(false);
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToEnd({ animated: true });
+      });
+    }
   }
 
   return (
@@ -41,7 +77,7 @@ export default function ChatScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ThemedView style={styles.header}>
           <ThemedText type="subtitle">Chat</ThemedText>
-          <ThemedText style={styles.headerHint}>Messages stay on this device for now</ThemedText>
+          <ThemedText style={styles.headerHint}>Soulmate AI is here to talk with you</ThemedText>
         </ThemedView>
 
         <KeyboardAvoidingView
@@ -49,19 +85,26 @@ export default function ChatScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
           <FlatList
+            ref={listRef}
             data={messages}
             keyExtractor={(item) => item.id}
             contentContainerStyle={[
               styles.messageList,
-              messages.length === 0 && styles.messageListEmpty,
+              messages.length === 0 && !isLoading && styles.messageListEmpty,
             ]}
+            onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
             ListEmptyComponent={
-              <ThemedText style={styles.emptyText}>
-                Say hello to Soulmate AI. Your messages will appear here.
-              </ThemedText>
+              !isLoading ? (
+                <ThemedText style={styles.emptyText}>
+                  Say hello to Soulmate AI. Your companion will reply here.
+                </ThemedText>
+              ) : null
             }
+            ListFooterComponent={<ChatTypingBubble visible={isLoading} />}
             renderItem={({ item }) => <ChatBubble message={item} />}
           />
+
+          {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
 
           <ThemedView style={styles.inputRow}>
             <TextInput
@@ -80,15 +123,16 @@ export default function ChatScreen() {
               onSubmitEditing={handleSend}
               returnKeyType="send"
               multiline
+              editable={!isLoading}
             />
             <Pressable
               style={({ pressed }) => [
                 styles.sendButton,
                 pressed && styles.sendButtonPressed,
-                !input.trim() && styles.sendButtonDisabled,
+                (!input.trim() || isLoading) && styles.sendButtonDisabled,
               ]}
               onPress={handleSend}
-              disabled={!input.trim()}>
+              disabled={!input.trim() || isLoading}>
               <ThemedText lightColor="#FFFFFF" darkColor="#FFFFFF" style={styles.sendLabel}>
                 Send
               </ThemedText>
@@ -132,6 +176,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.6,
     paddingHorizontal: 24,
+  },
+  errorText: {
+    color: '#D64545',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+    fontSize: 14,
   },
   inputRow: {
     flexDirection: 'row',
