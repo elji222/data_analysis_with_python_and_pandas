@@ -1,0 +1,171 @@
+import { useState } from 'react';
+import {
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  TextInput,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { ChatBubble } from '@/components/chat-bubble';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import type { ChatMessage } from '@/types/chat';
+
+export default function ChatScreen() {
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[colorScheme];
+  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  function handleSend() {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+
+    const newMessage: ChatMessage = {
+      id: Date.now().toString(),
+      text: trimmed,
+      createdAt: Date.now(),
+    };
+
+    setMessages((current) => [...current, newMessage]);
+    setInput('');
+  }
+
+  return (
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <ThemedView style={styles.header}>
+          <ThemedText type="subtitle">Chat</ThemedText>
+          <ThemedText style={styles.headerHint}>Messages stay on this device for now</ThemedText>
+        </ThemedView>
+
+        <KeyboardAvoidingView
+          style={styles.keyboardView}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+          <FlatList
+            data={messages}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[
+              styles.messageList,
+              messages.length === 0 && styles.messageListEmpty,
+            ]}
+            ListEmptyComponent={
+              <ThemedText style={styles.emptyText}>
+                Say hello to Soulmate AI. Your messages will appear here.
+              </ThemedText>
+            }
+            renderItem={({ item }) => <ChatBubble message={item} />}
+          />
+
+          <ThemedView style={styles.inputRow}>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  color: colors.text,
+                  borderColor: colorScheme === 'dark' ? '#333' : '#E0E0E0',
+                  backgroundColor: colorScheme === 'dark' ? '#1E1E1E' : '#F8F8F8',
+                },
+              ]}
+              placeholder="Type a message..."
+              placeholderTextColor={colors.icon}
+              value={input}
+              onChangeText={setInput}
+              onSubmitEditing={handleSend}
+              returnKeyType="send"
+              multiline
+            />
+            <Pressable
+              style={({ pressed }) => [
+                styles.sendButton,
+                pressed && styles.sendButtonPressed,
+                !input.trim() && styles.sendButtonDisabled,
+              ]}
+              onPress={handleSend}
+              disabled={!input.trim()}>
+              <ThemedText lightColor="#FFFFFF" darkColor="#FFFFFF" style={styles.sendLabel}>
+                Send
+              </ThemedText>
+            </Pressable>
+          </ThemedView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 16,
+    gap: 4,
+  },
+  headerHint: {
+    fontSize: 14,
+    opacity: 0.6,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  messageList: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  messageListEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  emptyText: {
+    textAlign: 'center',
+    opacity: 0.6,
+    paddingHorizontal: 24,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E0E0E0',
+  },
+  input: {
+    flex: 1,
+    minHeight: 44,
+    maxHeight: 120,
+    borderWidth: 1,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 16,
+  },
+  sendButton: {
+    backgroundColor: '#7B61FF',
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  sendButtonPressed: {
+    opacity: 0.85,
+  },
+  sendButtonDisabled: {
+    opacity: 0.45,
+  },
+  sendLabel: {
+    fontWeight: '600',
+    fontSize: 15,
+  },
+});
