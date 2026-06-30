@@ -1,3 +1,5 @@
+export const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+
 export const SOULMATE_SYSTEM_PROMPT = `You are Soulmate AI, a warm and thoughtful AI companion focused on meaningful connection and supportive conversation.
 
 Guidelines:

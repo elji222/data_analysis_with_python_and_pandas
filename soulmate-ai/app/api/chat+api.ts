@@ -1,14 +1,14 @@
-import { SOULMATE_SYSTEM_PROMPT } from '@/constants/ai';
+import { CLAUDE_MODEL, SOULMATE_SYSTEM_PROMPT } from '@/constants/ai';
 import type { ChatApiMessage } from '@/types/chat';
 
-const OPENAI_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
+const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com/v1/messages';
 
 export async function POST(request: Request) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
     return Response.json(
-      { error: 'AI is not configured yet. Add OPENAI_API_KEY to your environment.' },
+      { error: 'AI is not configured yet. Add ANTHROPIC_API_KEY to your environment.' },
       { status: 500 }
     );
   }
@@ -21,29 +21,30 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Please send at least one message.' }, { status: 400 });
     }
 
-    const openAiResponse = await fetch(OPENAI_ENDPOINT, {
+    const anthropicResponse = await fetch(ANTHROPIC_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'system', content: SOULMATE_SYSTEM_PROMPT }, ...messages],
-        temperature: 0.8,
+        model: CLAUDE_MODEL,
         max_tokens: 500,
+        system: SOULMATE_SYSTEM_PROMPT,
+        messages,
       }),
     });
 
-    const json = await openAiResponse.json();
+    const json = await anthropicResponse.json();
 
-    if (!openAiResponse.ok) {
+    if (!anthropicResponse.ok) {
       const errorMessage =
         json.error?.message ?? 'Unable to reach Soulmate AI right now. Please try again.';
-      return Response.json({ error: errorMessage }, { status: openAiResponse.status });
+      return Response.json({ error: errorMessage }, { status: anthropicResponse.status });
     }
 
-    const reply = json.choices?.[0]?.message?.content?.trim();
+    const reply = json.content?.find((block: { type: string }) => block.type === 'text')?.text?.trim();
 
     if (!reply) {
       return Response.json({ error: 'Soulmate AI sent an empty reply.' }, { status: 500 });
