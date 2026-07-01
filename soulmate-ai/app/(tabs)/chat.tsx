@@ -1,101 +1,100 @@
 import { useState } from 'react';
 import {
-  FlatList,
-  KeyboardAvoidingView,
+  ActivityIndicator,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
-  TextInput,
+  useWindowDimensions,
+  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ChatBubble } from '@/components/chat-bubble';
+import { ChatPanel } from '@/components/chat-panel';
+import { ConversationSidebar } from '@/components/conversation-sidebar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { ChatMessage } from '@/types/chat';
+import { useAuth } from '@/contexts/auth-context';
+import { useConversations } from '@/hooks/use-conversations';
+
+const SIDEBAR_BREAKPOINT = 768;
 
 export default function ChatScreen() {
-  const colorScheme = useColorScheme() ?? 'light';
-  const colors = Colors[colorScheme];
-  const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const { user } = useAuth();
+  const { width } = useWindowDimensions();
+  const isWideLayout = Platform.OS === 'web' && width >= SIDEBAR_BREAKPOINT;
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  function handleSend() {
-    const trimmed = input.trim();
-    if (!trimmed) return;
+  const {
+    conversations,
+    activeConversation,
+    activeConversationId,
+    isReady,
+    selectConversation,
+    startNewConversation,
+    deleteConversation,
+    updateConversationMessages,
+  } = useConversations(user?.id);
 
-    const newMessage: ChatMessage = {
-      id: Date.now().toString(),
-      text: trimmed,
-      createdAt: Date.now(),
-    };
-
-    setMessages((current) => [...current, newMessage]);
-    setInput('');
+  async function handleSelectConversation(conversationId: string) {
+    await selectConversation(conversationId);
+    setIsSidebarOpen(false);
   }
+
+  async function handleNewConversation() {
+    await startNewConversation();
+    setIsSidebarOpen(false);
+  }
+
+  if (!isReady) {
+    return (
+      <ThemedView style={styles.loading}>
+        <ActivityIndicator color="#7B61FF" size="large" />
+        <ThemedText style={styles.loadingText}>Loading your conversations...</ThemedText>
+      </ThemedView>
+    );
+  }
+
+  const sidebar = (
+    <ConversationSidebar
+      conversations={conversations}
+      activeConversationId={activeConversationId}
+      onSelectConversation={handleSelectConversation}
+      onNewConversation={handleNewConversation}
+      onDeleteConversation={deleteConversation}
+    />
+  );
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ThemedView style={styles.header}>
-          <ThemedText type="subtitle">Chat</ThemedText>
-          <ThemedText style={styles.headerHint}>Messages stay on this device for now</ThemedText>
-        </ThemedView>
-
-        <KeyboardAvoidingView
-          style={styles.keyboardView}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
-          <FlatList
-            data={messages}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={[
-              styles.messageList,
-              messages.length === 0 && styles.messageListEmpty,
-            ]}
-            ListEmptyComponent={
-              <ThemedText style={styles.emptyText}>
-                Say hello to Soulmate AI. Your messages will appear here.
-              </ThemedText>
-            }
-            renderItem={({ item }) => <ChatBubble message={item} />}
+      {isWideLayout ? (
+        <View style={styles.desktopLayout}>
+          {sidebar}
+          <ChatPanel
+            conversation={activeConversation}
+            onUpdateMessages={updateConversationMessages}
+          />
+        </View>
+      ) : (
+        <>
+          <ChatPanel
+            conversation={activeConversation}
+            onUpdateMessages={updateConversationMessages}
+            onOpenSidebar={() => setIsSidebarOpen(true)}
+            showSidebarToggle
           />
 
-          <ThemedView style={styles.inputRow}>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  color: colors.text,
-                  borderColor: colorScheme === 'dark' ? '#333' : '#E0E0E0',
-                  backgroundColor: colorScheme === 'dark' ? '#1E1E1E' : '#F8F8F8',
-                },
-              ]}
-              placeholder="Type a message..."
-              placeholderTextColor={colors.icon}
-              value={input}
-              onChangeText={setInput}
-              onSubmitEditing={handleSend}
-              returnKeyType="send"
-              multiline
-            />
-            <Pressable
-              style={({ pressed }) => [
-                styles.sendButton,
-                pressed && styles.sendButtonPressed,
-                !input.trim() && styles.sendButtonDisabled,
-              ]}
-              onPress={handleSend}
-              disabled={!input.trim()}>
-              <ThemedText lightColor="#FFFFFF" darkColor="#FFFFFF" style={styles.sendLabel}>
-                Send
-              </ThemedText>
-            </Pressable>
-          </ThemedView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+          <Modal
+            visible={isSidebarOpen}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setIsSidebarOpen(false)}>
+            <View style={styles.modalRoot}>
+              <Pressable style={styles.modalBackdrop} onPress={() => setIsSidebarOpen(false)} />
+              <ThemedView style={styles.mobileSidebar}>{sidebar}</ThemedView>
+            </View>
+          </Modal>
+        </>
+      )}
     </ThemedView>
   );
 }
@@ -104,68 +103,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  safeArea: {
+  loading: {
     flex: 1,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
-    gap: 4,
-  },
-  headerHint: {
-    fontSize: 14,
-    opacity: 0.6,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  messageList: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-  },
-  messageListEmpty: {
-    flexGrow: 1,
+    alignItems: 'center',
     justifyContent: 'center',
+    gap: 12,
   },
-  emptyText: {
-    textAlign: 'center',
-    opacity: 0.6,
-    paddingHorizontal: 24,
+  loadingText: {
+    opacity: 0.7,
   },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E0E0E0',
-  },
-  input: {
+  desktopLayout: {
     flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    borderWidth: 1,
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 16,
+    flexDirection: 'row',
   },
-  sendButton: {
-    backgroundColor: '#7B61FF',
-    borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+  modalRoot: {
+    flex: 1,
+    flexDirection: 'row',
   },
-  sendButtonPressed: {
-    opacity: 0.85,
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
   },
-  sendButtonDisabled: {
-    opacity: 0.45,
-  },
-  sendLabel: {
-    fontWeight: '600',
-    fontSize: 15,
+  mobileSidebar: {
+    width: '82%',
+    maxWidth: 320,
   },
 });
