@@ -1,14 +1,66 @@
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import * as Linking from 'expo-linking';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { signInWithGoogle } from '@/lib/auth';
+import { useAuth } from '@/contexts/auth-context';
+import { getAuthRedirectUri, processAuthCallbackUrl, signInWithGoogle } from '@/lib/auth';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 export default function LoginScreen() {
+  const router = useRouter();
+  const { session } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isConfigured = isSupabaseConfigured();
+
+  useEffect(() => {
+    if (session) {
+      router.replace('/chat');
+    }
+  }, [session, router]);
+
+  useEffect(() => {
+    async function handleCallbackUrl(url: string | null) {
+      if (!url) return;
+      if (!url.includes('code=') && !url.includes('access_token=') && !url.includes('error=')) {
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+        const handled = await processAuthCallbackUrl(url);
+        if (handled && Platform.OS === 'web' && typeof window !== 'undefined') {
+          window.history.replaceState({}, document.title, '/login');
+        }
+      } catch (callbackError) {
+        const message =
+          callbackError instanceof Error
+            ? callbackError.message
+            : 'Could not complete Google sign-in. Please try again.';
+        setError(message);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      void handleCallbackUrl(window.location.href);
+      return;
+    }
+
+    void Linking.getInitialURL().then(handleCallbackUrl);
+
+    const subscription = Linking.addEventListener('url', (event) => {
+      void handleCallbackUrl(event.url);
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   async function handleGoogleSignIn() {
     try {
@@ -39,20 +91,35 @@ export default function LoginScreen() {
           Create your account with Google to save your conversations and pick up where you left off.
         </ThemedText>
 
+        {!isConfigured ? (
+          <ThemedView style={styles.configCard}>
+            <ThemedText style={styles.configTitle}>Setup required</ThemedText>
+            <ThemedText style={styles.configText}>
+              Add your Supabase URL and publishable key to `.env`, then restart Expo.
+            </ThemedText>
+          </ThemedView>
+        ) : null}
+
         <Pressable
           style={({ pressed }) => [
             styles.googleButton,
             pressed && styles.pressed,
-            isLoading && styles.disabled,
+            (isLoading || !isConfigured) && styles.disabled,
           ]}
           onPress={handleGoogleSignIn}
-          disabled={isLoading}>
+          disabled={isLoading || !isConfigured}>
           {isLoading ? (
             <ActivityIndicator color="#1A1028" />
           ) : (
             <ThemedText style={styles.googleButtonText}>Continue with Google</ThemedText>
           )}
         </Pressable>
+
+        {isConfigured ? (
+          <ThemedText style={styles.redirectHint}>
+            Redirect URL: {getAuthRedirectUri()}
+          </ThemedText>
+        ) : null}
 
         {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
       </SafeAreaView>
@@ -84,6 +151,25 @@ const styles = StyleSheet.create({
     maxWidth: 320,
     marginBottom: 8,
   },
+  configCard: {
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E0C080',
+    backgroundColor: '#FFF8E8',
+    maxWidth: 320,
+    gap: 6,
+  },
+  configTitle: {
+    fontWeight: '600',
+    color: '#8A5A00',
+  },
+  configText: {
+    fontSize: 14,
+    opacity: 0.85,
+    color: '#8A5A00',
+    textAlign: 'center',
+  },
   googleButton: {
     minWidth: 260,
     paddingVertical: 14,
@@ -98,6 +184,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
     color: '#1A1028',
+  },
+  redirectHint: {
+    fontSize: 12,
+    opacity: 0.55,
+    textAlign: 'center',
+    maxWidth: 320,
   },
   errorText: {
     color: '#D64545',
