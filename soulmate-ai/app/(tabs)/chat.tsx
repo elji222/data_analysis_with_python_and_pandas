@@ -19,7 +19,7 @@ import { useConversations } from '@/hooks/use-conversations';
 const SIDEBAR_BREAKPOINT = 768;
 
 export default function ChatScreen() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { width } = useWindowDimensions();
   const isWideLayout = Platform.OS === 'web' && width >= SIDEBAR_BREAKPOINT;
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
