@@ -1,39 +1,42 @@
 import * as Linking from 'expo-linking';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useAuth } from '@/contexts/auth-context';
 import { getAuthRedirectUri, processAuthCallbackUrl, signInWithGoogle } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
 export default function LoginScreen() {
+  const router = useRouter();
+  const { session } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isConfigured = isSupabaseConfigured();
 
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      if (typeof window !== 'undefined' && window.location.href.includes('error=')) {
-        void processAuthCallbackUrl(window.location.href).catch((callbackError) => {
-          const message =
-            callbackError instanceof Error
-              ? callbackError.message
-              : 'Could not complete Google sign-in. Please try again.';
-          setError(message);
-        });
-      }
-      return;
+    if (session) {
+      router.replace('/chat');
     }
+  }, [session, router]);
 
+  useEffect(() => {
     async function handleCallbackUrl(url: string | null) {
       if (!url) return;
+      if (!url.includes('code=') && !url.includes('access_token=') && !url.includes('error=')) {
+        return;
+      }
 
       try {
         setIsLoading(true);
         setError(null);
-        await processAuthCallbackUrl(url);
+        const handled = await processAuthCallbackUrl(url);
+        if (handled && Platform.OS === 'web' && typeof window !== 'undefined') {
+          window.history.replaceState({}, document.title, '/login');
+        }
       } catch (callbackError) {
         const message =
           callbackError instanceof Error
@@ -43,6 +46,11 @@ export default function LoginScreen() {
       } finally {
         setIsLoading(false);
       }
+    }
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      void handleCallbackUrl(window.location.href);
+      return;
     }
 
     void Linking.getInitialURL().then(handleCallbackUrl);
@@ -87,7 +95,7 @@ export default function LoginScreen() {
           <ThemedView style={styles.configCard}>
             <ThemedText style={styles.configTitle}>Setup required</ThemedText>
             <ThemedText style={styles.configText}>
-              Add your Supabase URL and anon key to `.env`, then restart Expo.
+              Add your Supabase URL and publishable key to `.env`, then restart Expo.
             </ThemedText>
           </ThemedView>
         ) : null}

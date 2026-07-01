@@ -28,7 +28,7 @@ function RootNavigator() {
     }
 
     if (session && inAuthGroup) {
-      router.replace('/');
+      router.replace('/chat');
     }
   }, [session, isLoading, segments, router]);
 

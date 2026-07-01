@@ -13,6 +13,14 @@ const isServer = Platform.OS === 'web' && typeof window === 'undefined';
 const PLACEHOLDER_URL = 'https://placeholder.supabase.co';
 const PLACEHOLDER_KEY = 'placeholder-anon-key';
 
+function getAuthStorage() {
+  if (isServer) return undefined;
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return window.localStorage;
+  }
+  return AsyncStorage;
+}
+
 export function isSupabaseConfigured(): boolean {
   return Boolean(
     supabaseUrl &&
@@ -30,10 +38,10 @@ export const supabase = createClient(
   supabaseKey ?? PLACEHOLDER_KEY,
   {
     auth: {
-      storage: isServer ? undefined : AsyncStorage,
+      storage: getAuthStorage(),
       autoRefreshToken: !isServer,
       persistSession: !isServer,
-      detectSessionInUrl: Platform.OS === 'web' && !isServer,
+      detectSessionInUrl: false,
       flowType: 'pkce',
     },
   }
