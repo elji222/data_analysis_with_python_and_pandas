@@ -11,18 +11,25 @@ import {
 import type { ChatMessage } from '@/types/chat';
 import type { Conversation } from '@/types/conversation';
 
-export function useConversations() {
+export function useConversations(userId: string | undefined) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
+    if (!userId) {
+      setConversations([]);
+      setActiveConversationId(null);
+      setIsReady(false);
+      return;
+    }
+
     let isMounted = true;
 
     async function hydrate() {
       const [storedConversations, storedActiveId] = await Promise.all([
-        loadConversations(),
-        loadActiveConversationId(),
+        loadConversations(userId),
+        loadActiveConversationId(userId),
       ]);
 
       if (!isMounted) return;
@@ -31,8 +38,8 @@ export function useConversations() {
         const firstConversation = createEmptyConversation();
         setConversations([firstConversation]);
         setActiveConversationId(firstConversation.id);
-        await saveConversations([firstConversation]);
-        await saveActiveConversationId(firstConversation.id);
+        await saveConversations(userId, [firstConversation]);
+        await saveActiveConversationId(userId, firstConversation.id);
       } else {
         const activeId =
           storedActiveId && storedConversations.some((item) => item.id === storedActiveId)
@@ -41,7 +48,7 @@ export function useConversations() {
 
         setConversations(storedConversations);
         setActiveConversationId(activeId);
-        await saveActiveConversationId(activeId);
+        await saveActiveConversationId(userId, activeId);
       }
 
       setIsReady(true);
@@ -52,21 +59,29 @@ export function useConversations() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [userId]);
 
   const activeConversation =
     conversations.find((conversation) => conversation.id === activeConversationId) ?? null;
 
-  const persistConversations = useCallback(async (nextConversations: Conversation[]) => {
-    const sorted = [...nextConversations].sort((a, b) => b.updatedAt - a.updatedAt);
-    setConversations(sorted);
-    await saveConversations(sorted);
-  }, []);
+  const persistConversations = useCallback(
+    async (nextConversations: Conversation[]) => {
+      if (!userId) return;
+      const sorted = [...nextConversations].sort((a, b) => b.updatedAt - a.updatedAt);
+      setConversations(sorted);
+      await saveConversations(userId, sorted);
+    },
+    [userId]
+  );
 
-  const selectConversation = useCallback(async (conversationId: string) => {
-    setActiveConversationId(conversationId);
-    await saveActiveConversationId(conversationId);
-  }, []);
+  const selectConversation = useCallback(
+    async (conversationId: string) => {
+      if (!userId) return;
+      setActiveConversationId(conversationId);
+      await saveActiveConversationId(userId, conversationId);
+    },
+    [userId]
+  );
 
   const startNewConversation = useCallback(async () => {
     const conversation = createEmptyConversation();

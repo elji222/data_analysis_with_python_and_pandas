@@ -2,11 +2,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { Conversation } from '@/types/conversation';
 
-const CONVERSATIONS_KEY = '@soulmate-ai/conversations';
-const ACTIVE_CONVERSATION_KEY = '@soulmate-ai/active-conversation-id';
+function getStorageKeys(userId: string) {
+  return {
+    conversations: `@soulmate-ai/conversations/${userId}`,
+    activeConversation: `@soulmate-ai/active-conversation/${userId}`,
+  };
+}
 
-export async function loadConversations(): Promise<Conversation[]> {
-  const raw = await AsyncStorage.getItem(CONVERSATIONS_KEY);
+export async function loadConversations(userId: string): Promise<Conversation[]> {
+  const { conversations } = getStorageKeys(userId);
+  const raw = await AsyncStorage.getItem(conversations);
   if (!raw) return [];
 
   try {
@@ -17,16 +22,19 @@ export async function loadConversations(): Promise<Conversation[]> {
   }
 }
 
-export async function saveConversations(conversations: Conversation[]): Promise<void> {
-  await AsyncStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(conversations));
+export async function saveConversations(userId: string, items: Conversation[]): Promise<void> {
+  const { conversations } = getStorageKeys(userId);
+  await AsyncStorage.setItem(conversations, JSON.stringify(items));
 }
 
-export async function loadActiveConversationId(): Promise<string | null> {
-  return AsyncStorage.getItem(ACTIVE_CONVERSATION_KEY);
+export async function loadActiveConversationId(userId: string): Promise<string | null> {
+  const { activeConversation } = getStorageKeys(userId);
+  return AsyncStorage.getItem(activeConversation);
 }
 
-export async function saveActiveConversationId(id: string): Promise<void> {
-  await AsyncStorage.setItem(ACTIVE_CONVERSATION_KEY, id);
+export async function saveActiveConversationId(userId: string, id: string): Promise<void> {
+  const { activeConversation } = getStorageKeys(userId);
+  await AsyncStorage.setItem(activeConversation, id);
 }
 
 export function createConversationTitle(firstMessage: string): string {

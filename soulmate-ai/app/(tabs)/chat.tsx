@@ -13,11 +13,13 @@ import { ChatPanel } from '@/components/chat-panel';
 import { ConversationSidebar } from '@/components/conversation-sidebar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useAuth } from '@/contexts/auth-context';
 import { useConversations } from '@/hooks/use-conversations';
 
 const SIDEBAR_BREAKPOINT = 768;
 
 export default function ChatScreen() {
+  const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isWideLayout = Platform.OS === 'web' && width >= SIDEBAR_BREAKPOINT;
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -31,7 +33,7 @@ export default function ChatScreen() {
     startNewConversation,
     deleteConversation,
     updateConversationMessages,
-  } = useConversations();
+  } = useConversations(user?.id);
 
   async function handleSelectConversation(conversationId: string) {
     await selectConversation(conversationId);
