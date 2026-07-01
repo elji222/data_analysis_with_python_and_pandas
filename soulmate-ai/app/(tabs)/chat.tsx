@@ -45,6 +45,23 @@ export default function ChatScreen() {
     setIsSidebarOpen(false);
   }
 
+  if (authLoading) {
+    return (
+      <ThemedView style={styles.loading}>
+        <ActivityIndicator color="#7B61FF" size="large" />
+        <ThemedText style={styles.loadingText}>Checking sign in...</ThemedText>
+      </ThemedView>
+    );
+  }
+
+  if (!user) {
+    return (
+      <ThemedView style={styles.loading}>
+        <ThemedText style={styles.loadingText}>Please sign in to use chat.</ThemedText>
+      </ThemedView>
+    );
+  }
+
   if (!isReady) {
     return (
       <ThemedView style={styles.loading}>
