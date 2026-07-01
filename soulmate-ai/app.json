@@ -43,7 +43,8 @@
             "backgroundColor": "#1A1028"
           }
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
