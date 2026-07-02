@@ -1,5 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, Pressable, StyleSheet, TextInput, View, useColorScheme } from 'react-native';
+import {
+  NativeSyntheticEvent,
+  Platform,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  TextInputKeyPressEventData,
+  View,
+  useColorScheme,
+} from 'react-native';
 
 import { ChatTheme } from '@/constants/chat-theme';
 
@@ -9,6 +18,12 @@ type ChatComposerProps = {
   onSend: () => void;
   isLoading?: boolean;
   variant?: 'hero' | 'bottom';
+};
+
+type WebKeyDownEvent = {
+  key: string;
+  shiftKey: boolean;
+  preventDefault: () => void;
 };
 
 export function ChatComposer({
@@ -22,6 +37,38 @@ export function ChatComposer({
   const isDark = colorScheme === 'dark';
   const canSend = value.trim().length > 0 && !isLoading;
   const isHero = variant === 'hero';
+
+  function trySend() {
+    if (canSend) {
+      onSend();
+    }
+  }
+
+  function handleKeyPress(event: NativeSyntheticEvent<TextInputKeyPressEventData>) {
+    if (event.nativeEvent.key !== 'Enter') return;
+
+    const shiftKey = (event.nativeEvent as TextInputKeyPressEventData & { shiftKey?: boolean })
+      .shiftKey;
+    if (shiftKey) return;
+
+    if (Platform.OS === 'web') {
+      event.preventDefault?.();
+    }
+
+    trySend();
+  }
+
+  const webKeyDownProps =
+    Platform.OS === 'web'
+      ? {
+          onKeyDown: (event: WebKeyDownEvent) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              trySend();
+            }
+          },
+        }
+      : {};
 
   return (
     <View style={[styles.wrapper, isHero && styles.wrapperHero]}>
@@ -53,12 +100,15 @@ export function ChatComposer({
           placeholderTextColor={ChatTheme.inputPlaceholder}
           value={value}
           onChangeText={onChangeText}
-          onSubmitEditing={onSend}
+          onKeyPress={handleKeyPress}
           returnKeyType="send"
+          blurOnSubmit={false}
+          submitBehavior="submit"
           multiline
           editable={!isLoading}
           underlineColorAndroid="transparent"
           selectionColor={ChatTheme.accent}
+          {...webKeyDownProps}
         />
 
         <View style={styles.trailingActions}>
