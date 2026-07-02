@@ -384,6 +384,12 @@ export function ChatPanel({
           </View>
         </View>
 
+        {Platform.OS !== 'web' && showSidebarToggle ? (
+          <View style={styles.mobileBuildStrip}>
+            <ThemedText style={styles.mobileBuildStripText}>Phone build {UI_VERSION}</ThemedText>
+          </View>
+        ) : null}
+
         <KeyboardAvoidingView
           style={styles.keyboardView}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -555,6 +561,20 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: ChatTheme.sidebarMuted,
     marginTop: 1,
+  },
+  mobileBuildStrip: {
+    alignSelf: 'center',
+    backgroundColor: ChatTheme.accent,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginBottom: 6,
+  },
+  mobileBuildStripText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   profileButton: {
     width: 36,

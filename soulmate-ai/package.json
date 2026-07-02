@@ -1,10 +1,10 @@
 {
   "name": "soulmate-ai",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "scripts": {
     "start": "expo start",
-    "phone": "expo start --lan --clear",
+    "phone": "expo start --lan --clear --reset-cache",
     "phone:ngrok": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-phone-ngrok.ps1",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",

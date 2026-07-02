@@ -3,31 +3,49 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
+$BuildId = "2026-07-07"
+
+function Stop-MetroOnPort {
+    param([int]$Port)
+
+    try {
+        $connections = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue
+        foreach ($connection in $connections) {
+            Stop-Process -Id $connection.OwningProcess -Force -ErrorAction SilentlyContinue
+        }
+    } catch {
+        # Older Windows versions may not have Get-NetTCPConnection.
+    }
+}
+
 Write-Host ""
 Write-Host "============================================"
 Write-Host " Soulmate AI - Open in Expo Go (phone)"
 Write-Host "============================================"
+Write-Host "Project folder: $Root"
+Write-Host "Phone build: $BuildId"
 Write-Host ""
-Write-Host "IMPORTANT: Your phone and PC must be on the SAME Wi-Fi."
-Write-Host "For different Wi-Fi, run scripts\start-phone-ngrok.cmd instead."
+Write-Host "IMPORTANT: Phone and PC must be on the SAME Wi-Fi."
 Write-Host ""
-Write-Host "Before you scan the QR code:"
-Write-Host "  1. Install Expo Go on your phone"
-Write-Host "  2. Make sure this folder has a .env file with your API keys"
+Write-Host "Before scanning:"
+Write-Host "  1. On your phone, open Expo Go"
+Write-Host "  2. Remove any old Soulmate AI project from Recents"
+Write-Host "  3. Then scan the NEW QR code shown below"
 Write-Host ""
-Write-Host "How to scan:"
-Write-Host "  - Android: open Expo Go, tap Scan QR code"
-Write-Host "  - iPhone: open the Camera app and tap the Expo link"
+Write-Host "After the app opens, you must see: Phone build $BuildId"
+Write-Host "If not: shake phone -> Reload, or fully close Expo Go and scan again."
 Write-Host ""
-Write-Host "If Windows asks about the firewall, click Allow."
-Write-Host ""
-Write-Host "Starting Expo. Keep this window open while you use the app."
-Write-Host ""
-Write-Host "After scanning the QR code:"
-Write-Host "  - Top of phone screen should say UI 2026-07-06"
-Write-Host "  - If you see an older UI version, shake the phone and tap Reload"
-Write-Host "  - Or close Expo Go fully, then scan the QR code again"
-Write-Host ""
+
+Write-Host "Clearing old Metro cache..."
+Stop-MetroOnPort -Port 8081
+
+if (Test-Path ".expo") {
+    Remove-Item -Recurse -Force ".expo"
+}
+
+if (Test-Path "node_modules\.cache") {
+    Remove-Item -Recurse -Force "node_modules\.cache"
+}
 
 if (-not (Test-Path "node_modules")) {
     Write-Host "Installing npm packages. First time only."
@@ -35,4 +53,10 @@ if (-not (Test-Path "node_modules")) {
     Write-Host ""
 }
 
-npx expo start --lan --clear
+$env:REACT_NATIVE_PACKAGER_CACHE_KEY = "soulmate-$BuildId"
+
+Write-Host "Starting fresh Expo server..."
+Write-Host "Keep this window open while you use the app."
+Write-Host ""
+
+npx expo start --lan --clear --reset-cache

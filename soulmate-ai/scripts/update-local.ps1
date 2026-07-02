@@ -17,6 +17,7 @@ $Files = @(
     "app/api/title+api.ts",
     "app.json",
     "package.json",
+    "metro.config.js",
     "components/attach-popover.tsx",
     "components/chat-bubble.tsx",
     "components/chat-scroll-rail.tsx",
@@ -48,6 +49,7 @@ $Files = @(
     "scripts/start-phone-lan.cmd",
     "scripts/start-phone-ngrok.ps1",
     "scripts/start-phone-ngrok.cmd",
+    "scripts/force-phone-reload.cmd",
     "scripts/update-local.ps1",
     "scripts/update-local.cmd"
 )
