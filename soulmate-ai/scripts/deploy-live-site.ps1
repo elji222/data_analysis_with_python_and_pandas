@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
-$EasCli = "eas-cli@latest"
+$script:EasBin = Join-Path $Root "node_modules\.bin\eas.cmd"
 
 function Invoke-External {
     param(
@@ -33,7 +33,10 @@ function Invoke-ExternalOutput {
 
     try {
         $lines = & $Command 2>&1 | ForEach-Object { "$_" } | Where-Object {
-            $_ -notmatch '^npm warn' -and $_.Trim() -ne ""
+            $_ -notmatch '^npm warn' -and
+            $_ -notmatch 'Unexpected end of JSON input' -and
+            $_ -notmatch 'SyntaxError' -and
+            $_.Trim() -ne ""
         }
 
         return @{
@@ -43,6 +46,53 @@ function Invoke-ExternalOutput {
     } finally {
         $ErrorActionPreference = $previousPreference
     }
+}
+
+function Clear-NpmCaches {
+    Write-Host "Clearing corrupted npm/npx cache..."
+
+    $npxCache = Join-Path $env:LOCALAPPDATA "npm-cache\_npx"
+    if (Test-Path $npxCache) {
+        Remove-Item -LiteralPath $npxCache -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Host "Removed $npxCache"
+    }
+
+    Invoke-External -Command { npm cache clean --force } | Out-Null
+}
+
+function Ensure-EasInstalled {
+    if (-not (Test-Path $script:EasBin)) {
+        Write-Host "Installing eas-cli locally (avoids broken npx cache)..."
+        $installCode = Invoke-External -Command { npm install }
+        if ($installCode -ne 0) {
+            throw "npm install failed."
+        }
+    }
+
+    if (-not (Test-Path $script:EasBin)) {
+        throw "eas-cli is still missing after npm install."
+    }
+}
+
+function Invoke-Eas {
+    param(
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$EasArgs
+    )
+
+    Ensure-EasInstalled
+    $exitCode = Invoke-External -Command { & $script:EasBin @EasArgs }
+    return $exitCode
+}
+
+function Invoke-EasOutput {
+    param(
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$EasArgs
+    )
+
+    Ensure-EasInstalled
+    return Invoke-ExternalOutput -Command { & $script:EasBin @EasArgs }
 }
 
 function Read-DotEnv {
@@ -91,10 +141,19 @@ function Repair-EasJson {
 }
 
 function Ensure-EasLogin {
-    $result = Invoke-ExternalOutput -Command { npx --yes $EasCli whoami }
-    $whoami = ($result.Output -split "`n" | Where-Object { $_.Trim() -ne "" } | Select-Object -Last 1)
+    if ($env:EXPO_TOKEN) {
+        Write-Host "Using EXPO_TOKEN from environment."
+        return
+    }
 
-    if ($result.ExitCode -eq 0 -and $whoami -and $whoami -notmatch "Not logged in") {
+    $result = Invoke-EasOutput whoami
+    $whoami = ($result.Output -split "`n" | Where-Object {
+        $_.Trim() -ne "" -and
+        $_ -notmatch "Not logged in" -and
+        $_ -notmatch "SyntaxError"
+    } | Select-Object -Last 1)
+
+    if ($result.ExitCode -eq 0 -and $whoami) {
         Write-Host "Logged in to Expo as $whoami"
         return
     }
@@ -102,12 +161,31 @@ function Ensure-EasLogin {
     Write-Host ""
     Write-Host "You need to log in to Expo (browser will open)."
     Write-Host "Create a free account at https://expo.dev/signup if needed."
+    Write-Host "Complete the login in the browser, then return here."
     Write-Host ""
 
-    $loginCode = Invoke-External -Command { npx --yes $EasCli login }
+    $loginCode = Invoke-Eas login
     if ($loginCode -ne 0) {
-        throw "Expo login failed or was cancelled."
+        throw @"
+Expo login failed.
+
+Try this manually in CMD:
+  cd $Root
+  npm install
+  npx eas login
+
+If you see spinners.json errors, run:
+  npm cache clean --force
+  rmdir /s /q "%LOCALAPPDATA%\npm-cache\_npx"
+"@
     }
+
+    $verify = Invoke-EasOutput whoami
+    if ($verify.ExitCode -ne 0 -or -not $verify.Output) {
+        throw "Login command finished but Expo still is not logged in."
+    }
+
+    Write-Host "Logged in to Expo as $($verify.Output)"
 }
 
 function Sync-ProductionEnv {
@@ -128,15 +206,13 @@ function Sync-ProductionEnv {
         }
 
         Write-Host "Syncing production env: $name"
-        $exitCode = Invoke-External -Command {
-            npx --yes $EasCli env:create production `
-                --name $name `
-                --value $value `
-                --visibility $item.Visibility `
-                --environment production `
-                --non-interactive `
-                --force
-        }
+        $exitCode = Invoke-Eas env:create production `
+            --name $name `
+            --value $value `
+            --visibility $item.Visibility `
+            --environment production `
+            --non-interactive `
+            --force
 
         if ($exitCode -ne 0) {
             throw "Failed to set EAS production variable: $name"
@@ -160,15 +236,16 @@ if (-not (Test-Path ".env")) {
 
 $envVars = Read-DotEnv -Path ".env"
 
-Write-Host "Step 1: Fix eas.json and install dependencies..."
+Write-Host "Step 1: Clear cache, fix eas.json, install dependencies..."
+Clear-NpmCaches
 Repair-EasJson
 
-if (-not (Test-Path "node_modules")) {
-    $installCode = Invoke-External -Command { npm install }
-    if ($installCode -ne 0) {
-        throw "npm install failed."
-    }
+$installCode = Invoke-External -Command { npm install }
+if ($installCode -ne 0) {
+    throw "npm install failed."
 }
+
+Ensure-EasInstalled
 
 Write-Host ""
 Write-Host "Step 2: Log in to Expo..."
@@ -194,7 +271,7 @@ if ($easText -match '"deploy"') {
 Write-Host "If this is your first deploy, choose subdomain: soulmate-ai"
 Write-Host ""
 
-$deployCode = Invoke-External -Command { npx --yes $EasCli deploy --prod --environment production }
+$deployCode = Invoke-Eas deploy --prod --environment production
 if ($deployCode -ne 0) {
     throw "Deploy failed."
 }
