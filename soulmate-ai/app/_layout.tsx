@@ -7,6 +7,7 @@ import 'react-native-reanimated';
 
 import { BuildVersionBanner } from '@/components/build-version-banner';
 import { ProductionSiteWarning } from '@/components/production-site-warning';
+import { StaleBundleGate } from '@/components/stale-bundle-gate';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { UI_VERSION } from '@/constants/chat-theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -56,14 +57,16 @@ function RootNavigator() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <ProductionSiteWarning />
-      <BuildVersionBanner />
-      <Stack>
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
+      <StaleBundleGate>
+        <ProductionSiteWarning />
+        <BuildVersionBanner />
+        <Stack>
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        </Stack>
+        <StatusBar style="auto" />
+      </StaleBundleGate>
     </ThemeProvider>
   );
 }

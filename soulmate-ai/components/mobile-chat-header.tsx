@@ -11,7 +11,7 @@ type MobileChatHeaderProps = {
 
 export function MobileChatHeader({ onOpenSidebar, onNewChat }: MobileChatHeaderProps) {
   return (
-    <View style={styles.header}>
+    <View style={styles.header} testID="mobile-chat-header">
       <Pressable style={styles.iconButton} onPress={onOpenSidebar} accessibilityLabel="Open menu">
         <Ionicons name="reorder-two" size={24} color={ChatTheme.sidebarText} />
       </Pressable>

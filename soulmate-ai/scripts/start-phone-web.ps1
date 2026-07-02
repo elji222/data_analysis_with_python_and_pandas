@@ -91,6 +91,8 @@ Write-Host ""
 Write-Host "Clearing old Metro cache..."
 Stop-MetroOnPort -Port 8081
 Clear-FolderQuietly -Path "node_modules\.cache"
+Clear-FolderQuietly -Path ".expo"
+Clear-FolderQuietly -Path "dist"
 
 if (-not (Test-Path "node_modules")) {
     npm install

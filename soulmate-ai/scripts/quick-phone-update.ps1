@@ -21,6 +21,7 @@ $Files = @(
     "components/mobile-chat-header.tsx",
     "components/mobile-quick-suggestions.tsx",
     "components/production-site-warning.tsx",
+    "components/stale-bundle-gate.tsx",
     "components/voice-waveform.tsx",
     "constants/chat-theme.ts",
     "constants/ai.ts",
@@ -31,6 +32,7 @@ $Files = @(
     "lib/auth.ts",
     "lib/enforce-build-version.ts",
     "lib/browser-capabilities.ts",
+    "lib/recover-stale-web-bundle.ts",
     "metro.config.js",
     "scripts/start-phone.ps1",
     "scripts/start-phone-web.ps1",
@@ -111,9 +113,36 @@ if ($ComposerText -notmatch "layout\?: 'default' \| 'mobile'") {
     throw "Download failed. chat-composer.tsx is missing mobile layout support."
 }
 
+if ($LayoutText -notmatch "StaleBundleGate") {
+    throw "Download failed. app/_layout.tsx is missing the phone cache fix."
+}
+
+if ($ThemeText -notmatch "MOBILE_UI_MARKER") {
+    throw "Download failed. constants/chat-theme.ts is missing the mobile UI marker."
+}
+
+$ChatFile = Join-Path $Root "app\(tabs)\chat.tsx"
+$ChatText = Get-Content $ChatFile -Raw
+
+if ($ChatText -notmatch "useShellLayout") {
+    throw "Download failed. chat.tsx is not forcing phone layout."
+}
+
+$MobileLayoutFile = Join-Path $Root "hooks\use-mobile-chat-layout.ts"
+$MobileLayoutText = Get-Content $MobileLayoutFile -Raw
+
+if ($MobileLayoutText -notmatch "isMobileWebBrowser") {
+    throw "Download failed. use-mobile-chat-layout.ts is not phone-aware."
+}
+
 $HeaderFile = Join-Path $Root "components\mobile-chat-header.tsx"
 if (-not (Test-Path $HeaderFile)) {
     throw "Download failed. mobile-chat-header.tsx is missing."
+}
+
+$HeaderText = Get-Content $HeaderFile -Raw
+if ($HeaderText -notmatch "mobile-chat-header") {
+    throw "Download failed. mobile-chat-header.tsx is still old."
 }
 
 Write-Host ""
