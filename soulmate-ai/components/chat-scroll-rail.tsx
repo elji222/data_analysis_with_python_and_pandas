@@ -13,38 +13,38 @@ type ChatScrollRailProps = {
   markers: ChatScrollMarker[];
   activeMarkerId: string | null;
   scrollProgress: number;
+  height: number;
   onMarkerPress: (listIndex: number) => void;
 };
 
-const RAIL_HEIGHT = 220;
+const MIN_RAIL_HEIGHT = 120;
 
 export function ChatScrollRail({
   markers,
   activeMarkerId,
   scrollProgress,
+  height,
   onMarkerPress,
 }: ChatScrollRailProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
   const markerColor = isDark ? '#5A5A5A' : '#C8C8C8';
   const activeColor = isDark ? ChatTheme.sidebarTextDark : ChatTheme.sidebarText;
-  const thumbTop = Math.max(0, Math.min(RAIL_HEIGHT - 28, scrollProgress * (RAIL_HEIGHT - 28)));
+  const railHeight = Math.max(MIN_RAIL_HEIGHT, height);
+  const thumbTop = Math.max(0, Math.min(railHeight - 28, scrollProgress * (railHeight - 28)));
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.rail, { height: RAIL_HEIGHT }]}>
+    <View style={[styles.container, { height: railHeight }]}>
+      <View style={styles.rail}>
         <View style={styles.markerColumn}>
           {markers.map((marker) => {
             const isActive = marker.id === activeMarkerId;
-            const markerTop = marker.position * (RAIL_HEIGHT - 10);
+            const markerTop = marker.position * Math.max(railHeight - 10, 1);
 
             return (
               <Pressable
                 key={marker.id}
-                style={[
-                  styles.markerHitArea,
-                  { top: markerTop - 8 },
-                ]}
+                style={[styles.markerHitArea, { top: markerTop - 8 }]}
                 onPress={() => onMarkerPress(marker.listIndex)}
                 accessibilityRole="button"
                 accessibilityLabel="Jump to message">
@@ -77,10 +77,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingLeft: 4,
+    flexShrink: 0,
     ...(Platform.OS === 'web' ? ({ userSelect: 'none' } as const) : {}),
   },
   rail: {
     width: '100%',
+    height: '100%',
     position: 'relative',
     justifyContent: 'center',
   },

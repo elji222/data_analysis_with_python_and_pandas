@@ -76,6 +76,7 @@ export function ChatPanel({
     viewportHeight: 0,
   });
   const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
+  const [listViewportHeight, setListViewportHeight] = useState(0);
   const inputBeforeRecordingRef = useRef('');
   const listDataRef = useRef<ChatMessage[]>([]);
 
@@ -117,6 +118,11 @@ export function ChatPanel({
     if (!isStreaming) return;
     scrollToEnd();
   }, [smoothStreamingText, isStreaming]);
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    scrollToEnd();
+  }, [conversation?.id, messages.length]);
 
   async function handleAttach(action: 'photos-and-files' | 'camera') {
     try {
@@ -271,10 +277,11 @@ export function ChatPanel({
 
   const scrollMarkers = useMemo(() => buildUserScrollMarkers(listData), [listData]);
   const scrollProgress = getScrollProgress(scrollMetrics);
+  const isScrollable =
+    scrollMetrics.viewportHeight > 0 &&
+    scrollMetrics.contentHeight > scrollMetrics.viewportHeight + 20;
   const showScrollRail =
-    Platform.OS === 'web' &&
-    scrollMarkers.length > 0 &&
-    scrollMetrics.contentHeight > scrollMetrics.viewportHeight + 48;
+    Platform.OS === 'web' && scrollMarkers.length > 0 && isScrollable;
   const showJumpToBottom = shouldShowScrollToBottom(scrollMetrics);
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 30 }).current;
@@ -288,6 +295,16 @@ export function ChatPanel({
       setActiveMarkerId(getActiveUserMarkerId(listDataRef.current, indices));
     }
   ).current;
+
+  const handleListLayout = useCallback((event: { nativeEvent: { layout: { height: number } } }) => {
+    const viewportHeight = event.nativeEvent.layout.height;
+
+    setListViewportHeight(viewportHeight);
+    setScrollMetrics((previous) => ({
+      ...previous,
+      viewportHeight,
+    }));
+  }, []);
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
@@ -405,20 +422,28 @@ export function ChatPanel({
               </View>
             ) : (
               <View style={styles.threadWrapper}>
-                <View style={styles.threadRow}>
+                <View style={styles.threadBody}>
                   <View style={styles.threadArea}>
                     <FlatList
                       ref={listRef}
+                      style={styles.messageScroll}
                       data={listData}
                       keyExtractor={(item) => item.id}
                       contentContainerStyle={styles.messageList}
-                      onContentSizeChange={scrollToEnd}
+                      onLayout={handleListLayout}
+                      onContentSizeChange={(_width, contentHeight) => {
+                        setScrollMetrics((previous) => ({
+                          ...previous,
+                          contentHeight,
+                        }));
+                      }}
                       onScroll={handleScroll}
                       scrollEventThrottle={16}
                       onViewableItemsChanged={onViewableItemsChanged}
                       viewabilityConfig={viewabilityConfig}
                       onScrollToIndexFailed={handleScrollToIndexFailed}
-                      showsVerticalScrollIndicator={Platform.OS !== 'web'}
+                      showsVerticalScrollIndicator
+                      nestedScrollEnabled
                       ListFooterComponent={<StreamingPlaceholder visible={showThinking} />}
                       renderItem={({ item }) => (
                         <ChatBubble
@@ -436,20 +461,25 @@ export function ChatPanel({
                       markers={scrollMarkers}
                       activeMarkerId={activeMarkerId}
                       scrollProgress={scrollProgress}
+                      height={listViewportHeight}
                       onMarkerPress={jumpToUserMessage}
                     />
                   ) : null}
                 </View>
 
-              {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
-              {storageWarning && !error ? (
-                <ThemedText style={styles.warningText}>{storageWarning}</ThemedText>
-              ) : null}
-              {statusMessage && !error ? (
-                <ThemedText style={styles.statusText}>{statusMessage}</ThemedText>
-              ) : null}
+                {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+                {storageWarning && !error ? (
+                  <ThemedText style={styles.warningText}>{storageWarning}</ThemedText>
+                ) : null}
+                {statusMessage && !error ? (
+                  <ThemedText style={styles.statusText}>{statusMessage}</ThemedText>
+                ) : null}
 
-              <View style={styles.bottomComposerArea}>
+                <View
+                  style={[
+                    styles.bottomComposerArea,
+                    { backgroundColor: isDark ? ChatTheme.pageBgDark : ChatTheme.pageBg },
+                  ]}>
                   <ChatComposer {...composerProps} />
                   <ThemedText style={styles.disclaimer}>
                     Soulmate AI can make mistakes. Consider checking important information.
@@ -471,6 +501,7 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+    minHeight: 0,
   },
   header: {
     flexDirection: 'row',
@@ -507,14 +538,16 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
     width: '100%',
+    minHeight: 0,
   },
   mainColumn: {
     flex: 1,
     width: '100%',
     maxWidth: 720,
     alignSelf: 'center',
-    alignItems: 'center',
+    alignItems: 'stretch',
     paddingHorizontal: 20,
+    minHeight: 0,
   },
   heroState: {
     flex: 1,
@@ -556,26 +589,33 @@ const styles = StyleSheet.create({
   threadWrapper: {
     flex: 1,
     width: '100%',
+    minHeight: 0,
   },
-  threadRow: {
+  threadBody: {
     flex: 1,
     flexDirection: 'row',
     width: '100%',
-    maxWidth: 720,
-    alignSelf: 'center',
-    alignItems: 'center',
+    minHeight: 0,
+    alignItems: 'stretch',
   },
   threadArea: {
     flex: 1,
-    position: 'relative',
     minWidth: 0,
+    minHeight: 0,
+    position: 'relative',
+  },
+  messageScroll: {
+    flex: 1,
+    minHeight: 0,
+    ...(Platform.OS === 'web'
+      ? ({ overflow: 'scroll', overscrollBehavior: 'contain' } as const)
+      : {}),
   },
   messageList: {
     paddingHorizontal: 8,
     paddingTop: 16,
-    paddingBottom: 16,
+    paddingBottom: 24,
     width: '100%',
-    flexGrow: 1,
   },
   errorText: {
     color: ChatTheme.error,
@@ -604,6 +644,8 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
     width: '100%',
+    flexShrink: 0,
+    zIndex: 2,
   },
   disclaimer: {
     marginTop: 10,
