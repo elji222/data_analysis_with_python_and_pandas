@@ -1,5 +1,7 @@
 $ErrorActionPreference = "Stop"
 
+$DeployScriptVersion = "2026-07-07"
+
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
@@ -60,47 +62,85 @@ function Clear-NpmCaches {
 
 function Test-DependenciesInstalled {
     return (
-        (Test-Path $script:EasBin) -and
         (Test-Path (Join-Path $Root "node_modules\expo")) -and
         (Test-Path (Join-Path $Root "node_modules\expo-router"))
     )
 }
 
+function Install-EasCliOnly {
+    Write-Host "Installing eas-cli only (no full npm install)..."
+
+    $attempts = @(
+        { npm install eas-cli --save-dev --ignore-scripts --legacy-peer-deps --no-fund --no-audit },
+        { npm install eas-cli --save-dev --legacy-peer-deps --no-fund --no-audit }
+    )
+
+    foreach ($attempt in $attempts) {
+        $result = Invoke-ExternalOutput -Command $attempt
+        if (Test-Path $script:EasBin) {
+            return
+        }
+        if ($result.Output) {
+            Write-Host $result.Output
+        }
+    }
+
+    if (-not (Test-Path $script:EasBin)) {
+        throw "Could not install eas-cli. Run: npm install eas-cli --save-dev --ignore-scripts --legacy-peer-deps"
+    }
+}
+
 function Install-ProjectDependencies {
+    if ($env:SKIP_NPM_INSTALL -eq '1') {
+        Write-Host "SKIP_NPM_INSTALL is set. Not running npm install."
+
+        if (-not (Test-Path $script:EasBin)) {
+            Install-EasCliOnly
+        }
+
+        return
+    }
+
     if (Test-DependenciesInstalled) {
-        Write-Host "Dependencies already installed. Skipping npm install."
+        Write-Host "Expo packages already installed. Skipping full npm install."
+
+        if (-not (Test-Path $script:EasBin)) {
+            Install-EasCliOnly
+        }
+
         return
     }
 
     Write-Host "Installing npm packages (first time only, may take a few minutes)..."
 
-    $result = Invoke-ExternalOutput -Command {
-        npm install --no-fund --no-audit --legacy-peer-deps
-    }
+    $attempts = @(
+        { npm install --no-fund --no-audit --legacy-peer-deps },
+        { npm install --no-fund --no-audit --legacy-peer-deps --ignore-scripts }
+    )
 
-    if ($result.ExitCode -eq 0 -and (Test-DependenciesInstalled)) {
-        return
-    }
+    foreach ($attempt in $attempts) {
+        $result = Invoke-ExternalOutput -Command $attempt
 
-    if ($result.Output) {
-        Write-Host ""
-        Write-Host $result.Output
-        Write-Host ""
-    }
+        if (Test-DependenciesInstalled) {
+            if (-not (Test-Path $script:EasBin)) {
+                Install-EasCliOnly
+            }
+            return
+        }
 
-    if (Test-DependenciesInstalled) {
-        Write-Host "npm install reported warnings, but required packages are present. Continuing."
-        return
+        if ($result.Output) {
+            Write-Host ""
+            Write-Host $result.Output
+            Write-Host ""
+        }
     }
 
     throw @"
 npm install failed.
 
-Try this manually in CMD:
+Your app may still work locally. Try in CMD:
   cd $Root
-  npm install --legacy-peer-deps
-
-Then run:
+  npm install eas-cli --save-dev --ignore-scripts --legacy-peer-deps
   scripts\deploy-live-site.cmd
 "@
 }
@@ -342,6 +382,7 @@ function Sync-ProductionEnv {
 Write-Host ""
 Write-Host "============================================================"
 Write-Host " DEPLOY SOULMATE AI WEB TO https://soulmate-ai.expo.app"
+Write-Host " Deploy script version $DeployScriptVersion"
 Write-Host "============================================================"
 Write-Host ""
 

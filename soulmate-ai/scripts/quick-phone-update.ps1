@@ -45,6 +45,7 @@ $Files = @(
     "scripts/open-on-phone.cmd",
     "scripts/deploy-live-site.cmd",
     "scripts/deploy-live-site.ps1",
+    "scripts/deploy-now.cmd",
     "scripts/check-pc-build.cmd",
     "scripts/quick-phone-update.ps1",
     "scripts/quick-phone-update.cmd",
