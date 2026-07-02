@@ -377,8 +377,8 @@ export function ChatPanel({
           style={styles.keyboardView}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
-          <View style={styles.mainColumn}>
-            {showHeroEmpty ? (
+          {showHeroEmpty ? (
+            <View style={styles.mainColumn}>
               <View style={styles.heroState}>
                 <ThemedText
                   lightColor={ChatTheme.assistantText}
@@ -387,17 +387,17 @@ export function ChatPanel({
                   What&apos;s on your mind today?
                 </ThemedText>
 
-              <ChatComposer variant="hero" {...composerProps} />
+                <ChatComposer variant="hero" {...composerProps} />
 
-              {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
-              {storageWarning && !error ? (
-                <ThemedText style={styles.warningText}>{storageWarning}</ThemedText>
-              ) : null}
-              {statusMessage && !error ? (
-                <ThemedText style={styles.statusText}>{statusMessage}</ThemedText>
-              ) : null}
+                {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+                {storageWarning && !error ? (
+                  <ThemedText style={styles.warningText}>{storageWarning}</ThemedText>
+                ) : null}
+                {statusMessage && !error ? (
+                  <ThemedText style={styles.statusText}>{statusMessage}</ThemedText>
+                ) : null}
 
-              <View style={styles.quickActions}>
+                <View style={styles.quickActions}>
                   {QUICK_ACTIONS.map((action) => (
                     <Pressable
                       key={action.label}
@@ -420,74 +420,80 @@ export function ChatPanel({
                   ))}
                 </View>
               </View>
-            ) : (
-              <View style={styles.threadWrapper}>
-                <View style={styles.threadBody}>
-                  <View style={styles.threadArea}>
-                    <FlatList
-                      ref={listRef}
-                      style={styles.messageScroll}
-                      data={listData}
-                      keyExtractor={(item) => item.id}
-                      contentContainerStyle={styles.messageList}
-                      onLayout={handleListLayout}
-                      onContentSizeChange={(_width, contentHeight) => {
-                        setScrollMetrics((previous) => ({
-                          ...previous,
-                          contentHeight,
-                        }));
-                      }}
-                      onScroll={handleScroll}
-                      scrollEventThrottle={16}
-                      onViewableItemsChanged={onViewableItemsChanged}
-                      viewabilityConfig={viewabilityConfig}
-                      onScrollToIndexFailed={handleScrollToIndexFailed}
-                      showsVerticalScrollIndicator
-                      nestedScrollEnabled
-                      ListFooterComponent={<StreamingPlaceholder visible={showThinking} />}
-                      renderItem={({ item }) => (
-                        <ChatBubble
-                          message={item}
-                          isStreaming={item.id === 'streaming-assistant' && isStreaming}
-                        />
-                      )}
-                    />
+            </View>
+          ) : (
+            <View style={styles.threadOuter}>
+              <View style={styles.threadCenterColumn}>
+                <View style={styles.threadWrapper}>
+                  <View style={styles.threadBody}>
+                    <View style={styles.threadArea}>
+                      <FlatList
+                        ref={listRef}
+                        style={styles.messageScroll}
+                        data={listData}
+                        keyExtractor={(item) => item.id}
+                        contentContainerStyle={styles.messageList}
+                        onLayout={handleListLayout}
+                        onContentSizeChange={(_width, contentHeight) => {
+                          setScrollMetrics((previous) => ({
+                            ...previous,
+                            contentHeight,
+                          }));
+                        }}
+                        onScroll={handleScroll}
+                        scrollEventThrottle={16}
+                        onViewableItemsChanged={onViewableItemsChanged}
+                        viewabilityConfig={viewabilityConfig}
+                        onScrollToIndexFailed={handleScrollToIndexFailed}
+                        showsVerticalScrollIndicator={!showScrollRail}
+                        nestedScrollEnabled
+                        ListFooterComponent={<StreamingPlaceholder visible={showThinking} />}
+                        renderItem={({ item }) => (
+                          <ChatBubble
+                            message={item}
+                            isStreaming={item.id === 'streaming-assistant' && isStreaming}
+                          />
+                        )}
+                      />
 
-                    <ScrollToBottomButton visible={showJumpToBottom} onPress={scrollToEnd} />
+                      <ScrollToBottomButton visible={showJumpToBottom} onPress={scrollToEnd} />
+                    </View>
                   </View>
 
-                  {showScrollRail ? (
-                    <ChatScrollRail
-                      markers={scrollMarkers}
-                      activeMarkerId={activeMarkerId}
-                      scrollProgress={scrollProgress}
-                      height={listViewportHeight}
-                      onMarkerPress={jumpToUserMessage}
-                    />
+                  {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+                  {storageWarning && !error ? (
+                    <ThemedText style={styles.warningText}>{storageWarning}</ThemedText>
                   ) : null}
-                </View>
+                  {statusMessage && !error ? (
+                    <ThemedText style={styles.statusText}>{statusMessage}</ThemedText>
+                  ) : null}
 
-                {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
-                {storageWarning && !error ? (
-                  <ThemedText style={styles.warningText}>{storageWarning}</ThemedText>
-                ) : null}
-                {statusMessage && !error ? (
-                  <ThemedText style={styles.statusText}>{statusMessage}</ThemedText>
-                ) : null}
-
-                <View
-                  style={[
-                    styles.bottomComposerArea,
-                    { backgroundColor: isDark ? ChatTheme.pageBgDark : ChatTheme.pageBg },
-                  ]}>
-                  <ChatComposer {...composerProps} />
-                  <ThemedText style={styles.disclaimer}>
-                    Soulmate AI can make mistakes. Consider checking important information.
-                  </ThemedText>
+                  <View
+                    style={[
+                      styles.bottomComposerArea,
+                      { backgroundColor: isDark ? ChatTheme.pageBgDark : ChatTheme.pageBg },
+                    ]}>
+                    <ChatComposer {...composerProps} />
+                    <ThemedText style={styles.disclaimer}>
+                      Soulmate AI can make mistakes. Consider checking important information.
+                    </ThemedText>
+                  </View>
                 </View>
               </View>
-            )}
-          </View>
+
+              {showScrollRail ? (
+                <View style={[styles.railDock, { height: listViewportHeight }]}>
+                  <ChatScrollRail
+                    markers={scrollMarkers}
+                    activeMarkerId={activeMarkerId}
+                    scrollProgress={scrollProgress}
+                    height={listViewportHeight}
+                    onMarkerPress={jumpToUserMessage}
+                  />
+                </View>
+              ) : null}
+            </View>
+          )}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </ThemedView>
@@ -586,6 +592,31 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: ChatTheme.sidebarText,
   },
+  threadOuter: {
+    flex: 1,
+    width: '100%',
+    minHeight: 0,
+    position: 'relative',
+  },
+  threadCenterColumn: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    minHeight: 0,
+  },
+  railDock: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    width: 56,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingRight: 8,
+    zIndex: 5,
+    pointerEvents: 'box-none',
+  },
   threadWrapper: {
     flex: 1,
     width: '100%',
@@ -593,10 +624,8 @@ const styles = StyleSheet.create({
   },
   threadBody: {
     flex: 1,
-    flexDirection: 'row',
     width: '100%',
     minHeight: 0,
-    alignItems: 'stretch',
   },
   threadArea: {
     flex: 1,

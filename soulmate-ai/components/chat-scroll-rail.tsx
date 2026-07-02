@@ -53,7 +53,7 @@ export function ChatScrollRail({
                     styles.marker,
                     {
                       backgroundColor: isActive ? activeColor : markerColor,
-                      width: isActive ? 18 : 12,
+                      width: isActive ? 20 : 14,
                       opacity: isActive ? 1 : 0.85,
                     },
                   ]}
@@ -73,15 +73,14 @@ export function ChatScrollRail({
 
 const styles = StyleSheet.create({
   container: {
-    width: 34,
-    alignItems: 'center',
+    width: 48,
+    alignItems: 'flex-end',
     justifyContent: 'center',
-    paddingLeft: 4,
     flexShrink: 0,
     ...(Platform.OS === 'web' ? ({ userSelect: 'none' } as const) : {}),
   },
   rail: {
-    width: '100%',
+    width: 28,
     height: '100%',
     position: 'relative',
     justifyContent: 'center',
@@ -89,15 +88,16 @@ const styles = StyleSheet.create({
   markerColumn: {
     position: 'absolute',
     left: 0,
-    right: 10,
+    right: 8,
     top: 0,
     bottom: 0,
   },
   markerHitArea: {
     position: 'absolute',
-    left: 0,
+    right: 0,
     height: 16,
     justifyContent: 'center',
+    alignItems: 'flex-end',
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as const) : {}),
   },
   marker: {
@@ -109,8 +109,8 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    width: 4,
-    borderRadius: 2,
+    width: 5,
+    borderRadius: 3,
     backgroundColor: '#ECECEC',
   },
   scrollTrackDark: {
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 28,
-    borderRadius: 2,
+    borderRadius: 3,
     backgroundColor: '#B8B8B8',
   },
   scrollThumbDark: {
