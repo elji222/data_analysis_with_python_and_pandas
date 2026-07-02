@@ -46,6 +46,7 @@ export function ChatComposer({
           style={[
             styles.input,
             isHero && styles.inputHero,
+            Platform.OS === 'web' && styles.inputWeb,
             { color: isDark ? ChatTheme.assistantTextDark : ChatTheme.assistantText },
           ]}
           placeholder="Ask anything"
@@ -56,6 +57,8 @@ export function ChatComposer({
           returnKeyType="send"
           multiline
           editable={!isLoading}
+          underlineColorAndroid="transparent"
+          selectionColor={ChatTheme.accent}
         />
 
         <View style={styles.trailingActions}>
@@ -126,7 +129,15 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     paddingTop: Platform.OS === 'ios' ? 6 : 4,
     paddingBottom: Platform.OS === 'ios' ? 6 : 4,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
+  inputWeb: {
+    outlineStyle: 'none',
+    outlineWidth: 0,
+    boxShadow: 'none',
+    resize: 'none',
+  } as const,
   inputHero: {
     fontSize: 17,
     minHeight: 32,
