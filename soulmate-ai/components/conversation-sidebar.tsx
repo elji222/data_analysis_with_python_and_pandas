@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ChatTheme, SIDEBAR_NAV_ITEMS, UI_VERSION } from '@/constants/chat-theme';
+import { CLAUDE_MODEL } from '@/constants/ai';
 import type { Conversation } from '@/types/conversation';
 
 type ConversationSidebarProps = {
@@ -35,6 +36,7 @@ export function ConversationSidebar({
           <View>
             <ThemedText style={styles.brandText}>Soulmate AI</ThemedText>
             <ThemedText style={styles.versionText}>UI {UI_VERSION}</ThemedText>
+            <ThemedText style={styles.modelText}>{CLAUDE_MODEL}</ThemedText>
           </View>
         </View>
         {onClose ? (
@@ -135,6 +137,11 @@ const styles = StyleSheet.create({
   },
   versionText: {
     fontSize: 11,
+    color: ChatTheme.sidebarMuted,
+    marginTop: 1,
+  },
+  modelText: {
+    fontSize: 10,
     color: ChatTheme.sidebarMuted,
     marginTop: 1,
   },

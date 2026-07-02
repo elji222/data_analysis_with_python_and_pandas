@@ -9,6 +9,7 @@ import {
   Pressable,
   StyleSheet,
   useColorScheme,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,7 +21,9 @@ import { ScrollToBottomButton } from '@/components/scroll-to-bottom-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ChatTheme, QUICK_ACTIONS, UI_VERSION } from '@/constants/chat-theme';
+import { CLAUDE_MODEL } from '@/constants/ai';
 import { useSmoothStreamingText } from '@/hooks/use-smooth-streaming-text';
+import { useCompactWebLayout } from '@/hooks/use-wide-layout';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import {
   canAddImageAttachment,
@@ -63,6 +66,8 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
+  const isCompactWeb = useCompactWebLayout();
+  const { width: viewportWidth } = useWindowDimensions();
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
@@ -375,6 +380,7 @@ export function ChatPanel({
                 Soulmate AI
               </ThemedText>
               <ThemedText style={styles.headerVersion}>UI {UI_VERSION}</ThemedText>
+              <ThemedText style={styles.headerModel}>{CLAUDE_MODEL}</ThemedText>
             </View>
           ) : (
             <View style={styles.headerSpacer} />
@@ -395,12 +401,16 @@ export function ChatPanel({
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
           {showHeroEmpty ? (
-            <View style={styles.mainColumn}>
+            <View style={[styles.mainColumn, isCompactWeb && styles.mainColumnCompact]}>
               <View style={styles.heroState}>
                 <ThemedText
                   lightColor={ChatTheme.assistantText}
                   darkColor={ChatTheme.assistantTextDark}
-                  style={styles.heroTitle}>
+                  style={[
+                    styles.heroTitle,
+                    isCompactWeb && styles.heroTitleCompact,
+                    viewportWidth < 380 && styles.heroTitleSmall,
+                  ]}>
                   What&apos;s on your mind today?
                 </ThemedText>
 
@@ -562,6 +572,11 @@ const styles = StyleSheet.create({
     color: ChatTheme.sidebarMuted,
     marginTop: 1,
   },
+  headerModel: {
+    fontSize: 9,
+    color: ChatTheme.sidebarMuted,
+    marginTop: 1,
+  },
   mobileBuildStrip: {
     alignSelf: 'center',
     backgroundColor: ChatTheme.accent,
@@ -603,6 +618,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     minHeight: 0,
   },
+  mainColumnCompact: {
+    paddingHorizontal: 16,
+  },
   heroState: {
     flex: 1,
     justifyContent: 'center',
@@ -618,6 +636,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: -0.3,
     width: '100%',
+  },
+  heroTitleCompact: {
+    fontSize: 28,
+    lineHeight: 34,
+  },
+  heroTitleSmall: {
+    fontSize: 24,
+    lineHeight: 30,
   },
   quickActions: {
     flexDirection: 'row',
