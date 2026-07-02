@@ -1,7 +1,7 @@
 {
   "name": "soulmate-ai",
   "main": "expo-router/entry",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "scripts": {
     "start": "expo start",
     "phone": "expo start --lan --clear --reset-cache",

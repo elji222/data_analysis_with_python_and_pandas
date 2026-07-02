@@ -6,7 +6,6 @@ import { Platform } from 'react-native';
 import 'react-native-reanimated';
 
 import { BuildVersionBanner } from '@/components/build-version-banner';
-import { ProductionSiteWarning } from '@/components/production-site-warning';
 import { StaleBundleGate } from '@/components/stale-bundle-gate';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { UI_VERSION } from '@/constants/chat-theme';
@@ -58,7 +57,6 @@ function RootNavigator() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <StaleBundleGate>
-        <ProductionSiteWarning />
         <BuildVersionBanner />
         <Stack>
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
