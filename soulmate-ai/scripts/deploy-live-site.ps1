@@ -3,6 +3,8 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
+$EasCli = "eas-cli@latest"
+
 function Read-DotEnv {
     param([string]$Path)
 
@@ -22,8 +24,34 @@ function Read-DotEnv {
     return $vars
 }
 
+function Repair-EasJson {
+    $easFile = Join-Path $Root "eas.json"
+    $validJson = @'
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  }
+}
+'@
+
+    $needsRepair = $true
+
+    if (Test-Path $easFile) {
+        $current = Get-Content $easFile -Raw
+        if ($current -notmatch '"deploy"' -and $current -match '"cli"') {
+            $needsRepair = $false
+        }
+    }
+
+    if ($needsRepair) {
+        Write-Host "Fixing eas.json (removed invalid deploy section)..."
+        Set-Content -Path $easFile -Value $validJson -Encoding UTF8
+    }
+}
+
 function Ensure-EasLogin {
-    $whoami = npx eas-cli whoami 2>$null
+    $whoami = npx --yes $EasCli whoami 2>$null
     if ($LASTEXITCODE -eq 0 -and $whoami) {
         Write-Host "Logged in to Expo as $whoami"
         return
@@ -33,7 +61,7 @@ function Ensure-EasLogin {
     Write-Host "You need to log in to Expo (browser will open)."
     Write-Host "Create a free account at https://expo.dev/signup if needed."
     Write-Host ""
-    npx eas-cli login
+    npx --yes $EasCli login
     if ($LASTEXITCODE -ne 0) {
         throw "Expo login failed or was cancelled."
     }
@@ -57,7 +85,7 @@ function Sync-ProductionEnv {
         }
 
         Write-Host "Syncing production env: $name"
-        npx eas-cli env:create production `
+        npx --yes $EasCli env:create production `
             --name $name `
             --value $value `
             --visibility $item.Visibility `
@@ -87,7 +115,9 @@ if (-not (Test-Path ".env")) {
 
 $envVars = Read-DotEnv -Path ".env"
 
-Write-Host "Step 1: Install dependencies..."
+Write-Host "Step 1: Fix eas.json and install dependencies..."
+Repair-EasJson
+
 if (-not (Test-Path "node_modules")) {
     npm install
 }
@@ -109,9 +139,13 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host ""
 Write-Host "Step 5: Deploy to EAS Hosting (production)..."
+$easText = Get-Content "eas.json" -Raw
+if ($easText -match '"deploy"') {
+    throw "eas.json is still invalid. Delete eas.json and run this script again."
+}
 Write-Host "If this is your first deploy, choose subdomain: soulmate-ai"
 Write-Host ""
-npx eas-cli deploy --prod --environment production
+npx --yes $EasCli deploy --prod --environment production
 if ($LASTEXITCODE -ne 0) {
     throw "Deploy failed."
 }
