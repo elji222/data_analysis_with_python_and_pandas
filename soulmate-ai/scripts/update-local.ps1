@@ -62,7 +62,6 @@ foreach ($RelativePath in $Files) {
 }
 
 $ThemeFile = Join-Path $Root "constants\chat-theme.ts"
-$ChatFile = Join-Path $Root "app\(tabs)\chat.tsx"
 $ComposerFile = Join-Path $Root "components\chat-composer.tsx"
 $AttachmentsFile = Join-Path $Root "lib\attachments.ts"
 $StripStorageFile = Join-Path $Root "lib\strip-attachments-for-storage.ts"
@@ -85,8 +84,12 @@ if (-not (Test-Path $ConversationStorageFile)) {
 }
 
 $ThemeText = Get-Content $ThemeFile -Raw
-if ($ThemeText -notmatch "2025-07-15") {
-    throw "constants/chat-theme.ts is still old after download. Expected UI 2025-07-15."
+if ($ThemeText -notmatch "2026-06-30") {
+    throw "constants/chat-theme.ts is still old after download. Expected UI 2026-06-30."
+}
+
+if ($ThemeText -notmatch "threadContentMaxWidth:\s*768") {
+    throw "constants/chat-theme.ts is missing the balanced ChatGPT layout (768px column)."
 }
 
 $StorageText = Get-Content $ConversationStorageFile -Raw
@@ -94,9 +97,9 @@ if ($StorageText -notmatch "stripConversationsForStorage") {
     throw "services/conversation-storage.ts is still old after download."
 }
 
-$ChatText = Get-Content $ChatFile -Raw
-if ($ChatText -notmatch "handleAttachPress") {
-    throw "app/(tabs)/chat.tsx or chat-panel is still old after download."
+$ComposerText = Get-Content $ComposerFile -Raw
+if ($ComposerText -notmatch "handleAttachPress") {
+    throw "components/chat-composer.tsx is still old after download."
 }
 
 Write-Host ""
@@ -106,5 +109,5 @@ Write-Host "Next steps:"
 Write-Host "  1. Run: npm install"
 Write-Host "  2. Run: npx expo start --clear"
 Write-Host "  3. Open: http://localhost:8081/chat"
-Write-Host "  4. Look for UI 2025-07-15 under Soulmate AI in the left sidebar"
+Write-Host "  4. Look for UI 2026-06-30 under Soulmate AI in the left sidebar"
 Write-Host ""
