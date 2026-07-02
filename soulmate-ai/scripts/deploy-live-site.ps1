@@ -358,6 +358,23 @@ function Set-EasProductionVariable {
     throw "Failed to set $Name on Expo.`n$details"
 }
 
+function Get-SupabasePublishableKey {
+    param([hashtable]$EnvVars)
+
+    $publishableKey = $EnvVars['EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY']
+    $anonKey = $EnvVars['EXPO_PUBLIC_SUPABASE_ANON_KEY']
+
+    if ($publishableKey -and $publishableKey -notmatch 'your-key-here|your-supabase') {
+        return $publishableKey
+    }
+
+    if ($anonKey -and $anonKey -notmatch 'your-key-here|your-supabase') {
+        return $anonKey
+    }
+
+    return $null
+}
+
 function Sync-ProductionEnv {
     param([hashtable]$EnvVars)
 
@@ -378,14 +395,23 @@ function Sync-ProductionEnv {
     }
 
     $supabaseUrl = $EnvVars['EXPO_PUBLIC_SUPABASE_URL']
-    $supabaseKey = $EnvVars['EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY']
+    $supabaseKey = Get-SupabasePublishableKey -EnvVars $EnvVars
 
     if (-not $supabaseUrl -or $supabaseUrl -match 'your-project-id') {
         throw "Missing EXPO_PUBLIC_SUPABASE_URL in .env"
     }
 
-    if (-not $supabaseKey -or $supabaseKey -match 'your-key-here') {
-        throw "Missing EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY in .env"
+    if (-not $supabaseKey) {
+        throw @"
+Missing Supabase key in .env.
+
+Open .env and add ONE of these lines (from Supabase Dashboard -> Project Settings -> API):
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+or
+  EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+
+Your EXPO_PUBLIC_SUPABASE_URL line should already be there.
+"@
     }
 
     Write-Host "Syncing production env: EXPO_PUBLIC_SUPABASE_URL"
@@ -393,6 +419,9 @@ function Sync-ProductionEnv {
 
     Write-Host "Syncing production env: EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
     Set-EasProductionVariable -Name "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY" -Value $supabaseKey -Visibility "sensitive"
+
+    Write-Host "Syncing production env: EXPO_PUBLIC_SUPABASE_ANON_KEY"
+    Set-EasProductionVariable -Name "EXPO_PUBLIC_SUPABASE_ANON_KEY" -Value $supabaseKey -Visibility "sensitive"
 }
 
 Write-Host ""
