@@ -188,36 +188,105 @@ If you see spinners.json errors, run:
     Write-Host "Logged in to Expo as $($verify.Output)"
 }
 
+function Invoke-EasWithOutput {
+    param(
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$EasArgs
+    )
+
+    Ensure-EasInstalled
+    return Invoke-ExternalOutput -Command { & $script:EasBin @EasArgs }
+}
+
+function Test-AnthropicKey {
+    param([string]$Value)
+
+    if (-not $Value) {
+        return $false
+    }
+
+    if ($Value -match 'your-key-here|your-project-id|sk-ant-your') {
+        return $false
+    }
+
+    if ($Value.Length -lt 20) {
+        return $false
+    }
+
+    return $Value.StartsWith('sk-ant-')
+}
+
+function Ensure-EasProject {
+    $result = Invoke-EasWithOutput project:info
+    if ($result.ExitCode -eq 0 -and $result.Output -match 'soulmate-ai|Project') {
+        return
+    }
+
+    Write-Host "Linking this folder to your Expo project..."
+    $initCode = Invoke-Eas init --non-interactive
+    if ($initCode -ne 0) {
+        Write-Host "Note: eas init returned $initCode. Continuing anyway."
+    }
+}
+
+function Set-EasProductionVariable {
+    param(
+        [string]$Name,
+        [string]$Value,
+        [string]$Visibility
+    )
+
+    $result = Invoke-EasWithOutput env:create `
+        --name $Name `
+        --value $Value `
+        --visibility $Visibility `
+        --environment production `
+        --non-interactive `
+        --force
+
+    if ($result.ExitCode -eq 0) {
+        return
+    }
+
+    $details = if ($result.Output) { $result.Output } else { "No details returned." }
+    throw "Failed to set $Name on Expo.`n$details"
+}
+
 function Sync-ProductionEnv {
     param([hashtable]$EnvVars)
 
-    $required = @(
-        @{ Name = "ANTHROPIC_API_KEY"; Visibility = "secret" },
-        @{ Name = "EXPO_PUBLIC_SUPABASE_URL"; Visibility = "plaintext" },
-        @{ Name = "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY"; Visibility = "sensitive" }
-    )
+    Ensure-EasProject
 
-    foreach ($item in $required) {
-        $name = $item.Name
-        $value = $EnvVars[$name]
-
-        if (-not $value -or $value -match 'your-key-here|your-project-id') {
-            throw "Missing or placeholder value for $name in .env"
-        }
-
-        Write-Host "Syncing production env: $name"
-        $exitCode = Invoke-Eas env:create production `
-            --name $name `
-            --value $value `
-            --visibility $item.Visibility `
-            --environment production `
-            --non-interactive `
-            --force
-
-        if ($exitCode -ne 0) {
-            throw "Failed to set EAS production variable: $name"
-        }
+    $anthropicKey = $EnvVars['ANTHROPIC_API_KEY']
+    if (Test-AnthropicKey $anthropicKey) {
+        Write-Host "Syncing production env: ANTHROPIC_API_KEY"
+        Set-EasProductionVariable -Name "ANTHROPIC_API_KEY" -Value $anthropicKey -Visibility "secret"
+    } else {
+        Write-Host ""
+        Write-Host "Skipping ANTHROPIC_API_KEY (still the default placeholder in .env)."
+        Write-Host "The new phone UI will deploy, but chat AI will not reply until you:"
+        Write-Host "  1. Get a key from https://console.anthropic.com"
+        Write-Host "  2. Put it in .env as ANTHROPIC_API_KEY=sk-ant-..."
+        Write-Host "  3. Run scripts\deploy-live-site.cmd again"
+        Write-Host ""
     }
+
+    $supabaseUrl = $EnvVars['EXPO_PUBLIC_SUPABASE_URL']
+    $supabaseKey = $EnvVars['EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY']
+
+    if (-not $supabaseUrl -or $supabaseUrl -match 'your-project-id') {
+        throw "Missing EXPO_PUBLIC_SUPABASE_URL in .env"
+    }
+
+    if (-not $supabaseKey -or $supabaseKey -match 'your-key-here') {
+        throw "Missing EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY in .env"
+    }
+
+    Write-Host "Syncing production env: EXPO_PUBLIC_SUPABASE_URL"
+    Set-EasProductionVariable -Name "EXPO_PUBLIC_SUPABASE_URL" -Value $supabaseUrl -Visibility "plaintext"
+
+    Write-Host "Syncing production env: EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+    Set-EasProductionVariable -Name "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY" -Value $supabaseKey -Visibility "sensitive"
 }
 
 Write-Host ""
