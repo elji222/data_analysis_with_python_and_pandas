@@ -26,6 +26,6 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo Step 3: Starting server...
-call "scripts\start-phone-web.cmd"
+echo Step 3: Starting server on a fresh port...
+powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\open-on-phone.ps1"
 pause

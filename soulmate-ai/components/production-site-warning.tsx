@@ -26,17 +26,18 @@ export function ProductionSiteWarning() {
   return (
     <View style={styles.overlay}>
       <View style={styles.card}>
-        <ThemedText style={styles.title}>This is the old website</ThemedText>
+        <ThemedText style={styles.title}>This site is out of date</ThemedText>
         <ThemedText style={styles.body}>
-          soulmate-ai.expo.app has not been updated yet.
+          The live website has not been updated with the latest phone UI yet.
         </ThemedText>
         <ThemedText style={styles.body}>
-          On your phone, open the address from your PC instead, for example:
+          On your PC, run this once to publish the latest version:
         </ThemedText>
-        <ThemedText style={styles.code}>http://192.168.x.x:8081/chat</ThemedText>
+        <ThemedText style={styles.code}>scripts\deploy-live-site.cmd</ThemedText>
         <ThemedText style={styles.body}>
-          Run scripts\start-phone-web.cmd on your PC to get the exact link.
+          Or for testing on Wi-Fi, run:
         </ThemedText>
+        <ThemedText style={styles.code}>scripts\open-on-phone.cmd</ThemedText>
         <ThemedText style={styles.version}>Latest build: {UI_VERSION}</ThemedText>
       </View>
     </View>

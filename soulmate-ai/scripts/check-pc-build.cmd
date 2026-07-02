@@ -23,11 +23,12 @@ if errorlevel 1 (
 )
 
 echo If your PC browser sidebar shows a DIFFERENT UI version,
-echo your PC files are out of date. Run scripts\fix-and-update-phone.cmd
+echo your PC files are out of date. Run scripts\open-on-phone.cmd
 echo.
-echo On your phone, use ONLY the http://192.168.x.x:8081/chat?v=...
-echo link printed by scripts\start-phone-web.cmd
+echo BEST permanent fix: scripts\deploy-live-site.cmd
+echo Then open https://soulmate-ai.expo.app/chat on your phone.
 echo.
-echo Do NOT open soulmate-ai.expo.app on your phone.
+echo Wi-Fi testing: scripts\open-on-phone.cmd
+echo Use the NEW port link it prints (8091-8099). Not old 8081 links.
 echo.
 pause
