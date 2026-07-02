@@ -30,6 +30,7 @@ $Files = @(
     "lib/attachments.ts",
     "lib/build-chat-api-messages.ts",
     "lib/conversation-title.ts",
+    "lib/strip-attachments-for-storage.ts",
     "services/chat-api.ts",
     "services/conversation-storage.ts",
     "services/title-api.ts",
@@ -86,5 +87,5 @@ Write-Host "Next steps:"
 Write-Host "  1. Run: npm install"
 Write-Host "  2. Run: npx expo start --clear"
 Write-Host "  3. Open: http://localhost:8081/chat"
-Write-Host "  4. Look for UI 2025-07-05 under Soulmate AI in the left sidebar"
+Write-Host "  4. Look for UI 2025-07-06 under Soulmate AI in the left sidebar"
 Write-Host ""

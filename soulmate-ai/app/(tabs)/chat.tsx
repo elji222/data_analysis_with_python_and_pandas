@@ -26,6 +26,7 @@ export default function ChatScreen() {
     activeConversation,
     activeConversationId,
     isReady,
+    storageWarning,
     selectConversation,
     startNewConversation,
     deleteConversation,
@@ -90,6 +91,7 @@ export default function ChatScreen() {
               conversation={activeConversation}
               onUpdateMessages={updateConversationMessages}
               onRenameConversation={renameConversation}
+              storageWarning={storageWarning}
               userEmail={user.email}
             />
           </View>
@@ -102,6 +104,7 @@ export default function ChatScreen() {
             onRenameConversation={renameConversation}
             onOpenSidebar={() => setIsSidebarOpen(true)}
             showSidebarToggle
+            storageWarning={storageWarning}
             userEmail={user.email}
           />
 

@@ -39,6 +39,7 @@ type ChatPanelProps = {
   onRenameConversation?: (conversationId: string, title: string) => Promise<void>;
   onOpenSidebar?: () => void;
   showSidebarToggle?: boolean;
+  storageWarning?: string | null;
   userEmail?: string | null;
 };
 
@@ -48,6 +49,7 @@ export function ChatPanel({
   onRenameConversation,
   onOpenSidebar,
   showSidebarToggle = false,
+  storageWarning = null,
   userEmail,
 }: ChatPanelProps) {
   const colorScheme = useColorScheme() ?? 'light';
@@ -306,6 +308,9 @@ export function ChatPanel({
               <ChatComposer variant="hero" {...composerProps} />
 
               {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+              {storageWarning && !error ? (
+                <ThemedText style={styles.warningText}>{storageWarning}</ThemedText>
+              ) : null}
               {statusMessage && !error ? (
                 <ThemedText style={styles.statusText}>{statusMessage}</ThemedText>
               ) : null}
@@ -351,6 +356,9 @@ export function ChatPanel({
                 />
 
               {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+              {storageWarning && !error ? (
+                <ThemedText style={styles.warningText}>{storageWarning}</ThemedText>
+              ) : null}
               {statusMessage && !error ? (
                 <ThemedText style={styles.statusText}>{statusMessage}</ThemedText>
               ) : null}
@@ -477,6 +485,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 8,
     fontSize: 14,
+  },
+  warningText: {
+    color: '#B7791F',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+    fontSize: 13,
+    lineHeight: 18,
   },
   statusText: {
     color: ChatTheme.accent,

@@ -70,7 +70,7 @@ export async function pickImageFromLibrary(): Promise<ChatAttachment | null> {
 
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
-    quality: 0.72,
+    quality: Platform.OS === 'web' ? 0.55 : 0.72,
     base64: true,
     allowsMultipleSelection: false,
   });
@@ -92,7 +92,7 @@ export async function takePhoto(): Promise<ChatAttachment | null> {
   await ensureCameraPermission();
 
   const result = await ImagePicker.launchCameraAsync({
-    quality: 0.72,
+    quality: Platform.OS === 'web' ? 0.55 : 0.72,
     base64: true,
   });
 

@@ -32,12 +32,21 @@ export function ChatBubble({ message, isStreaming = false }: ChatBubbleProps) {
             <View style={styles.attachmentStack}>
               {attachments.map((attachment) =>
                 attachment.kind === 'image' ? (
-                  <Image
-                    key={attachment.id}
-                    source={{ uri: attachment.uri }}
-                    style={styles.messageImage}
-                    contentFit="cover"
-                  />
+                  attachment.uri ? (
+                    <Image
+                      key={attachment.id}
+                      source={{ uri: attachment.uri }}
+                      style={styles.messageImage}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View key={attachment.id} style={styles.imagePlaceholder}>
+                      <Ionicons name="image-outline" size={20} color={ChatTheme.sidebarMuted} />
+                      <ThemedText numberOfLines={1} style={styles.fileName}>
+                        {attachment.name}
+                      </ThemedText>
+                    </View>
+                  )
                 ) : (
                   <View key={attachment.id} style={styles.fileChip}>
                     <Ionicons name="document-outline" size={16} color={ChatTheme.sidebarMuted} />
@@ -114,6 +123,17 @@ const styles = StyleSheet.create({
     width: 220,
     height: 160,
     borderRadius: 14,
+  },
+  imagePlaceholder: {
+    width: 220,
+    minHeight: 72,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFFFFF',
   },
   fileChip: {
     flexDirection: 'row',

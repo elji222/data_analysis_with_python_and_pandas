@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getMessagePreviewText } from '@/lib/build-chat-api-messages';
 import { createConversationTitle, isDefaultConversationTitle, shouldShortenConversationTitle } from '@/lib/conversation-title';
 import {
+  ConversationStorageError,
   createEmptyConversation,
   loadActiveConversationId,
   loadConversations,
@@ -58,6 +59,7 @@ export function useConversations(userId: string | undefined) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [storageWarning, setStorageWarning] = useState<string | null>(null);
   const conversationsRef = useRef<Conversation[]>([]);
 
   useEffect(() => {
@@ -125,7 +127,18 @@ export function useConversations(userId: string | undefined) {
       const nextConversations = sortConversations(updater(conversationsRef.current));
       conversationsRef.current = nextConversations;
       setConversations(nextConversations);
-      await saveConversations(userId, nextConversations);
+
+      try {
+        await saveConversations(userId, nextConversations);
+        setStorageWarning(null);
+      } catch (error) {
+        if (error instanceof ConversationStorageError) {
+          setStorageWarning(error.message);
+          return;
+        }
+
+        throw error;
+      }
     },
     [userId]
   );
@@ -217,6 +230,7 @@ export function useConversations(userId: string | undefined) {
     activeConversation,
     activeConversationId,
     isReady,
+    storageWarning,
     selectConversation,
     startNewConversation,
     deleteConversation,
