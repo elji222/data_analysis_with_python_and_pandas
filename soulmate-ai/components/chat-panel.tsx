@@ -62,25 +62,16 @@ export function ChatPanel({
   const [error, setError] = useState<string | null>(null);
   const [isAttachMenuOpen, setIsAttachMenuOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const inputBeforeRecordingRef = useRef('');
 
-  const handleVoiceTranscript = useCallback((transcript: string, isFinal: boolean) => {
-    if (!transcript.trim()) return;
-
-    if (isFinal) {
-      setInput((previous) => {
-        const trimmedPrevious = previous.trim();
-        return trimmedPrevious ? `${trimmedPrevious} ${transcript.trim()}` : transcript.trim();
-      });
-      setStatusMessage('Voice added to your message');
-      return;
-    }
-
-    setInput(transcript.trim());
-    setStatusMessage('Listening...');
-  }, []);
-
-  const { isListening, isSupported, toggleListening, stopListening } =
-    useVoiceInput(handleVoiceTranscript);
+  const {
+    isRecording,
+    isSupported,
+    audioLevels,
+    startRecording,
+    cancelRecording,
+    confirmRecording,
+  } = useVoiceInput();
 
   const messages = conversation?.messages ?? [];
   const isStreaming = streamingText !== null;
@@ -97,8 +88,8 @@ export function ChatPanel({
     setStatusMessage(null);
     setStreamingText(null);
     setIsLoading(false);
-    stopListening();
-  }, [conversation?.id, stopListening]);
+    cancelRecording();
+  }, [conversation?.id, cancelRecording]);
 
   function scrollToEnd() {
     requestAnimationFrame(() => {
@@ -143,7 +134,7 @@ export function ChatPanel({
     setIsAttachMenuOpen(true);
   }
 
-  function handleVoicePress() {
+  async function handleVoicePress() {
     if (!isSupported) {
       setError(
         Platform.OS === 'web'
@@ -153,20 +144,38 @@ export function ChatPanel({
       return;
     }
 
-    if (isListening) {
-      stopListening();
-      setStatusMessage('Voice input stopped');
-      return;
-    }
+    if (isRecording) return;
 
-    const started = toggleListening();
-    if (started) {
-      setStatusMessage('Listening... speak now');
-      setError(null);
-      return;
-    }
+    inputBeforeRecordingRef.current = input;
+    setError(null);
+    setStatusMessage(null);
+
+    const started = await startRecording();
+    if (started) return;
 
     setError('Could not start the microphone. Allow mic access in your browser settings.');
+  }
+
+  function handleVoiceCancel() {
+    cancelRecording();
+    setInput(inputBeforeRecordingRef.current);
+    inputBeforeRecordingRef.current = '';
+    setStatusMessage(null);
+  }
+
+  function handleVoiceConfirm() {
+    const spokenText = confirmRecording();
+
+    if (spokenText) {
+      setInput((previous) => {
+        const base = inputBeforeRecordingRef.current.trim() || previous.trim();
+        return base ? `${base} ${spokenText}` : spokenText;
+      });
+      setStatusMessage('Voice added to your message');
+    }
+
+    inputBeforeRecordingRef.current = '';
+    setError(null);
   }
 
   function handleRemoveAttachment(attachmentId: string) {
@@ -197,7 +206,7 @@ export function ChatPanel({
     setError(null);
     setIsLoading(true);
     setStreamingText(null);
-    stopListening();
+    cancelRecording();
     await onUpdateMessages(conversation.id, nextMessages);
     scrollToEnd();
 
@@ -254,11 +263,14 @@ export function ChatPanel({
     onChangeText: setInput,
     onSend: handleSend,
     onAttachPress: handleAttachPress,
-    onVoicePress: handleVoicePress,
+    onVoicePress: () => void handleVoicePress(),
+    onVoiceCancel: handleVoiceCancel,
+    onVoiceConfirm: handleVoiceConfirm,
     attachments,
     onRemoveAttachment: handleRemoveAttachment,
     isLoading,
-    isListening,
+    isRecording,
+    audioLevels,
   };
 
   return (
