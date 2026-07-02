@@ -107,10 +107,9 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'flex-end',
     marginBottom: 24,
-    paddingHorizontal: 4,
   },
   userBubble: {
-    maxWidth: '85%',
+    maxWidth: '92%',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 24,
@@ -152,18 +151,17 @@ const styles = StyleSheet.create({
   assistantRow: {
     width: '100%',
     marginBottom: 24,
-    paddingHorizontal: 4,
   },
   messageText: {
-    fontSize: 16,
-    lineHeight: 26,
+    fontSize: ChatTheme.messageFontSize,
+    lineHeight: ChatTheme.messageLineHeight,
   },
   messageTextWithAttachment: {
     marginTop: 4,
   },
   thinkingText: {
-    fontSize: 15,
-    lineHeight: 24,
+    fontSize: ChatTheme.messageFontSize,
+    lineHeight: ChatTheme.messageLineHeight,
     opacity: 0.55,
     fontStyle: 'italic',
   },

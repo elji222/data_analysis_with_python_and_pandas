@@ -601,8 +601,8 @@ const styles = StyleSheet.create({
   threadCenterColumn: {
     flex: 1,
     width: '100%',
-    paddingLeft: 28,
-    paddingRight: ChatTheme.threadRailWidth + 16,
+    paddingLeft: ChatTheme.threadPaddingX,
+    paddingRight: ChatTheme.threadRailWidth + 8,
     minHeight: 0,
   },
   railDock: {
@@ -640,9 +640,9 @@ const styles = StyleSheet.create({
       : {}),
   },
   messageList: {
-    paddingHorizontal: 4,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: 0,
+    paddingTop: 12,
+    paddingBottom: 20,
     width: '100%',
   },
   errorText: {
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   bottomComposerArea: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 0,
     paddingTop: 8,
     paddingBottom: 12,
     width: '100%',

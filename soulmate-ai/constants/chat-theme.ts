@@ -1,4 +1,4 @@
-export const UI_VERSION = '2025-07-13';
+export const UI_VERSION = '2025-07-14';
 
 export const ChatTheme = {
   pageBg: '#FFFFFF',
@@ -18,6 +18,9 @@ export const ChatTheme = {
   contentMaxWidth: 1100,
   composerMaxWidth: 1100,
   threadRailWidth: 56,
+  messageFontSize: 17,
+  messageLineHeight: 28,
+  threadPaddingX: 12,
   userBubble: '#F4F4F4',
   userBubbleDark: '#303030',
   assistantText: '#0D0D0D',
