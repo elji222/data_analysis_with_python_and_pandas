@@ -299,15 +299,15 @@ const styles = StyleSheet.create({
   mainColumn: {
     flex: 1,
     width: '100%',
-    maxWidth: ChatTheme.composerMaxWidth + 48,
+    maxWidth: 760,
     alignSelf: 'center',
-    alignItems: 'center',
+    alignItems: 'stretch',
+    paddingHorizontal: 24,
   },
   heroState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
     paddingBottom: 48,
     gap: 28,
     width: '100%',

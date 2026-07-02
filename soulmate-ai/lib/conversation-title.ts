@@ -108,6 +108,19 @@ export function isDefaultConversationTitle(title: string): boolean {
   return title === 'New chat' || title === 'New conversation';
 }
 
+export function shouldShortenConversationTitle(title: string, firstMessage?: string): boolean {
+  if (isDefaultConversationTitle(title)) return true;
+
+  const trimmedTitle = title.trim();
+  const trimmedMessage = firstMessage?.trim();
+
+  if (trimmedMessage && trimmedTitle === trimmedMessage) return true;
+  if (trimmedTitle.length > 28) return true;
+  if (trimmedTitle.split(/\s+/).length > 4) return true;
+
+  return false;
+}
+
 export function normalizeConversationTitle(title: string): string {
   const trimmed = title.trim().replace(/^["']|["']$/g, '').replace(/[.!?]+$/g, '');
   const words = trimmed.split(/\s+/).filter(Boolean).slice(0, 3);

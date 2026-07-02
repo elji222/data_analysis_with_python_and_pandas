@@ -5,7 +5,6 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -17,12 +16,9 @@ import { ChatTheme } from '@/constants/chat-theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useConversations } from '@/hooks/use-conversations';
 
-const SIDEBAR_BREAKPOINT = 768;
-
 export default function ChatScreen() {
   const { user, isLoading: authLoading } = useAuth();
-  const { width } = useWindowDimensions();
-  const isWideLayout = Platform.OS === 'web' && width >= SIDEBAR_BREAKPOINT;
+  const isWideLayout = Platform.OS === 'web';
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const {

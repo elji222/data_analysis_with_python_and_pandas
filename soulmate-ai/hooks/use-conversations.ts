@@ -8,9 +8,25 @@ import {
   saveActiveConversationId,
   saveConversations,
 } from '@/services/conversation-storage';
-import { isDefaultConversationTitle } from '@/lib/conversation-title';
+import { isDefaultConversationTitle, shouldShortenConversationTitle } from '@/lib/conversation-title';
 import type { ChatMessage } from '@/types/chat';
 import type { Conversation } from '@/types/conversation';
+
+function normalizeStoredConversations(conversations: Conversation[]): Conversation[] {
+  return conversations.map((conversation) => {
+    const firstUserMessage = conversation.messages.find((message) => message.role === 'user');
+    if (!firstUserMessage) return conversation;
+
+    if (!shouldShortenConversationTitle(conversation.title, firstUserMessage.text)) {
+      return conversation;
+    }
+
+    return {
+      ...conversation,
+      title: createConversationTitle(firstUserMessage.text),
+    };
+  });
+}
 
 export function useConversations(userId: string | undefined) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -42,13 +58,15 @@ export function useConversations(userId: string | undefined) {
         await saveConversations(userId, [firstConversation]);
         await saveActiveConversationId(userId, firstConversation.id);
       } else {
+        const normalizedConversations = normalizeStoredConversations(storedConversations);
         const activeId =
-          storedActiveId && storedConversations.some((item) => item.id === storedActiveId)
+          storedActiveId && normalizedConversations.some((item) => item.id === storedActiveId)
             ? storedActiveId
-            : storedConversations[0].id;
+            : normalizedConversations[0].id;
 
-        setConversations(storedConversations);
+        setConversations(normalizedConversations);
         setActiveConversationId(activeId);
+        await saveConversations(userId, normalizedConversations);
         await saveActiveConversationId(userId, activeId);
       }
 
