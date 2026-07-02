@@ -31,12 +31,12 @@ $Files = @(
     "lib/auth.ts",
     "lib/enforce-build-version.ts",
     "lib/browser-capabilities.ts",
-    "lib/web-file-picker.ts",
     "metro.config.js",
     "scripts/start-phone.ps1",
     "scripts/start-phone-web.ps1",
     "scripts/start-phone-web.cmd",
     "scripts/fix-and-update-phone.cmd",
+    "scripts/emergency-fix.cmd",
     "scripts/check-pc-build.cmd",
     "scripts/quick-phone-update.ps1",
     "scripts/quick-phone-update.cmd",
@@ -62,6 +62,12 @@ foreach ($RelativePath in $Files) {
     Write-Host "OK: $RelativePath"
 }
 
+$StalePicker = Join-Path $Root "lib\web-file-picker.ts"
+if (Test-Path $StalePicker) {
+    Remove-Item -LiteralPath $StalePicker -Force
+    Write-Host "Removed stale lib/web-file-picker.ts"
+}
+
 $ThemeFile = Join-Path $Root "constants\chat-theme.ts"
 $ThemeText = Get-Content $ThemeFile -Raw
 
@@ -77,6 +83,21 @@ $LayoutText = Get-Content $LayoutFile -Raw
 
 if ($LayoutText -notmatch "BuildVersionBanner") {
     throw "Download failed. app/_layout.tsx is still old."
+}
+
+$AttachmentsFile = Join-Path $Root "lib\attachments.ts"
+$AttachmentsText = Get-Content $AttachmentsFile -Raw
+
+if ($AttachmentsText -notmatch "function pickFileViaWebInput") {
+    throw "Download failed. lib/attachments.ts is missing the phone upload picker."
+}
+
+if ($AttachmentsText -match "web-file-picker") {
+    throw "Download failed. lib/attachments.ts still imports the old broken file."
+}
+
+if (Test-Path $StalePicker) {
+    throw "Stale lib/web-file-picker.ts is still on disk. Delete it manually and run again."
 }
 
 $ComposerFile = Join-Path $Root "components\chat-composer.tsx"
@@ -97,6 +118,7 @@ if (-not (Test-Path $HeaderFile)) {
 
 Write-Host ""
 Write-Host "SUCCESS. Phone build $uiVersion is on disk."
+Write-Host "Stale web-file-picker.ts removed (if it existed)."
 Write-Host ""
 Write-Host "On phone you should see:"
 Write-Host "  - Blue pill at top: PHONE BUILD $uiVersion"
