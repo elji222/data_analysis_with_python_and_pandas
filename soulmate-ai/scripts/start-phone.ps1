@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
-$BuildId = "2026-07-10"
+$BuildId = "2026-07-11"
 
 function Stop-MetroOnPort {
     param([int]$Port)
@@ -41,8 +41,9 @@ function Clear-FolderQuietly {
 
 Write-Host ""
 Write-Host "============================================"
-Write-Host " Soulmate AI - Open in Expo Go (phone)"
+Write-Host " Soulmate AI - Expo Go (not recommended)"
 Write-Host "============================================"
+Write-Host "Use scripts\start-phone-web.cmd instead for the same version as PC web."
 Write-Host "Project folder: $Root"
 Write-Host "Phone build: $BuildId"
 Write-Host ""

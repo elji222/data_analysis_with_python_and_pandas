@@ -111,7 +111,8 @@ export default function LoginScreen() {
 
         {Platform.OS !== 'web' ? (
           <ThemedText style={styles.phoneHint}>
-            Use Expo Go with the QR code from your PC. Do not open soulmate-ai.expo.app in Chrome.
+            Expo Go is unreliable on this project. On your phone, use Safari or Chrome and open the
+            http://YOUR-PC-IP:8081/chat link from scripts\start-phone-web.cmd
           </ThemedText>
         ) : null}
 

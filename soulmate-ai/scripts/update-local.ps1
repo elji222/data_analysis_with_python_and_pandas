@@ -54,6 +54,8 @@ $Files = @(
     "scripts/start-phone-ngrok.ps1",
     "scripts/start-phone-ngrok.cmd",
     "scripts/force-phone-reload.cmd",
+    "scripts/start-phone-web.ps1",
+    "scripts/start-phone-web.cmd",
     "scripts/quick-phone-update.ps1",
     "scripts/quick-phone-update.cmd",
     "scripts/update-local.ps1",

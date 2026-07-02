@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$ExpectedBuild = "2026-07-10"
+$ExpectedBuild = "2026-07-11"
 
 $Files = @(
     "app/_layout.tsx",
@@ -19,6 +19,8 @@ $Files = @(
     "lib/enforce-build-version.ts",
     "metro.config.js",
     "scripts/start-phone.ps1",
+    "scripts/start-phone-web.ps1",
+    "scripts/start-phone-web.cmd",
     "scripts/update-local.ps1",
     "scripts/update-local.cmd"
 )
@@ -58,6 +60,6 @@ if ($LayoutText -notmatch "BuildVersionBanner") {
 Write-Host ""
 Write-Host "SUCCESS. Phone build $ExpectedBuild is on disk."
 Write-Host ""
-Write-Host "Next: scripts\start-phone.cmd"
-Write-Host "On phone you must see a GREEN pill: LIVE BUILD $ExpectedBuild"
+Write-Host "Next: scripts\start-phone-web.cmd"
+Write-Host "On phone Safari/Chrome open the http link shown there."
 Write-Host ""
