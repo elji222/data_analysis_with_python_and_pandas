@@ -5,6 +5,46 @@ Set-Location $Root
 
 $EasCli = "eas-cli@latest"
 
+function Invoke-External {
+    param(
+        [Parameter(Mandatory = $true)]
+        [scriptblock]$Command
+    )
+
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+
+    try {
+        & $Command
+        return $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+}
+
+function Invoke-ExternalOutput {
+    param(
+        [Parameter(Mandatory = $true)]
+        [scriptblock]$Command
+    )
+
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+
+    try {
+        $lines = & $Command 2>&1 | ForEach-Object { "$_" } | Where-Object {
+            $_ -notmatch '^npm warn' -and $_.Trim() -ne ""
+        }
+
+        return @{
+            ExitCode = $LASTEXITCODE
+            Output = ($lines -join "`n").Trim()
+        }
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+}
+
 function Read-DotEnv {
     param([string]$Path)
 
@@ -51,8 +91,10 @@ function Repair-EasJson {
 }
 
 function Ensure-EasLogin {
-    $whoami = npx --yes $EasCli whoami 2>$null
-    if ($LASTEXITCODE -eq 0 -and $whoami) {
+    $result = Invoke-ExternalOutput -Command { npx --yes $EasCli whoami }
+    $whoami = ($result.Output -split "`n" | Where-Object { $_.Trim() -ne "" } | Select-Object -Last 1)
+
+    if ($result.ExitCode -eq 0 -and $whoami -and $whoami -notmatch "Not logged in") {
         Write-Host "Logged in to Expo as $whoami"
         return
     }
@@ -61,8 +103,9 @@ function Ensure-EasLogin {
     Write-Host "You need to log in to Expo (browser will open)."
     Write-Host "Create a free account at https://expo.dev/signup if needed."
     Write-Host ""
-    npx --yes $EasCli login
-    if ($LASTEXITCODE -ne 0) {
+
+    $loginCode = Invoke-External -Command { npx --yes $EasCli login }
+    if ($loginCode -ne 0) {
         throw "Expo login failed or was cancelled."
     }
 }
@@ -85,15 +128,17 @@ function Sync-ProductionEnv {
         }
 
         Write-Host "Syncing production env: $name"
-        npx --yes $EasCli env:create production `
-            --name $name `
-            --value $value `
-            --visibility $item.Visibility `
-            --environment production `
-            --non-interactive `
-            --force | Out-Host
+        $exitCode = Invoke-External -Command {
+            npx --yes $EasCli env:create production `
+                --name $name `
+                --value $value `
+                --visibility $item.Visibility `
+                --environment production `
+                --non-interactive `
+                --force
+        }
 
-        if ($LASTEXITCODE -ne 0) {
+        if ($exitCode -ne 0) {
             throw "Failed to set EAS production variable: $name"
         }
     }
@@ -119,7 +164,10 @@ Write-Host "Step 1: Fix eas.json and install dependencies..."
 Repair-EasJson
 
 if (-not (Test-Path "node_modules")) {
-    npm install
+    $installCode = Invoke-External -Command { npm install }
+    if ($installCode -ne 0) {
+        throw "npm install failed."
+    }
 }
 
 Write-Host ""
@@ -132,8 +180,8 @@ Sync-ProductionEnv -EnvVars $envVars
 
 Write-Host ""
 Write-Host "Step 4: Build web app..."
-npx expo export --platform web
-if ($LASTEXITCODE -ne 0) {
+$exportCode = Invoke-External -Command { npx expo export --platform web }
+if ($exportCode -ne 0) {
     throw "Web export failed."
 }
 
@@ -145,8 +193,9 @@ if ($easText -match '"deploy"') {
 }
 Write-Host "If this is your first deploy, choose subdomain: soulmate-ai"
 Write-Host ""
-npx --yes $EasCli deploy --prod --environment production
-if ($LASTEXITCODE -ne 0) {
+
+$deployCode = Invoke-External -Command { npx --yes $EasCli deploy --prod --environment production }
+if ($deployCode -ne 0) {
     throw "Deploy failed."
 }
 
