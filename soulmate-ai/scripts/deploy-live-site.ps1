@@ -107,7 +107,14 @@ function Read-DotEnv {
     foreach ($line in Get-Content $Path) {
         if ($line -match '^\s*#' -or $line -match '^\s*$') { continue }
         if ($line -match '^([^=]+)=(.*)$') {
-            $vars[$Matches[1].Trim()] = $Matches[2].Trim()
+            $rawValue = $Matches[2].Trim()
+            if ($rawValue.StartsWith('"') -and $rawValue.EndsWith('"')) {
+                $rawValue = $rawValue.Substring(1, $rawValue.Length - 2)
+            }
+            if ($rawValue.StartsWith("'") -and $rawValue.EndsWith("'")) {
+                $rawValue = $rawValue.Substring(1, $rawValue.Length - 2)
+            }
+            $vars[$Matches[1].Trim()] = $rawValue
         }
     }
 
