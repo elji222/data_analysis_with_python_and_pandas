@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Platform,
   Pressable,
   StyleSheet,
@@ -13,6 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ChatBubble, StreamingPlaceholder } from '@/components/chat-bubble';
 import { ChatComposer } from '@/components/chat-composer';
+import { ChatScrollRail } from '@/components/chat-scroll-rail';
+import { ScrollToBottomButton } from '@/components/scroll-to-bottom-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ChatTheme, QUICK_ACTIONS } from '@/constants/chat-theme';
@@ -24,6 +28,13 @@ import {
   shouldShowCameraOption,
   takePhoto,
 } from '@/lib/attachments';
+import {
+  buildUserScrollMarkers,
+  getActiveUserMarkerId,
+  getScrollProgress,
+  shouldShowScrollToBottom,
+  type ScrollMetrics,
+} from '@/lib/chat-scroll';
 import { getMessagePreviewText, cloneAttachments } from '@/lib/build-chat-api-messages';
 import { isDefaultConversationTitle } from '@/lib/conversation-title';
 import { streamChatMessage } from '@/services/chat-api';
@@ -59,7 +70,14 @@ export function ChatPanel({
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [scrollMetrics, setScrollMetrics] = useState<ScrollMetrics>({
+    offsetY: 0,
+    contentHeight: 0,
+    viewportHeight: 0,
+  });
+  const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
   const inputBeforeRecordingRef = useRef('');
+  const listDataRef = useRef<ChatMessage[]>([]);
 
   const {
     isRecording,
@@ -249,6 +267,52 @@ export function ChatPanel({
       ]
     : messages;
 
+  listDataRef.current = listData;
+
+  const scrollMarkers = useMemo(() => buildUserScrollMarkers(listData), [listData]);
+  const scrollProgress = getScrollProgress(scrollMetrics);
+  const showScrollRail =
+    Platform.OS === 'web' &&
+    scrollMarkers.length > 0 &&
+    scrollMetrics.contentHeight > scrollMetrics.viewportHeight + 48;
+  const showJumpToBottom = shouldShowScrollToBottom(scrollMetrics);
+
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 30 }).current;
+
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+      const indices = viewableItems
+        .map((item) => item.index)
+        .filter((index): index is number => index !== null);
+
+      setActiveMarkerId(getActiveUserMarkerId(listDataRef.current, indices));
+    }
+  ).current;
+
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+
+    setScrollMetrics({
+      offsetY: contentOffset.y,
+      contentHeight: contentSize.height,
+      viewportHeight: layoutMeasurement.height,
+    });
+  }, []);
+
+  const jumpToUserMessage = useCallback((listIndex: number) => {
+    listRef.current?.scrollToIndex({ index: listIndex, animated: true, viewPosition: 0 });
+  }, []);
+
+  const handleScrollToIndexFailed = useCallback(
+    (info: { index: number; averageItemLength: number }) => {
+      listRef.current?.scrollToOffset({
+        offset: Math.max(0, info.averageItemLength * info.index),
+        animated: true,
+      });
+    },
+    []
+  );
+
   const userInitial = userEmail?.charAt(0).toUpperCase() ?? '?';
 
   const composerProps = {
@@ -340,21 +404,42 @@ export function ChatPanel({
                 </View>
               </View>
             ) : (
-              <View style={styles.threadArea}>
-                <FlatList
-                  ref={listRef}
-                  data={listData}
-                  keyExtractor={(item) => item.id}
-                  contentContainerStyle={styles.messageList}
-                  onContentSizeChange={scrollToEnd}
-                  ListFooterComponent={<StreamingPlaceholder visible={showThinking} />}
-                  renderItem={({ item }) => (
-                    <ChatBubble
-                      message={item}
-                      isStreaming={item.id === 'streaming-assistant' && isStreaming}
+              <View style={styles.threadWrapper}>
+                <View style={styles.threadRow}>
+                  <View style={styles.threadArea}>
+                    <FlatList
+                      ref={listRef}
+                      data={listData}
+                      keyExtractor={(item) => item.id}
+                      contentContainerStyle={styles.messageList}
+                      onContentSizeChange={scrollToEnd}
+                      onScroll={handleScroll}
+                      scrollEventThrottle={16}
+                      onViewableItemsChanged={onViewableItemsChanged}
+                      viewabilityConfig={viewabilityConfig}
+                      onScrollToIndexFailed={handleScrollToIndexFailed}
+                      showsVerticalScrollIndicator={Platform.OS !== 'web'}
+                      ListFooterComponent={<StreamingPlaceholder visible={showThinking} />}
+                      renderItem={({ item }) => (
+                        <ChatBubble
+                          message={item}
+                          isStreaming={item.id === 'streaming-assistant' && isStreaming}
+                        />
+                      )}
                     />
-                  )}
-                />
+
+                    <ScrollToBottomButton visible={showJumpToBottom} onPress={scrollToEnd} />
+                  </View>
+
+                  {showScrollRail ? (
+                    <ChatScrollRail
+                      markers={scrollMarkers}
+                      activeMarkerId={activeMarkerId}
+                      scrollProgress={scrollProgress}
+                      onMarkerPress={jumpToUserMessage}
+                    />
+                  ) : null}
+                </View>
 
               {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
               {storageWarning && !error ? (
@@ -468,10 +553,22 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: ChatTheme.sidebarText,
   },
-  threadArea: {
+  threadWrapper: {
     flex: 1,
     width: '100%',
-    maxWidth: 680,
+  },
+  threadRow: {
+    flex: 1,
+    flexDirection: 'row',
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+    alignItems: 'center',
+  },
+  threadArea: {
+    flex: 1,
+    position: 'relative',
+    minWidth: 0,
   },
   messageList: {
     paddingHorizontal: 8,
