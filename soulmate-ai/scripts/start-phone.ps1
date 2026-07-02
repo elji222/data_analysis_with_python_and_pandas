@@ -18,6 +18,27 @@ function Stop-MetroOnPort {
     }
 }
 
+function Clear-FolderQuietly {
+    param([string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return
+    }
+
+    try {
+        Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
+        return
+    } catch {
+        Write-Host "Note: partial cleanup for $Path (continuing anyway)."
+    }
+
+    # Windows sometimes fails on deep .expo paths; rmdir is more reliable.
+    $previousErrorAction = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
+    cmd /c "rmdir /s /q `"$Path`"" | Out-Null
+    $ErrorActionPreference = $previousErrorAction
+}
+
 Write-Host ""
 Write-Host "============================================"
 Write-Host " Soulmate AI - Open in Expo Go (phone)"
@@ -38,14 +59,8 @@ Write-Host ""
 
 Write-Host "Clearing old Metro cache..."
 Stop-MetroOnPort -Port 8081
-
-if (Test-Path ".expo") {
-    Remove-Item -Recurse -Force ".expo"
-}
-
-if (Test-Path "node_modules\.cache") {
-    Remove-Item -Recurse -Force "node_modules\.cache"
-}
+Clear-FolderQuietly -Path ".expo"
+Clear-FolderQuietly -Path "node_modules\.cache"
 
 if (-not (Test-Path "node_modules")) {
     Write-Host "Installing npm packages. First time only."
