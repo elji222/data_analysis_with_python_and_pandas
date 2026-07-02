@@ -3,7 +3,8 @@ import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';
 
-import { isMobileWebBrowser, pickFileViaWebInput } from '@/lib/web-file-picker';
+import { isMobileWebBrowser } from '@/lib/browser-capabilities';
+import { pickFileViaWebInput } from '@/lib/web-file-picker';
 import type { ChatAttachment } from '@/types/chat';
 
 const MAX_TEXT_FILE_CHARS = 8000;

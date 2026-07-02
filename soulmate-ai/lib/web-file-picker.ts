@@ -1,9 +1,6 @@
 import { Platform } from 'react-native';
 
-import { isMobileWebBrowser } from '@/lib/browser-capabilities';
 import type { ChatAttachment } from '@/types/chat';
-
-export { isMobileWebBrowser };
 
 const MAX_TEXT_FILE_CHARS = 8000;
 
@@ -55,8 +52,6 @@ async function readBase64(file: File): Promise<string | undefined> {
     return undefined;
   }
 }
-
-import { isMobileWebBrowser } from '@/lib/browser-capabilities';
 
 export function pickFileViaWebInput(): Promise<ChatAttachment | null> {
   if (Platform.OS !== 'web' || typeof document === 'undefined') {
