@@ -34,6 +34,7 @@ $Files = @(
     "lib/browser-capabilities.ts",
     "lib/recover-stale-web-bundle.ts",
     "eas.json",
+    ".npmrc",
     "metro.config.js",
     "scripts/start-phone.ps1",
     "scripts/start-phone-web.ps1",

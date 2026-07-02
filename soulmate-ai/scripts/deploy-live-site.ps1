@@ -49,25 +49,68 @@ function Invoke-ExternalOutput {
 }
 
 function Clear-NpmCaches {
-    Write-Host "Clearing corrupted npm/npx cache..."
+    Write-Host "Clearing broken npx cache only..."
 
     $npxCache = Join-Path $env:LOCALAPPDATA "npm-cache\_npx"
     if (Test-Path $npxCache) {
         Remove-Item -LiteralPath $npxCache -Recurse -Force -ErrorAction SilentlyContinue
         Write-Host "Removed $npxCache"
     }
+}
 
-    Invoke-External -Command { npm cache clean --force } | Out-Null
+function Test-DependenciesInstalled {
+    return (
+        (Test-Path $script:EasBin) -and
+        (Test-Path (Join-Path $Root "node_modules\expo")) -and
+        (Test-Path (Join-Path $Root "node_modules\expo-router"))
+    )
+}
+
+function Install-ProjectDependencies {
+    if (Test-DependenciesInstalled) {
+        Write-Host "Dependencies already installed. Skipping npm install."
+        return
+    }
+
+    Write-Host "Installing npm packages (first time only, may take a few minutes)..."
+
+    $result = Invoke-ExternalOutput -Command {
+        npm install --no-fund --no-audit --legacy-peer-deps
+    }
+
+    if ($result.ExitCode -eq 0 -and (Test-DependenciesInstalled)) {
+        return
+    }
+
+    if ($result.Output) {
+        Write-Host ""
+        Write-Host $result.Output
+        Write-Host ""
+    }
+
+    if (Test-DependenciesInstalled) {
+        Write-Host "npm install reported warnings, but required packages are present. Continuing."
+        return
+    }
+
+    throw @"
+npm install failed.
+
+Try this manually in CMD:
+  cd $Root
+  npm install --legacy-peer-deps
+
+Then run:
+  scripts\deploy-live-site.cmd
+"@
 }
 
 function Ensure-EasInstalled {
-    if (-not (Test-Path $script:EasBin)) {
-        Write-Host "Installing eas-cli locally (avoids broken npx cache)..."
-        $installCode = Invoke-External -Command { npm install }
-        if ($installCode -ne 0) {
-            throw "npm install failed."
-        }
+    if (Test-Path $script:EasBin) {
+        return
     }
+
+    Install-ProjectDependencies
 
     if (-not (Test-Path $script:EasBin)) {
         throw "eas-cli is still missing after npm install."
@@ -315,12 +358,7 @@ $envVars = Read-DotEnv -Path ".env"
 Write-Host "Step 1: Clear cache, fix eas.json, install dependencies..."
 Clear-NpmCaches
 Repair-EasJson
-
-$installCode = Invoke-External -Command { npm install }
-if ($installCode -ne 0) {
-    throw "npm install failed."
-}
-
+Install-ProjectDependencies
 Ensure-EasInstalled
 
 Write-Host ""
