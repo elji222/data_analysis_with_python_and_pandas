@@ -99,14 +99,17 @@ if (-not (Test-Path "node_modules")) {
 $env:REACT_NATIVE_PACKAGER_CACHE_KEY = "soulmate-$BuildId"
 
 $lanIp = Get-LanIpAddress
-if ($lanIp) {
+$phoneUrl = if ($lanIp) { "http://${lanIp}:8081/chat?v=$BuildId" } else { $null }
+if ($phoneUrl) {
     Write-Host ""
     Write-Host "============================================"
     Write-Host " ON YOUR PHONE, open Safari or Chrome:"
-    Write-Host " http://${lanIp}:8081/chat"
+    Write-Host " $phoneUrl"
     Write-Host "============================================"
     Write-Host ""
-    Write-Host "Bookmark that address on your phone."
+    Write-Host "Copy that exact link. Do NOT use soulmate-ai.expo.app"
+    Write-Host "You must see a GREEN pill: LIVE BUILD $BuildId"
+    Write-Host "If phone browser still looks old, clear browser history/cache."
     Write-Host "Keep this window open while you use the app."
     Write-Host ""
 } else {

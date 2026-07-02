@@ -2,10 +2,13 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import 'react-native-reanimated';
 
 import { BuildVersionBanner } from '@/components/build-version-banner';
+import { ProductionSiteWarning } from '@/components/production-site-warning';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
+import { UI_VERSION } from '@/constants/chat-theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { enforceCurrentBuild } from '@/lib/enforce-build-version';
 
@@ -21,6 +24,14 @@ function RootNavigator() {
 
   useEffect(() => {
     void enforceCurrentBuild();
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') {
+      return;
+    }
+
+    document.title = `Soulmate AI ${UI_VERSION}`;
   }, []);
 
   useEffect(() => {
@@ -45,6 +56,7 @@ function RootNavigator() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <ProductionSiteWarning />
       <BuildVersionBanner />
       <Stack>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />

@@ -7,10 +7,6 @@ import { UI_VERSION } from '@/constants/chat-theme';
 export function BuildVersionBanner() {
   const insets = useSafeAreaInsets();
 
-  if (Platform.OS === 'web') {
-    return null;
-  }
-
   return (
     <View pointerEvents="none" style={[styles.wrapper, { paddingTop: insets.top }]}>
       <View style={styles.banner}>
@@ -34,7 +30,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 6,
-    marginTop: 4,
+    marginTop: Platform.OS === 'web' ? 8 : 4,
   },
   bannerText: {
     color: '#FFFFFF',
