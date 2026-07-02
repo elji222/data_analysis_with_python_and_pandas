@@ -52,6 +52,7 @@ $Files = @(
     "scripts/start-phone-ngrok.ps1",
     "scripts/start-phone-ngrok.cmd",
     "scripts/force-phone-reload.cmd",
+    "scripts/quick-phone-update.cmd",
     "scripts/update-local.ps1",
     "scripts/update-local.cmd"
 )
@@ -132,6 +133,12 @@ if ($StorageText -notmatch "stripConversationsForStorage") {
 $ComposerText = Get-Content $ComposerFile -Raw
 if ($ComposerText -notmatch "handleAttachPress") {
     throw "components/chat-composer.tsx is still old after download."
+}
+
+$AuthFile = Join-Path $Root "lib\auth.ts"
+$AuthText = Get-Content $AuthFile -Raw
+if ($AuthText -notmatch "openBrowserAsync") {
+    throw "lib/auth.ts is still old after download."
 }
 
 Write-Host ""

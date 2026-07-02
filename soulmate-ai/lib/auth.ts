@@ -1,5 +1,4 @@
 import Constants from 'expo-constants';
-import * as Linking from 'expo-linking';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
@@ -14,9 +13,10 @@ function isExpoGo() {
 }
 
 export function getAuthRedirectUri() {
-  // Expo Go must use exp://... deep links, not the standalone soulmateai:// scheme.
   if (isExpoGo()) {
-    return Linking.createURL('/login');
+    return makeRedirectUri({
+      path: 'login',
+    });
   }
 
   return makeRedirectUri({
@@ -70,10 +70,15 @@ export async function processAuthCallbackUrl(url: string) {
   }
 
   await createSessionFromUrl(url);
+
+  if (Platform.OS !== 'web') {
+    await WebBrowser.dismissBrowser();
+  }
+
   return true;
 }
 
-async function waitForSession(timeoutMs = 1500) {
+async function waitForSession(timeoutMs: number) {
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < timeoutMs) {
@@ -82,7 +87,7 @@ async function waitForSession(timeoutMs = 1500) {
       return data.session;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
   return null;
@@ -122,29 +127,20 @@ export async function signInWithGoogle() {
     throw new Error('Google sign-in could not be started.');
   }
 
-  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo, {
+  // openAuthSessionAsync often reports "cancelled" in Expo Go even when sign-in works.
+  // Open the system browser and wait for the exp:// deep link to return to the app.
+  await WebBrowser.openBrowserAsync(data.url, {
     showInRecents: true,
   });
 
-  if (result.type === 'success') {
-    await createSessionFromUrl(result.url);
-    return;
-  }
-
-  // On some phones the browser closes before Expo reports success, but the
-  // deep link still completes sign-in in the background.
-  const session = await waitForSession();
+  const session = await waitForSession(120000);
   if (session) {
     return;
   }
 
-  if (result.type === 'cancel' || result.type === 'dismiss') {
-    throw new Error(
-      `Google sign-in was cancelled. In Supabase, add this Redirect URL: ${redirectTo}`
-    );
-  }
-
-  throw new Error('Google sign-in did not complete. Please try again.');
+  throw new Error(
+    `Sign-in did not finish. In Supabase Redirect URLs, add:\nexp://**\n${redirectTo}`
+  );
 }
 
 export async function signOut() {

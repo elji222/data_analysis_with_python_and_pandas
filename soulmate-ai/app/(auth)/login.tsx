@@ -1,20 +1,21 @@
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { UI_VERSION } from '@/constants/chat-theme';
 import { useAuth } from '@/contexts/auth-context';
 import { getAuthRedirectUri, processAuthCallbackUrl, signInWithGoogle } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { UI_VERSION } from '@/constants/chat-theme';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const isConfigured = isSupabaseConfigured();
 
@@ -27,13 +28,21 @@ export default function LoginScreen() {
   useEffect(() => {
     async function handleCallbackUrl(url: string | null) {
       if (!url) return;
-      if (!url.includes('code=') && !url.includes('access_token=') && !url.includes('error=')) {
+
+      if (url.includes('error=')) {
+        setError('Google sign-in failed. Check Supabase redirect URLs.');
+        setIsLoading(false);
+        return;
+      }
+
+      if (!url.includes('code=') && !url.includes('access_token=')) {
         return;
       }
 
       try {
         setIsLoading(true);
         setError(null);
+        setStatusMessage('Finishing sign-in...');
         const handled = await processAuthCallbackUrl(url);
         if (handled && Platform.OS === 'web' && typeof window !== 'undefined') {
           window.history.replaceState({}, document.title, '/login');
@@ -46,6 +55,7 @@ export default function LoginScreen() {
         setError(message);
       } finally {
         setIsLoading(false);
+        setStatusMessage(null);
       }
     }
 
@@ -67,13 +77,16 @@ export default function LoginScreen() {
     try {
       setIsLoading(true);
       setError(null);
+      setStatusMessage('Opening Google sign-in in your browser...');
       await signInWithGoogle();
+      setStatusMessage(null);
     } catch (signInError) {
       const message =
         signInError instanceof Error
           ? signInError.message
           : 'Could not sign in with Google. Please try again.';
       setError(message);
+      setStatusMessage(null);
     } finally {
       setIsLoading(false);
     }
@@ -82,16 +95,25 @@ export default function LoginScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.content}>
+        <View style={styles.buildBadge}>
+          <ThemedText style={styles.buildBadgeText}>EXPO GO BUILD {UI_VERSION}</ThemedText>
+        </View>
+
         <ThemedText type="title" style={styles.title}>
           Soulmate AI
         </ThemedText>
         <ThemedText type="subtitle" style={styles.subtitle}>
           Your AI companion
         </ThemedText>
-        <ThemedText style={styles.buildLabel}>Phone build {UI_VERSION}</ThemedText>
         <ThemedText style={styles.description}>
           Create your account with Google to save your conversations and pick up where you left off.
         </ThemedText>
+
+        {Platform.OS !== 'web' ? (
+          <ThemedText style={styles.phoneHint}>
+            Use Expo Go with the QR code from your PC. Do not open soulmate-ai.expo.app in Chrome.
+          </ThemedText>
+        ) : null}
 
         {!isConfigured ? (
           <ThemedView style={styles.configCard}>
@@ -117,11 +139,13 @@ export default function LoginScreen() {
           )}
         </Pressable>
 
+        {statusMessage ? <ThemedText style={styles.statusText}>{statusMessage}</ThemedText> : null}
+
         {isConfigured ? (
           <ThemedText style={styles.redirectHint}>
             {Platform.OS === 'web'
               ? `Redirect URL: ${getAuthRedirectUri()}`
-              : `Add this in Supabase Redirect URLs:\n${getAuthRedirectUri()}`}
+              : `Supabase Redirect URLs must include:\nexp://**\n${getAuthRedirectUri()}`}
           </ThemedText>
         ) : null}
 
@@ -142,6 +166,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     gap: 16,
   },
+  buildBadge: {
+    backgroundColor: '#7B61FF',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginBottom: 4,
+  },
+  buildBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
   title: {
     textAlign: 'center',
   },
@@ -149,18 +186,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.85,
   },
-  buildLabel: {
-    textAlign: 'center',
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#7B61FF',
-    marginTop: -4,
-  },
   description: {
     textAlign: 'center',
     opacity: 0.7,
     maxWidth: 320,
     marginBottom: 8,
+  },
+  phoneHint: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: '#7B61FF',
+    maxWidth: 320,
+    fontWeight: '600',
   },
   configCard: {
     padding: 14,
@@ -195,6 +232,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
     color: '#1A1028',
+  },
+  statusText: {
+    fontSize: 14,
+    color: '#7B61FF',
+    textAlign: 'center',
+    maxWidth: 320,
   },
   redirectHint: {
     fontSize: 12,
