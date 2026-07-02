@@ -19,6 +19,7 @@ $Files = @(
     "app.json",
     "package.json",
     "metro.config.js",
+    "components/build-version-banner.tsx",
     "components/attach-popover.tsx",
     "components/chat-bubble.tsx",
     "components/chat-scroll-rail.tsx",
@@ -37,6 +38,7 @@ $Files = @(
     "hooks/use-voice-input.ts",
     "lib/attachments.ts",
     "lib/auth.ts",
+    "lib/enforce-build-version.ts",
     "lib/build-chat-api-messages.ts",
     "lib/chat-scroll.ts",
     "lib/conversation-title.ts",
@@ -52,6 +54,7 @@ $Files = @(
     "scripts/start-phone-ngrok.ps1",
     "scripts/start-phone-ngrok.cmd",
     "scripts/force-phone-reload.cmd",
+    "scripts/quick-phone-update.ps1",
     "scripts/quick-phone-update.cmd",
     "scripts/update-local.ps1",
     "scripts/update-local.cmd"

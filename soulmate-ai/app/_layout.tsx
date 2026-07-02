@@ -4,8 +4,10 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
+import { BuildVersionBanner } from '@/components/build-version-banner';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { enforceCurrentBuild } from '@/lib/enforce-build-version';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -16,6 +18,10 @@ function RootNavigator() {
   const { session, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  useEffect(() => {
+    void enforceCurrentBuild();
+  }, []);
 
   useEffect(() => {
     if (isLoading) return;
@@ -39,6 +45,7 @@ function RootNavigator() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <BuildVersionBanner />
       <Stack>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

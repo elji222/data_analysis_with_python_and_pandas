@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
-$BuildId = "2026-07-09"
+$BuildId = "2026-07-10"
 
 function Stop-MetroOnPort {
     param([int]$Port)
@@ -69,6 +69,14 @@ if (-not (Test-Path "node_modules")) {
 }
 
 $env:REACT_NATIVE_PACKAGER_CACHE_KEY = "soulmate-$BuildId"
+
+$ThemeFile = Join-Path $Root "constants\chat-theme.ts"
+$ThemeText = Get-Content $ThemeFile -Raw
+if ($ThemeText -notmatch $BuildId) {
+    throw "This folder is still on an old build. Run scripts\quick-phone-update.cmd first."
+}
+
+Write-Host "PC files confirmed: build $BuildId"
 
 Write-Host "Starting fresh Expo server..."
 Write-Host "Keep this window open while you use the app."
