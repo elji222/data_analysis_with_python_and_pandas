@@ -39,7 +39,7 @@ if (-not (Get-Command ngrok -ErrorAction SilentlyContinue)) {
 }
 
 if (-not (Test-Path "node_modules")) {
-    Write-Host "Installing npm packages (first time only)..."
+    Write-Host "Installing npm packages. First time only."
     npm install
     Write-Host ""
 }
