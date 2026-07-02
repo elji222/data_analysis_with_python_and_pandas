@@ -1,0 +1,31 @@
+export const ChatTheme = {
+  pageBg: '#FFFFFF',
+  pageBgDark: '#212121',
+  sidebarBg: '#171717',
+  sidebarHover: '#2A2A2A',
+  sidebarActive: '#343434',
+  sidebarBorder: '#2F2F2F',
+  sidebarText: '#ECECEC',
+  sidebarMuted: '#A0A0A0',
+  contentMaxWidth: 768,
+  userBubble: '#F4F4F4',
+  userBubbleDark: '#303030',
+  assistantText: '#0D0D0D',
+  assistantTextDark: '#ECECEC',
+  inputBg: '#FFFFFF',
+  inputBgDark: '#303030',
+  inputBorder: '#D9D9D9',
+  inputBorderDark: '#4A4A4A',
+  inputPlaceholder: '#8E8E93',
+  accent: '#7B61FF',
+  accentHover: '#6B52E8',
+  muted: '#6E6E80',
+  error: '#D64545',
+};
+
+export const CHAT_SUGGESTIONS = [
+  'I had a rough day and need to talk',
+  'Help me think through a decision',
+  'What does a healthy relationship look like?',
+  'I want to feel more connected to people',
+];

@@ -1,7 +1,7 @@
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ChatTheme } from '@/constants/chat-theme';
 import type { Conversation } from '@/types/conversation';
 
 type ConversationSidebarProps = {
@@ -20,14 +20,13 @@ export function ConversationSidebar({
   onDeleteConversation,
 }: ConversationSidebarProps) {
   return (
-    <ThemedView
-      lightColor="#F7F4FF"
-      darkColor="#17121F"
-      style={styles.sidebar}>
+    <View style={styles.sidebar}>
       <Pressable
         style={({ pressed }) => [styles.newChatButton, pressed && styles.pressed]}
         onPress={onNewConversation}>
-        <ThemedText style={styles.newChatLabel}>+ New chat</ThemedText>
+        <ThemedText lightColor={ChatTheme.sidebarText} darkColor={ChatTheme.sidebarText}>
+          + New chat
+        </ThemedText>
       </Pressable>
 
       <FlatList
@@ -46,28 +45,35 @@ export function ConversationSidebar({
                   pressed && styles.pressed,
                 ]}
                 onPress={() => onSelectConversation(item.id)}>
-                <ThemedText numberOfLines={2} style={styles.conversationTitle}>
+                <ThemedText
+                  numberOfLines={1}
+                  lightColor={ChatTheme.sidebarText}
+                  darkColor={ChatTheme.sidebarText}
+                  style={styles.conversationTitle}>
                   {item.title}
                 </ThemedText>
               </Pressable>
               <Pressable
                 style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}
                 onPress={() => onDeleteConversation(item.id)}>
-                <ThemedText style={styles.deleteLabel}>×</ThemedText>
+                <ThemedText lightColor={ChatTheme.sidebarMuted} darkColor={ChatTheme.sidebarMuted}>
+                  ×
+                </ThemedText>
               </Pressable>
             </View>
           );
         }}
       />
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   sidebar: {
-    width: 280,
+    width: 260,
+    backgroundColor: ChatTheme.sidebarBg,
     borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: '#E0E0E0',
+    borderRightColor: ChatTheme.sidebarBorder,
     paddingTop: 12,
   },
   newChatButton: {
@@ -75,19 +81,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#D8CCFF',
-    backgroundColor: '#FFFFFF',
-  },
-  newChatLabel: {
-    fontWeight: '600',
-    color: '#7B61FF',
+    borderColor: ChatTheme.sidebarBorder,
+    backgroundColor: ChatTheme.sidebarHover,
   },
   list: {
     paddingHorizontal: 8,
     paddingBottom: 16,
-    gap: 4,
+    gap: 2,
   },
   row: {
     flexDirection: 'row',
@@ -98,10 +100,10 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 10,
+    borderRadius: 8,
   },
   conversationButtonActive: {
-    backgroundColor: '#E9E0FF',
+    backgroundColor: ChatTheme.sidebarActive,
   },
   conversationTitle: {
     fontSize: 14,
@@ -113,11 +115,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
-  },
-  deleteLabel: {
-    fontSize: 20,
-    lineHeight: 20,
-    opacity: 0.5,
   },
   pressed: {
     opacity: 0.75,

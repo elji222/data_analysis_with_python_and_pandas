@@ -1,91 +1,91 @@
-import { ActivityIndicator, StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ChatTheme } from '@/constants/chat-theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { ChatMessage } from '@/types/chat';
 
 type ChatBubbleProps = {
   message: ChatMessage;
+  isStreaming?: boolean;
 };
 
-export function ChatBubble({ message }: ChatBubbleProps) {
+export function ChatBubble({ message, isStreaming = false }: ChatBubbleProps) {
+  const colorScheme = useColorScheme() ?? 'light';
+  const isDark = colorScheme === 'dark';
   const isUser = message.role === 'user';
 
+  if (isUser) {
+    return (
+      <View style={styles.userRow}>
+        <View
+          style={[
+            styles.userBubble,
+            { backgroundColor: isDark ? ChatTheme.userBubbleDark : ChatTheme.userBubble },
+          ]}>
+          <ThemedText
+            lightColor="#0D0D0D"
+            darkColor="#ECECEC"
+            style={styles.messageText}>
+            {message.text}
+          </ThemedText>
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <ThemedView style={[styles.row, isUser ? styles.rowUser : styles.rowAssistant]}>
-      <ThemedView
-        lightColor={isUser ? '#7B61FF' : '#F0EBFF'}
-        darkColor={isUser ? '#6B52E8' : '#2A2438'}
-        style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAssistant]}>
-        <ThemedText
-          lightColor={isUser ? '#FFFFFF' : '#1A1028'}
-          darkColor={isUser ? '#FFFFFF' : '#F3EEFF'}
-          style={styles.text}>
-          {message.text}
-        </ThemedText>
-      </ThemedView>
-    </ThemedView>
+    <View style={styles.assistantRow}>
+      <ThemedText
+        lightColor={ChatTheme.assistantText}
+        darkColor={ChatTheme.assistantTextDark}
+        style={styles.messageText}>
+        {isStreaming ? `${message.text}▍` : message.text}
+      </ThemedText>
+    </View>
   );
 }
 
-type ChatTypingBubbleProps = {
+type StreamingPlaceholderProps = {
   visible: boolean;
 };
 
-export function ChatTypingBubble({ visible }: ChatTypingBubbleProps) {
+export function StreamingPlaceholder({ visible }: StreamingPlaceholderProps) {
   if (!visible) return null;
 
   return (
-    <ThemedView style={[styles.row, styles.rowAssistant]}>
-      <ThemedView
-        lightColor="#F0EBFF"
-        darkColor="#2A2438"
-        style={[styles.bubble, styles.bubbleAssistant, styles.typingBubble]}>
-        <ActivityIndicator color="#7B61FF" />
-        <ThemedText
-          lightColor="#1A1028"
-          darkColor="#F3EEFF"
-          style={styles.typingText}>
-          Soulmate AI is thinking...
-        </ThemedText>
-      </ThemedView>
-    </ThemedView>
+    <View style={styles.assistantRow}>
+      <ThemedText style={styles.thinkingText}>Soulmate AI is thinking...</ThemedText>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    marginBottom: 12,
-  },
-  rowUser: {
+  userRow: {
+    width: '100%',
     alignItems: 'flex-end',
+    marginBottom: 24,
+    paddingHorizontal: 4,
   },
-  rowAssistant: {
-    alignItems: 'flex-start',
-  },
-  bubble: {
-    maxWidth: '80%',
+  userBubble: {
+    maxWidth: '85%',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
   },
-  bubbleUser: {
-    borderBottomRightRadius: 4,
+  assistantRow: {
+    width: '100%',
+    marginBottom: 24,
+    paddingHorizontal: 4,
   },
-  bubbleAssistant: {
-    borderBottomLeftRadius: 4,
-  },
-  text: {
+  messageText: {
     fontSize: 16,
-    lineHeight: 22,
+    lineHeight: 26,
   },
-  typingBubble: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  typingText: {
-    fontSize: 14,
-    opacity: 0.8,
+  thinkingText: {
+    fontSize: 15,
+    lineHeight: 24,
+    opacity: 0.55,
+    fontStyle: 'italic',
   },
 });

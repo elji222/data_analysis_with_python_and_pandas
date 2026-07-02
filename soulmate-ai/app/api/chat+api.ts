@@ -1,7 +1,15 @@
-import { CLAUDE_MODEL, SOULMATE_SYSTEM_PROMPT } from '@/constants/ai';
+import {
+  CLAUDE_MODEL,
+  MAX_OUTPUT_TOKENS,
+  SOULMATE_SYSTEM_PROMPT,
+} from '@/constants/ai';
 import type { ChatApiMessage } from '@/types/chat';
 
 const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com/v1/messages';
+
+function sseLine(payload: string) {
+  return `data: ${payload}\n\n`;
+}
 
 export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -30,27 +38,94 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        max_tokens: 500,
+        max_tokens: MAX_OUTPUT_TOKENS,
         system: SOULMATE_SYSTEM_PROMPT,
         messages,
+        stream: true,
       }),
     });
 
-    const json = await anthropicResponse.json();
-
     if (!anthropicResponse.ok) {
+      const json = await anthropicResponse.json();
       const errorMessage =
         json.error?.message ?? 'Unable to reach Soulmate AI right now. Please try again.';
       return Response.json({ error: errorMessage }, { status: anthropicResponse.status });
     }
 
-    const reply = json.content?.find((block: { type: string }) => block.type === 'text')?.text?.trim();
-
-    if (!reply) {
-      return Response.json({ error: 'Soulmate AI sent an empty reply.' }, { status: 500 });
+    if (!anthropicResponse.body) {
+      return Response.json({ error: 'No response stream received.' }, { status: 500 });
     }
 
-    return Response.json({ reply });
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const reader = anthropicResponse.body.getReader();
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        let buffer = '';
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+
+              const data = line.slice(6).trim();
+              if (!data || data === '[DONE]') continue;
+
+              try {
+                const event = JSON.parse(data) as {
+                  type?: string;
+                  delta?: { type?: string; text?: string };
+                  error?: { message?: string };
+                };
+
+                if (event.type === 'error') {
+                  controller.enqueue(
+                    encoder.encode(sseLine(JSON.stringify({ error: event.error?.message })))
+                  );
+                  continue;
+                }
+
+                if (
+                  event.type === 'content_block_delta' &&
+                  event.delta?.type === 'text_delta' &&
+                  event.delta.text
+                ) {
+                  controller.enqueue(
+                    encoder.encode(sseLine(JSON.stringify({ text: event.delta.text })))
+                  );
+                }
+              } catch {
+                // Skip malformed SSE chunks
+              }
+            }
+          }
+
+          controller.enqueue(encoder.encode(sseLine('[DONE]')));
+        } catch {
+          controller.enqueue(
+            encoder.encode(sseLine(JSON.stringify({ error: 'Stream interrupted.' })))
+          );
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+      },
+    });
   } catch {
     return Response.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
