@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$DeployScriptVersion = "2026-07-07"
+$DeployScriptVersion = "2026-07-08"
 
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
@@ -209,7 +209,7 @@ function Repair-EasJson {
     $validJson = @'
 {
   "cli": {
-    "version": ">= 16.0.0",
+    "version": ">= 16.32.0",
     "appVersionSource": "remote"
   }
 }
@@ -306,17 +306,33 @@ function Test-AnthropicKey {
     return $Value.StartsWith('sk-ant-')
 }
 
-function Ensure-EasProject {
-    $result = Invoke-EasWithOutput project:info
-    if ($result.ExitCode -eq 0 -and $result.Output -match 'soulmate-ai|Project') {
-        return
+function Get-EasProjectId {
+    $appJsonPath = Join-Path $Root "app.json"
+    $content = Get-Content $appJsonPath -Raw
+
+    if ($content -match '"projectId"\s*:\s*"([^"]+)"') {
+        return $Matches[1]
     }
 
-    Write-Host "Linking this folder to your Expo project..."
-    $initCode = Invoke-Eas init --non-interactive
-    if ($initCode -ne 0) {
-        Write-Host "Note: eas init returned $initCode. Continuing anyway."
+    return "8d2d0e08-3c3d-4b39-8771-a0cf812a4325"
+}
+
+function Ensure-EasProject {
+    $projectId = Get-EasProjectId
+
+    Write-Host "Linking this folder to Expo project $projectId ..."
+
+    $initResult = Invoke-EasWithOutput init --id $projectId --force --non-interactive
+    if ($initResult.ExitCode -ne 0) {
+        throw "Could not link EAS project.`n$($initResult.Output)"
     }
+
+    $info = Invoke-EasWithOutput project:info
+    if ($info.ExitCode -ne 0) {
+        throw "EAS project is still not configured.`n$($info.Output)"
+    }
+
+    Write-Host "EAS project linked."
 }
 
 function Set-EasProductionVariable {
