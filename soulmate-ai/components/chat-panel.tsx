@@ -16,6 +16,7 @@ import { ChatComposer } from '@/components/chat-composer';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ChatTheme, QUICK_ACTIONS } from '@/constants/chat-theme';
+import { isDefaultConversationTitle } from '@/lib/conversation-title';
 import { streamChatMessage } from '@/services/chat-api';
 import { fetchConversationTitle } from '@/services/title-api';
 import type { ChatMessage } from '@/types/chat';
@@ -49,7 +50,9 @@ export function ChatPanel({
   const messages = conversation?.messages ?? [];
   const isStreaming = streamingText !== null;
   const showThinking = isLoading && !isStreaming;
-  const isEmpty = messages.length === 0 && !showThinking && !isStreaming;
+  const isNewChat = isDefaultConversationTitle(conversation?.title ?? 'New chat');
+  const showHeroEmpty =
+    messages.length === 0 && !showThinking && !isStreaming && isNewChat;
 
   useEffect(() => {
     setInput('');
@@ -173,7 +176,7 @@ export function ChatPanel({
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
           <View style={styles.mainColumn}>
-          {isEmpty ? (
+          {showHeroEmpty ? (
             <View style={styles.heroState}>
               <ThemedText
                 lightColor={ChatTheme.assistantText}

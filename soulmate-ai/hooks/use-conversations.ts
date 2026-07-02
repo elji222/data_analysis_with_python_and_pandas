@@ -32,6 +32,28 @@ function normalizeStoredConversations(conversations: Conversation[]): Conversati
   });
 }
 
+function repairStoredConversations(conversations: Conversation[]): Conversation[] {
+  const normalized = normalizeStoredConversations(conversations);
+  const withMessages = normalized.filter((conversation) => conversation.messages.length > 0);
+  const emptyNewChats = normalized.filter(
+    (conversation) =>
+      conversation.messages.length === 0 && isDefaultConversationTitle(conversation.title)
+  );
+
+  if (withMessages.length > 0) {
+    return sortConversations([
+      ...withMessages,
+      ...(emptyNewChats.length > 0 ? [emptyNewChats[0]] : []),
+    ]);
+  }
+
+  if (emptyNewChats.length > 0) {
+    return [emptyNewChats[0]];
+  }
+
+  return [createEmptyConversation()];
+}
+
 export function useConversations(userId: string | undefined) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -70,7 +92,7 @@ export function useConversations(userId: string | undefined) {
         await saveConversations(userId!, initial);
         await saveActiveConversationId(userId!, firstConversation.id);
       } else {
-        const normalizedConversations = normalizeStoredConversations(storedConversations);
+        const normalizedConversations = repairStoredConversations(storedConversations);
         const activeId =
           storedActiveId && normalizedConversations.some((item) => item.id === storedActiveId)
             ? storedActiveId
