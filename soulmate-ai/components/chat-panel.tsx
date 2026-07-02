@@ -16,6 +16,7 @@ import { ChatComposer } from '@/components/chat-composer';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ChatTheme, QUICK_ACTIONS } from '@/constants/chat-theme';
+import { useSmoothStreamingText } from '@/hooks/use-smooth-streaming-text';
 import { isDefaultConversationTitle } from '@/lib/conversation-title';
 import { streamChatMessage } from '@/services/chat-api';
 import { fetchConversationTitle } from '@/services/title-api';
@@ -49,6 +50,7 @@ export function ChatPanel({
 
   const messages = conversation?.messages ?? [];
   const isStreaming = streamingText !== null;
+  const smoothStreamingText = useSmoothStreamingText(streamingText, isStreaming);
   const showThinking = isLoading && !isStreaming;
   const isNewChat = isDefaultConversationTitle(conversation?.title ?? 'New chat');
   const showHeroEmpty =
@@ -66,6 +68,11 @@ export function ChatPanel({
       listRef.current?.scrollToEnd({ animated: true });
     });
   }
+
+  useEffect(() => {
+    if (!isStreaming) return;
+    scrollToEnd();
+  }, [smoothStreamingText, isStreaming]);
 
   async function sendMessage(text: string) {
     if (!conversation) return;
@@ -133,12 +140,12 @@ export function ChatPanel({
   }
 
   const listData: ChatMessage[] =
-    isStreaming && streamingText !== null
+    isStreaming
       ? [
           ...messages,
           {
             id: 'streaming-assistant',
-            text: streamingText,
+            text: smoothStreamingText,
             role: 'assistant',
             createdAt: Date.now(),
           },

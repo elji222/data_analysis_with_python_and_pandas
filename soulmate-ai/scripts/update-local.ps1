@@ -17,9 +17,11 @@ $Files = @(
     "components/chat-panel.tsx",
     "components/conversation-sidebar.tsx",
     "components/formatted-message-text.tsx",
+    "components/streaming-cursor.tsx",
     "constants/ai.ts",
     "constants/chat-theme.ts",
     "hooks/use-conversations.ts",
+    "hooks/use-smooth-streaming-text.ts",
     "lib/conversation-title.ts",
     "services/chat-api.ts",
     "services/conversation-storage.ts",
@@ -71,5 +73,5 @@ Write-Host "Next steps:"
 Write-Host "  1. Close the browser tab completely"
 Write-Host "  2. Run: npx expo start --clear"
 Write-Host "  3. Open: http://localhost:8081/chat"
-Write-Host "  4. Look for UI 2025-07-02 under Soulmate AI in the left sidebar"
+Write-Host "  4. Look for UI 2025-07-03 under Soulmate AI in the left sidebar"
 Write-Host ""

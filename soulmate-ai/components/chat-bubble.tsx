@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { FormattedMessageText } from '@/components/formatted-message-text';
+import { StreamingCursor } from '@/components/streaming-cursor';
 import { ThemedText } from '@/components/themed-text';
 import { ChatTheme } from '@/constants/chat-theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -42,7 +43,7 @@ export function ChatBubble({ message, isStreaming = false }: ChatBubbleProps) {
         darkColor={ChatTheme.assistantTextDark}
         style={styles.messageText}
         text={message.text}
-        suffix={isStreaming ? '▍' : undefined}
+        suffix={isStreaming ? <StreamingCursor /> : undefined}
       />
     </View>
   );

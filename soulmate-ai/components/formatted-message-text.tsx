@@ -1,4 +1,5 @@
 import { StyleSheet, Text, type TextProps, type TextStyle } from 'react-native';
+import type { ReactNode } from 'react';
 
 import { ThemedText } from '@/components/themed-text';
 
@@ -33,7 +34,7 @@ type FormattedMessageTextProps = TextProps & {
   lightColor?: string;
   darkColor?: string;
   style?: TextStyle;
-  suffix?: string;
+  suffix?: ReactNode;
 };
 
 export function FormattedMessageText({
