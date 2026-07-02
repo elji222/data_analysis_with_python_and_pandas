@@ -1,5 +1,8 @@
 $ErrorActionPreference = "Stop"
 
+# Use TLS 1.2+ (needed on some Windows setups)
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
@@ -49,14 +52,11 @@ $Files = @(
     "scripts/update-local.cmd"
 )
 
-Write-Host ""
-Write-Host "============================================"
-Write-Host " Soulmate AI - Update from GitHub"
-Write-Host "============================================"
-Write-Host "Folder: $Root"
-Write-Host ""
+function Download-File {
+    param(
+        [string]$RelativePath
+    )
 
-foreach ($RelativePath in $Files) {
     $Url = "$Base/$RelativePath"
     $Destination = Join-Path $Root ($RelativePath -replace "/", [IO.Path]::DirectorySeparatorChar)
     $Directory = Split-Path $Destination -Parent
@@ -65,39 +65,59 @@ foreach ($RelativePath in $Files) {
         New-Item -ItemType Directory -Path $Directory -Force | Out-Null
     }
 
-    Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing
-    Write-Host "OK: $RelativePath"
+    try {
+        Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing -TimeoutSec 60
+    } catch {
+        throw "Download failed for $RelativePath`nURL: $Url`nError: $($_.Exception.Message)"
+    }
+
+    if (-not (Test-Path $Destination)) {
+        throw "File missing after download: $RelativePath"
+    }
+
+    $size = (Get-Item $Destination).Length
+    if ($size -lt 10) {
+        throw "Download looks empty for $RelativePath (only $size bytes). Check your internet connection."
+    }
+}
+
+Write-Host ""
+Write-Host "============================================"
+Write-Host " Soulmate AI - Update from GitHub"
+Write-Host "============================================"
+Write-Host "Folder: $Root"
+Write-Host ""
+
+$failed = $false
+foreach ($RelativePath in $Files) {
+    try {
+        Download-File -RelativePath $RelativePath
+        Write-Host "OK: $RelativePath"
+    } catch {
+        $failed = $true
+        Write-Host "FAIL: $RelativePath"
+        Write-Host $_.Exception.Message
+    }
+}
+
+if ($failed) {
+    throw "One or more files failed to download. Fix the errors above and run again."
 }
 
 $ThemeFile = Join-Path $Root "constants\chat-theme.ts"
 $ComposerFile = Join-Path $Root "components\chat-composer.tsx"
-$AttachmentsFile = Join-Path $Root "lib\attachments.ts"
-$StripStorageFile = Join-Path $Root "lib\strip-attachments-for-storage.ts"
 $ConversationStorageFile = Join-Path $Root "services\conversation-storage.ts"
 
-if (-not (Test-Path $ComposerFile)) {
-    throw "Missing components/chat-composer.tsx after download."
-}
-
-if (-not (Test-Path $AttachmentsFile)) {
-    throw "Missing lib/attachments.ts after download."
-}
-
-if (-not (Test-Path $StripStorageFile)) {
-    throw "Missing lib/strip-attachments-for-storage.ts after download. GitHub master may still be updating - wait 1 minute and run again."
-}
-
-if (-not (Test-Path $ConversationStorageFile)) {
-    throw "Missing services/conversation-storage.ts after download."
-}
-
 $ThemeText = Get-Content $ThemeFile -Raw
-if ($ThemeText -notmatch "2026-07-04") {
-    throw "constants/chat-theme.ts is still old after download. Expected UI 2026-07-04."
+if ($ThemeText -notmatch "export const UI_VERSION") {
+    throw "constants/chat-theme.ts download looks wrong (no UI_VERSION found)."
 }
+
+$versionMatch = [regex]::Match($ThemeText, "UI_VERSION\s*=\s*'([^']+)'")
+$uiVersion = if ($versionMatch.Success) { $versionMatch.Groups[1].Value } else { "unknown" }
 
 if ($ThemeText -notmatch "threadContentMaxWidth:\s*768") {
-    throw "constants/chat-theme.ts is missing the balanced ChatGPT layout (768px column)."
+    throw "constants/chat-theme.ts is missing the balanced layout settings."
 }
 
 $StorageText = Get-Content $ConversationStorageFile -Raw
@@ -112,12 +132,13 @@ if ($ComposerText -notmatch "handleAttachPress") {
 
 Write-Host ""
 Write-Host "SUCCESS. Files updated."
+Write-Host "UI version: $uiVersion"
 Write-Host ""
 Write-Host "Next steps:"
 Write-Host "  1. Run: npm install"
 Write-Host "  2. Run: npx expo start --clear"
 Write-Host "  3. Open: http://localhost:8081/chat"
-Write-Host "  4. Look for UI 2026-07-04 under Soulmate AI in the left sidebar"
+Write-Host "  4. Look for UI $uiVersion under Soulmate AI in the left sidebar"
 Write-Host ""
 Write-Host "To open on your phone with Expo Go (same Wi-Fi as this PC):"
 Write-Host "  1. Run: scripts\start-phone.cmd"
