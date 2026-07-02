@@ -85,8 +85,8 @@ if (-not (Test-Path $ConversationStorageFile)) {
 }
 
 $ThemeText = Get-Content $ThemeFile -Raw
-if ($ThemeText -notmatch "2025-07-14") {
-    throw "constants/chat-theme.ts is still old after download. Expected UI 2025-07-14."
+if ($ThemeText -notmatch "2025-07-15") {
+    throw "constants/chat-theme.ts is still old after download. Expected UI 2025-07-15."
 }
 
 $StorageText = Get-Content $ConversationStorageFile -Raw
@@ -106,5 +106,5 @@ Write-Host "Next steps:"
 Write-Host "  1. Run: npm install"
 Write-Host "  2. Run: npx expo start --clear"
 Write-Host "  3. Open: http://localhost:8081/chat"
-Write-Host "  4. Look for UI 2025-07-14 under Soulmate AI in the left sidebar"
+Write-Host "  4. Look for UI 2025-07-15 under Soulmate AI in the left sidebar"
 Write-Host ""

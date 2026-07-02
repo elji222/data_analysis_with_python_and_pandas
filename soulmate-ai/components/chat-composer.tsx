@@ -256,8 +256,8 @@ export function ChatComposer({
 const styles = StyleSheet.create({
   wrapper: {
     width: '100%',
-    maxWidth: '100%',
-    alignSelf: 'stretch',
+    maxWidth: ChatTheme.composerMaxWidth,
+    alignSelf: 'center',
   },
   wrapperHero: {
     width: '100%',

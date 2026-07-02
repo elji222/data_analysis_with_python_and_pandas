@@ -424,7 +424,8 @@ export function ChatPanel({
           ) : (
             <View style={styles.threadOuter}>
               <View style={styles.threadCenterColumn}>
-                <View style={styles.threadWrapper}>
+                <View style={styles.threadContent}>
+                  <View style={styles.threadWrapper}>
                   <View style={styles.threadBody}>
                     <View style={styles.threadArea}>
                       <FlatList
@@ -478,6 +479,7 @@ export function ChatPanel({
                       Soulmate AI can make mistakes. Consider checking important information.
                     </ThemedText>
                   </View>
+                </View>
                 </View>
               </View>
 
@@ -601,9 +603,15 @@ const styles = StyleSheet.create({
   threadCenterColumn: {
     flex: 1,
     width: '100%',
-    paddingLeft: ChatTheme.threadPaddingX,
-    paddingRight: ChatTheme.threadRailWidth + 8,
+    alignItems: 'center',
     minHeight: 0,
+  },
+  threadContent: {
+    flex: 1,
+    width: '100%',
+    maxWidth: ChatTheme.threadContentMaxWidth,
+    minHeight: 0,
+    paddingHorizontal: 20,
   },
   railDock: {
     position: 'absolute',
@@ -640,9 +648,9 @@ const styles = StyleSheet.create({
       : {}),
   },
   messageList: {
-    paddingHorizontal: 0,
-    paddingTop: 12,
-    paddingBottom: 20,
+    paddingHorizontal: 4,
+    paddingTop: 16,
+    paddingBottom: 24,
     width: '100%',
   },
   errorText: {
@@ -668,7 +676,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   bottomComposerArea: {
-    paddingHorizontal: 0,
+    paddingHorizontal: 4,
     paddingTop: 8,
     paddingBottom: 12,
     width: '100%',

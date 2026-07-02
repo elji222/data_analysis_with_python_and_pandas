@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   userBubble: {
-    maxWidth: '92%',
+    maxWidth: '85%',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 24,
