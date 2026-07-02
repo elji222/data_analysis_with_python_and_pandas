@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getMessagePreviewText } from '@/lib/build-chat-api-messages';
 import { createConversationTitle, isDefaultConversationTitle, shouldShortenConversationTitle } from '@/lib/conversation-title';
+import { isStorageQuotaError } from '@/lib/strip-attachments-for-storage';
 import {
+  clearConversationsStorage,
   ConversationStorageError,
   createEmptyConversation,
   loadActiveConversationId,
@@ -85,14 +87,40 @@ export function useConversations(userId: string | undefined) {
 
       if (!isMounted) return;
 
+      async function persistInitialState(
+        nextConversations: Conversation[],
+        activeId: string
+      ): Promise<void> {
+        conversationsRef.current = nextConversations;
+        setConversations(nextConversations);
+        setActiveConversationId(activeId);
+
+        try {
+          await saveConversations(userId!, nextConversations);
+          await saveActiveConversationId(userId!, activeId);
+          setStorageWarning(null);
+        } catch (error) {
+          if (isStorageQuotaError(error) || error instanceof ConversationStorageError) {
+            await clearConversationsStorage(userId!);
+            const freshConversation = createEmptyConversation();
+            const freshState = [freshConversation];
+            conversationsRef.current = freshState;
+            setConversations(freshState);
+            setActiveConversationId(freshConversation.id);
+            await saveActiveConversationId(userId!, freshConversation.id);
+            setStorageWarning(
+              'Your browser storage was full, so old chats were cleared. You can chat normally now.'
+            );
+            return;
+          }
+
+          throw error;
+        }
+      }
+
       if (storedConversations.length === 0) {
         const firstConversation = createEmptyConversation();
-        const initial = [firstConversation];
-        conversationsRef.current = initial;
-        setConversations(initial);
-        setActiveConversationId(firstConversation.id);
-        await saveConversations(userId!, initial);
-        await saveActiveConversationId(userId!, firstConversation.id);
+        await persistInitialState([firstConversation], firstConversation.id);
       } else {
         const normalizedConversations = repairStoredConversations(storedConversations);
         const activeId =
@@ -100,11 +128,7 @@ export function useConversations(userId: string | undefined) {
             ? storedActiveId
             : normalizedConversations[0].id;
 
-        conversationsRef.current = normalizedConversations;
-        setConversations(normalizedConversations);
-        setActiveConversationId(activeId);
-        await saveConversations(userId!, normalizedConversations);
-        await saveActiveConversationId(userId!, activeId);
+        await persistInitialState(normalizedConversations, activeId);
       }
 
       setIsReady(true);
@@ -132,8 +156,12 @@ export function useConversations(userId: string | undefined) {
         await saveConversations(userId, nextConversations);
         setStorageWarning(null);
       } catch (error) {
-        if (error instanceof ConversationStorageError) {
-          setStorageWarning(error.message);
+        if (error instanceof ConversationStorageError || isStorageQuotaError(error)) {
+          setStorageWarning(
+            error instanceof Error
+              ? error.message
+              : 'Could not save chat history on this device. Your messages will stay in this session.'
+          );
           return;
         }
 

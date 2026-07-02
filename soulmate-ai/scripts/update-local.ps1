@@ -61,6 +61,8 @@ $ThemeFile = Join-Path $Root "constants\chat-theme.ts"
 $ChatFile = Join-Path $Root "app\(tabs)\chat.tsx"
 $ComposerFile = Join-Path $Root "components\chat-composer.tsx"
 $AttachmentsFile = Join-Path $Root "lib\attachments.ts"
+$StripStorageFile = Join-Path $Root "lib\strip-attachments-for-storage.ts"
+$ConversationStorageFile = Join-Path $Root "services\conversation-storage.ts"
 
 if (-not (Test-Path $ComposerFile)) {
     throw "Missing components/chat-composer.tsx after download."
@@ -70,9 +72,22 @@ if (-not (Test-Path $AttachmentsFile)) {
     throw "Missing lib/attachments.ts after download."
 }
 
+if (-not (Test-Path $StripStorageFile)) {
+    throw "Missing lib/strip-attachments-for-storage.ts after download. GitHub master may still be updating - wait 1 minute and run again."
+}
+
+if (-not (Test-Path $ConversationStorageFile)) {
+    throw "Missing services/conversation-storage.ts after download."
+}
+
 $ThemeText = Get-Content $ThemeFile -Raw
-if ($ThemeText -notmatch "UI_VERSION") {
-    throw "constants/chat-theme.ts is still old after download."
+if ($ThemeText -notmatch "2025-07-06") {
+    throw "constants/chat-theme.ts is still old after download. Expected UI 2025-07-06."
+}
+
+$StorageText = Get-Content $ConversationStorageFile -Raw
+if ($StorageText -notmatch "stripConversationsForStorage") {
+    throw "services/conversation-storage.ts is still old after download."
 }
 
 $ChatText = Get-Content $ChatFile -Raw
@@ -87,5 +102,5 @@ Write-Host "Next steps:"
 Write-Host "  1. Run: npm install"
 Write-Host "  2. Run: npx expo start --clear"
 Write-Host "  3. Open: http://localhost:8081/chat"
-Write-Host "  4. Look for UI 2025-07-06 under Soulmate AI in the left sidebar"
+Write-Host "  4. Look for UI 2025-07-06b under Soulmate AI in the left sidebar"
 Write-Host ""
