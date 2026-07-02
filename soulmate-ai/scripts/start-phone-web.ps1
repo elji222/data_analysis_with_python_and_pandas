@@ -3,7 +3,18 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
-$BuildId = "2026-07-11"
+$ThemeFile = Join-Path $Root "constants\chat-theme.ts"
+if (-not (Test-Path $ThemeFile)) {
+    throw "Missing constants/chat-theme.ts. Run scripts\quick-phone-update.cmd first."
+}
+
+$ThemeText = Get-Content $ThemeFile -Raw
+$versionMatch = [regex]::Match($ThemeText, "UI_VERSION\s*=\s*'([^']+)'")
+$BuildId = if ($versionMatch.Success) { $versionMatch.Groups[1].Value } else { "unknown" }
+
+if ($BuildId -eq "unknown") {
+    throw "Could not read UI version. Run scripts\quick-phone-update.cmd first."
+}
 
 function Get-LanIpAddress {
     try {
@@ -71,10 +82,8 @@ Write-Host ""
 Write-Host "Phone and PC must be on the SAME Wi-Fi."
 Write-Host ""
 
-$ThemeFile = Join-Path $Root "constants\chat-theme.ts"
-$ThemeText = Get-Content $ThemeFile -Raw
-if ($ThemeText -notmatch $BuildId) {
-    throw "This folder is still on an old build. Run scripts\quick-phone-update.cmd first."
+if ($ThemeText -notmatch "export const UI_VERSION") {
+    throw "constants/chat-theme.ts looks wrong. Run scripts\quick-phone-update.cmd first."
 }
 
 Write-Host "PC files confirmed: build $BuildId"
