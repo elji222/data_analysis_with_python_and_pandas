@@ -140,6 +140,7 @@ const styles = StyleSheet.create({
   },
   chatMain: {
     flex: 1,
+    alignItems: 'center',
   },
   modalRoot: {
     flex: 1,

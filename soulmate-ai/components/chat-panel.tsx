@@ -299,24 +299,26 @@ const styles = StyleSheet.create({
   mainColumn: {
     flex: 1,
     width: '100%',
-    maxWidth: 760,
+    maxWidth: 720,
     alignSelf: 'center',
-    alignItems: 'stretch',
-    paddingHorizontal: 24,
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
   heroState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingBottom: 48,
-    gap: 28,
+    gap: 24,
     width: '100%',
+    maxWidth: 680,
   },
   heroTitle: {
     fontSize: 32,
     fontWeight: '500',
     textAlign: 'center',
     letterSpacing: -0.3,
+    width: '100%',
   },
   quickActions: {
     flexDirection: 'row',
@@ -342,6 +344,7 @@ const styles = StyleSheet.create({
   threadArea: {
     flex: 1,
     width: '100%',
+    maxWidth: 680,
   },
   messageList: {
     paddingHorizontal: 8,

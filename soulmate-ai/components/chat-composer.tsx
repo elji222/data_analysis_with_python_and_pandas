@@ -26,6 +26,9 @@ type WebKeyDownEvent = {
   preventDefault: () => void;
 };
 
+const ICON_SLOT = 40;
+const SINGLE_LINE_HEIGHT = 24;
+
 export function ChatComposer({
   value,
   onChangeText,
@@ -37,6 +40,7 @@ export function ChatComposer({
   const isDark = colorScheme === 'dark';
   const canSend = value.trim().length > 0 && !isLoading;
   const isHero = variant === 'hero';
+  const isSingleLine = !value.includes('\n');
 
   function trySend() {
     if (canSend) {
@@ -81,54 +85,59 @@ export function ChatComposer({
             borderColor: isDark ? ChatTheme.inputBorderDark : ChatTheme.inputBorder,
           },
         ]}>
-        <Pressable style={styles.attachButton} disabled={isLoading}>
-          <Ionicons
-            name="add"
-            size={22}
-            color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
-          />
-        </Pressable>
-
-        <TextInput
-          style={[
-            styles.input,
-            isHero && styles.inputHero,
-            Platform.OS === 'web' && styles.inputWeb,
-            { color: isDark ? ChatTheme.assistantTextDark : ChatTheme.assistantText },
-          ]}
-          placeholder="Ask anything"
-          placeholderTextColor={ChatTheme.inputPlaceholder}
-          value={value}
-          onChangeText={onChangeText}
-          onKeyPress={handleKeyPress}
-          returnKeyType="send"
-          blurOnSubmit={false}
-          submitBehavior="submit"
-          multiline
-          editable={!isLoading}
-          underlineColorAndroid="transparent"
-          selectionColor={ChatTheme.accent}
-          {...webKeyDownProps}
-        />
-
-        <View style={styles.trailingActions}>
-          <Pressable style={styles.micButton} disabled={isLoading}>
+        <View style={styles.contentRow}>
+          <Pressable style={styles.iconSlot} disabled={isLoading}>
             <Ionicons
-              name="mic-outline"
-              size={20}
+              name="add"
+              size={22}
               color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
             />
           </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.sendButton,
-              !canSend && styles.sendButtonDisabled,
-              pressed && canSend && styles.pressed,
+
+          <TextInput
+            style={[
+              styles.input,
+              isHero && styles.inputHero,
+              isSingleLine && styles.inputSingleLine,
+              Platform.OS === 'web' && styles.inputWeb,
+              Platform.OS === 'web' && isSingleLine && styles.inputWebSingleLine,
+              { color: isDark ? ChatTheme.assistantTextDark : ChatTheme.assistantText },
             ]}
-            onPress={onSend}
-            disabled={!canSend}>
-            <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
-          </Pressable>
+            placeholder="Ask anything"
+            placeholderTextColor={ChatTheme.inputPlaceholder}
+            value={value}
+            onChangeText={onChangeText}
+            onKeyPress={handleKeyPress}
+            returnKeyType="send"
+            blurOnSubmit={false}
+            submitBehavior="submit"
+            multiline
+            scrollEnabled={!isSingleLine}
+            editable={!isLoading}
+            underlineColorAndroid="transparent"
+            selectionColor={ChatTheme.accent}
+            {...webKeyDownProps}
+          />
+
+          <View style={styles.trailingActions}>
+            <Pressable style={styles.iconSlot} disabled={isLoading}>
+              <Ionicons
+                name="mic-outline"
+                size={20}
+                color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
+              />
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.sendButton,
+                !canSend && styles.sendButtonDisabled,
+                pressed && canSend && styles.pressed,
+              ]}
+              onPress={onSend}
+              disabled={!canSend}>
+              <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
+            </Pressable>
+          </View>
         </View>
       </View>
     </View>
@@ -142,18 +151,15 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   wrapperHero: {
-    paddingHorizontal: 4,
+    width: '100%',
   },
   shell: {
-    flexDirection: 'row',
-    alignItems: 'center',
     borderWidth: 1,
     borderRadius: 28,
-    paddingLeft: 6,
-    paddingRight: 8,
-    paddingVertical: 10,
-    gap: 4,
-    minHeight: 52,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    minHeight: 54,
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowRadius: 16,
@@ -161,49 +167,57 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   shellHero: {
-    minHeight: 56,
+    minHeight: 58,
     borderRadius: 32,
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
-  attachButton: {
-    width: 36,
-    height: 36,
+  contentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+  },
+  iconSlot: {
+    width: ICON_SLOT,
+    height: ICON_SLOT,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 18,
   },
   input: {
     flex: 1,
-    minHeight: 28,
+    minHeight: SINGLE_LINE_HEIGHT,
     maxHeight: 160,
     fontSize: 16,
-    lineHeight: 22,
-    paddingTop: Platform.OS === 'ios' ? 6 : 4,
-    paddingBottom: Platform.OS === 'ios' ? 6 : 4,
+    lineHeight: 20,
+    paddingHorizontal: 4,
+    paddingVertical: 0,
+    margin: 0,
     backgroundColor: 'transparent',
     borderWidth: 0,
+    ...(Platform.OS === 'android' ? { textAlignVertical: 'center' as const } : {}),
+  },
+  inputSingleLine: {
+    height: SINGLE_LINE_HEIGHT,
   },
   inputWeb: {
     outlineStyle: 'none',
     outlineWidth: 0,
     boxShadow: 'none',
     resize: 'none',
+    overflow: 'hidden',
+    paddingTop: 0,
+    paddingBottom: 0,
+  } as const,
+  inputWebSingleLine: {
+    height: SINGLE_LINE_HEIGHT,
+    lineHeight: '20px',
   } as const,
   inputHero: {
     fontSize: 17,
-    minHeight: 32,
   },
   trailingActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-  },
-  micButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 18,
+    gap: 2,
   },
   sendButton: {
     width: 36,
