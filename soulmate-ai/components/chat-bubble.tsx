@@ -1,5 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
+import { FormattedMessageText } from '@/components/formatted-message-text';
 import { ThemedText } from '@/components/themed-text';
 import { ChatTheme } from '@/constants/chat-theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -23,12 +24,12 @@ export function ChatBubble({ message, isStreaming = false }: ChatBubbleProps) {
             styles.userBubble,
             { backgroundColor: isDark ? ChatTheme.userBubbleDark : ChatTheme.userBubble },
           ]}>
-          <ThemedText
+          <FormattedMessageText
             lightColor="#0D0D0D"
             darkColor="#ECECEC"
-            style={styles.messageText}>
-            {message.text}
-          </ThemedText>
+            style={styles.messageText}
+            text={message.text}
+          />
         </View>
       </View>
     );
@@ -36,12 +37,13 @@ export function ChatBubble({ message, isStreaming = false }: ChatBubbleProps) {
 
   return (
     <View style={styles.assistantRow}>
-      <ThemedText
+      <FormattedMessageText
         lightColor={ChatTheme.assistantText}
         darkColor={ChatTheme.assistantTextDark}
-        style={styles.messageText}>
-        {isStreaming ? `${message.text}▍` : message.text}
-      </ThemedText>
+        style={styles.messageText}
+        text={message.text}
+        suffix={isStreaming ? '▍' : undefined}
+      />
     </View>
   );
 }
