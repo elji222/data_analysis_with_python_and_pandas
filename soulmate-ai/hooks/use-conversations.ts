@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   createConversationTitle,
@@ -11,6 +11,10 @@ import {
 import { isDefaultConversationTitle, shouldShortenConversationTitle } from '@/lib/conversation-title';
 import type { ChatMessage } from '@/types/chat';
 import type { Conversation } from '@/types/conversation';
+
+function sortConversations(items: Conversation[]): Conversation[] {
+  return [...items].sort((a, b) => b.updatedAt - a.updatedAt);
+}
 
 function normalizeStoredConversations(conversations: Conversation[]): Conversation[] {
   return conversations.map((conversation) => {
@@ -32,12 +36,18 @@ export function useConversations(userId: string | undefined) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const conversationsRef = useRef<Conversation[]>([]);
+
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
 
   useEffect(() => {
     if (!userId) {
       setConversations([]);
       setActiveConversationId(null);
       setIsReady(false);
+      conversationsRef.current = [];
       return;
     }
 
@@ -45,18 +55,20 @@ export function useConversations(userId: string | undefined) {
 
     async function hydrate() {
       const [storedConversations, storedActiveId] = await Promise.all([
-        loadConversations(userId),
-        loadActiveConversationId(userId),
+        loadConversations(userId!),
+        loadActiveConversationId(userId!),
       ]);
 
       if (!isMounted) return;
 
       if (storedConversations.length === 0) {
         const firstConversation = createEmptyConversation();
-        setConversations([firstConversation]);
+        const initial = [firstConversation];
+        conversationsRef.current = initial;
+        setConversations(initial);
         setActiveConversationId(firstConversation.id);
-        await saveConversations(userId, [firstConversation]);
-        await saveActiveConversationId(userId, firstConversation.id);
+        await saveConversations(userId!, initial);
+        await saveActiveConversationId(userId!, firstConversation.id);
       } else {
         const normalizedConversations = normalizeStoredConversations(storedConversations);
         const activeId =
@@ -64,10 +76,11 @@ export function useConversations(userId: string | undefined) {
             ? storedActiveId
             : normalizedConversations[0].id;
 
+        conversationsRef.current = normalizedConversations;
         setConversations(normalizedConversations);
         setActiveConversationId(activeId);
-        await saveConversations(userId, normalizedConversations);
-        await saveActiveConversationId(userId, activeId);
+        await saveConversations(userId!, normalizedConversations);
+        await saveActiveConversationId(userId!, activeId);
       }
 
       setIsReady(true);
@@ -83,12 +96,14 @@ export function useConversations(userId: string | undefined) {
   const activeConversation =
     conversations.find((conversation) => conversation.id === activeConversationId) ?? null;
 
-  const persistConversations = useCallback(
-    async (nextConversations: Conversation[]) => {
+  const persistUpdater = useCallback(
+    async (updater: (previous: Conversation[]) => Conversation[]) => {
       if (!userId) return;
-      const sorted = [...nextConversations].sort((a, b) => b.updatedAt - a.updatedAt);
-      setConversations(sorted);
-      await saveConversations(userId, sorted);
+
+      const nextConversations = sortConversations(updater(conversationsRef.current));
+      conversationsRef.current = nextConversations;
+      setConversations(nextConversations);
+      await saveConversations(userId, nextConversations);
     },
     [userId]
   );
@@ -104,32 +119,33 @@ export function useConversations(userId: string | undefined) {
 
   const startNewConversation = useCallback(async () => {
     const conversation = createEmptyConversation();
-    const nextConversations = [conversation, ...conversations];
-    await persistConversations(nextConversations);
+    await persistUpdater((previous) => [conversation, ...previous]);
     await selectConversation(conversation.id);
     return conversation.id;
-  }, [conversations, persistConversations, selectConversation]);
+  }, [persistUpdater, selectConversation]);
 
   const deleteConversation = useCallback(
     async (conversationId: string) => {
-      const nextConversations = conversations.filter(
+      const remaining = conversationsRef.current.filter(
         (conversation) => conversation.id !== conversationId
       );
 
-      if (nextConversations.length === 0) {
+      if (remaining.length === 0) {
         const conversation = createEmptyConversation();
-        await persistConversations([conversation]);
+        await persistUpdater(() => [conversation]);
         await selectConversation(conversation.id);
         return;
       }
 
-      await persistConversations(nextConversations);
+      await persistUpdater((previous) =>
+        previous.filter((conversation) => conversation.id !== conversationId)
+      );
 
       if (activeConversationId === conversationId) {
-        await selectConversation(nextConversations[0].id);
+        await selectConversation(remaining[0].id);
       }
     },
-    [activeConversationId, conversations, persistConversations, selectConversation]
+    [activeConversationId, persistUpdater, selectConversation]
   );
 
   const updateConversationMessages = useCallback(
@@ -137,25 +153,25 @@ export function useConversations(userId: string | undefined) {
       const now = Date.now();
       const firstUserMessage = messages.find((message) => message.role === 'user');
 
-      const nextConversations = conversations.map((conversation) => {
-        if (conversation.id !== conversationId) return conversation;
+      await persistUpdater((previous) =>
+        previous.map((conversation) => {
+          if (conversation.id !== conversationId) return conversation;
 
-        const shouldRename =
-          isDefaultConversationTitle(conversation.title) && firstUserMessage !== undefined;
+          const shouldRename =
+            isDefaultConversationTitle(conversation.title) && firstUserMessage !== undefined;
 
-        return {
-          ...conversation,
-          messages,
-          title: shouldRename
-            ? createConversationTitle(firstUserMessage.text)
-            : conversation.title,
-          updatedAt: now,
-        };
-      });
-
-      await persistConversations(nextConversations);
+          return {
+            ...conversation,
+            messages,
+            title: shouldRename
+              ? createConversationTitle(firstUserMessage.text)
+              : conversation.title,
+            updatedAt: now,
+          };
+        })
+      );
     },
-    [conversations, persistConversations]
+    [persistUpdater]
   );
 
   const renameConversation = useCallback(
@@ -163,15 +179,15 @@ export function useConversations(userId: string | undefined) {
       const trimmedTitle = title.trim();
       if (!trimmedTitle) return;
 
-      const nextConversations = conversations.map((conversation) =>
-        conversation.id === conversationId
-          ? { ...conversation, title: trimmedTitle, updatedAt: Date.now() }
-          : conversation
+      await persistUpdater((previous) =>
+        previous.map((conversation) =>
+          conversation.id === conversationId
+            ? { ...conversation, title: trimmedTitle, updatedAt: Date.now() }
+            : conversation
+        )
       );
-
-      await persistConversations(nextConversations);
     },
-    [conversations, persistConversations]
+    [persistUpdater]
   );
 
   return {
