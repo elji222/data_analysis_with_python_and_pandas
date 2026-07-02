@@ -42,7 +42,9 @@ $Files = @(
     "scripts/start-phone.ps1",
     "scripts/start-phone.cmd",
     "scripts/start-phone-lan.ps1",
-    "scripts/start-phone-lan.cmd"
+    "scripts/start-phone-lan.cmd",
+    "scripts/start-phone-ngrok.ps1",
+    "scripts/start-phone-ngrok.cmd"
 )
 
 Write-Host ""
@@ -88,8 +90,8 @@ if (-not (Test-Path $ConversationStorageFile)) {
 }
 
 $ThemeText = Get-Content $ThemeFile -Raw
-if ($ThemeText -notmatch "2026-07-02") {
-    throw "constants/chat-theme.ts is still old after download. Expected UI 2026-07-02."
+if ($ThemeText -notmatch "2026-07-03") {
+    throw "constants/chat-theme.ts is still old after download. Expected UI 2026-07-03."
 }
 
 if ($ThemeText -notmatch "threadContentMaxWidth:\s*768") {
@@ -113,9 +115,12 @@ Write-Host "Next steps:"
 Write-Host "  1. Run: npm install"
 Write-Host "  2. Run: npx expo start --clear"
 Write-Host "  3. Open: http://localhost:8081/chat"
-Write-Host "  4. Look for UI 2026-07-02 under Soulmate AI in the left sidebar"
+Write-Host "  4. Look for UI 2026-07-03 under Soulmate AI in the left sidebar"
 Write-Host ""
-Write-Host "To open on your phone with Expo Go:"
+Write-Host "To open on your phone with Expo Go (same Wi-Fi as this PC):"
 Write-Host "  1. Run: scripts\start-phone.cmd"
 Write-Host "  2. Scan the QR code with Expo Go (Android) or Camera (iPhone)"
+Write-Host ""
+Write-Host "Different Wi-Fi? Install ngrok from https://ngrok.com/download then run:"
+Write-Host "  scripts\start-phone-ngrok.cmd"
 Write-Host ""
