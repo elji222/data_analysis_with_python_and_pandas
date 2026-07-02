@@ -10,13 +10,20 @@ import {
   useColorScheme,
 } from 'react-native';
 
+import { ComposerAttachments } from '@/components/composer-attachments';
 import { ChatTheme } from '@/constants/chat-theme';
+import type { ChatAttachment } from '@/types/chat';
 
 type ChatComposerProps = {
   value: string;
   onChangeText: (text: string) => void;
   onSend: () => void;
+  onAttachPress: () => void;
+  onVoicePress: () => void;
+  attachments: ChatAttachment[];
+  onRemoveAttachment: (attachmentId: string) => void;
   isLoading?: boolean;
+  isListening?: boolean;
   variant?: 'hero' | 'bottom';
 };
 
@@ -33,12 +40,17 @@ export function ChatComposer({
   value,
   onChangeText,
   onSend,
+  onAttachPress,
+  onVoicePress,
+  attachments,
+  onRemoveAttachment,
   isLoading = false,
+  isListening = false,
   variant = 'bottom',
 }: ChatComposerProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
-  const canSend = value.trim().length > 0 && !isLoading;
+  const canSend = (value.trim().length > 0 || attachments.length > 0) && !isLoading;
   const isHero = variant === 'hero';
   const isSingleLine = !value.includes('\n');
 
@@ -76,17 +88,24 @@ export function ChatComposer({
 
   return (
     <View style={[styles.wrapper, isHero && styles.wrapperHero]}>
+      <ComposerAttachments attachments={attachments} onRemove={onRemoveAttachment} />
+
       <View
         style={[
           styles.shell,
           isHero && styles.shellHero,
+          isListening && styles.shellListening,
           {
             backgroundColor: isDark ? ChatTheme.inputBgDark : ChatTheme.inputBg,
-            borderColor: isDark ? ChatTheme.inputBorderDark : ChatTheme.inputBorder,
+            borderColor: isListening
+              ? ChatTheme.accent
+              : isDark
+                ? ChatTheme.inputBorderDark
+                : ChatTheme.inputBorder,
           },
         ]}>
         <View style={styles.contentRow}>
-          <Pressable style={styles.iconSlot} disabled={isLoading}>
+          <Pressable style={styles.iconSlot} disabled={isLoading} onPress={onAttachPress}>
             <Ionicons
               name="add"
               size={22}
@@ -103,7 +122,7 @@ export function ChatComposer({
               Platform.OS === 'web' && isSingleLine && styles.inputWebSingleLine,
               { color: isDark ? ChatTheme.assistantTextDark : ChatTheme.assistantText },
             ]}
-            placeholder="Ask anything"
+            placeholder={isListening ? 'Listening...' : 'Ask anything'}
             placeholderTextColor={ChatTheme.inputPlaceholder}
             value={value}
             onChangeText={onChangeText}
@@ -113,18 +132,21 @@ export function ChatComposer({
             submitBehavior="submit"
             multiline
             scrollEnabled={!isSingleLine}
-            editable={!isLoading}
+            editable={!isLoading && !isListening}
             underlineColorAndroid="transparent"
             selectionColor={ChatTheme.accent}
             {...webKeyDownProps}
           />
 
           <View style={styles.trailingActions}>
-            <Pressable style={styles.iconSlot} disabled={isLoading}>
+            <Pressable
+              style={[styles.iconSlot, isListening && styles.iconSlotActive]}
+              disabled={isLoading}
+              onPress={onVoicePress}>
               <Ionicons
-                name="mic-outline"
+                name={isListening ? 'mic' : 'mic-outline'}
                 size={20}
-                color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
+                color={isListening ? ChatTheme.accent : isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
               />
             </Pressable>
             <Pressable
@@ -171,6 +193,10 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     paddingVertical: 8,
   },
+  shellListening: {
+    shadowColor: ChatTheme.accent,
+    shadowOpacity: 0.18,
+  },
   contentRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -181,6 +207,10 @@ const styles = StyleSheet.create({
     height: ICON_SLOT,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 20,
+  },
+  iconSlotActive: {
+    backgroundColor: '#F3EEFF',
   },
   input: {
     flex: 1,

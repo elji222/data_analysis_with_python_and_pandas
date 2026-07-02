@@ -44,7 +44,14 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Soulmate AI needs access to your photos so you can share images in chat.",
+          "cameraPermission": "Soulmate AI needs camera access so you can take photos for chat."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
 import { FormattedMessageText } from '@/components/formatted-message-text';
@@ -16,6 +18,7 @@ export function ChatBubble({ message, isStreaming = false }: ChatBubbleProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
   const isUser = message.role === 'user';
+  const attachments = message.attachments ?? [];
 
   if (isUser) {
     return (
@@ -25,12 +28,39 @@ export function ChatBubble({ message, isStreaming = false }: ChatBubbleProps) {
             styles.userBubble,
             { backgroundColor: isDark ? ChatTheme.userBubbleDark : ChatTheme.userBubble },
           ]}>
-          <FormattedMessageText
-            lightColor="#0D0D0D"
-            darkColor="#ECECEC"
-            style={styles.messageText}
-            text={message.text}
-          />
+          {attachments.length > 0 ? (
+            <View style={styles.attachmentStack}>
+              {attachments.map((attachment) =>
+                attachment.kind === 'image' ? (
+                  <Image
+                    key={attachment.id}
+                    source={{ uri: attachment.uri }}
+                    style={styles.messageImage}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <View key={attachment.id} style={styles.fileChip}>
+                    <Ionicons name="document-outline" size={16} color={ChatTheme.sidebarMuted} />
+                    <ThemedText numberOfLines={1} style={styles.fileName}>
+                      {attachment.name}
+                    </ThemedText>
+                  </View>
+                )
+              )}
+            </View>
+          ) : null}
+
+          {message.text ? (
+            <FormattedMessageText
+              lightColor="#0D0D0D"
+              darkColor="#ECECEC"
+              style={[
+                styles.messageText,
+                attachments.length > 0 ? styles.messageTextWithAttachment : undefined,
+              ]}
+              text={message.text}
+            />
+          ) : null}
         </View>
       </View>
     );
@@ -76,6 +106,29 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 24,
   },
+  attachmentStack: {
+    gap: 8,
+    marginBottom: 8,
+  },
+  messageImage: {
+    width: 220,
+    height: 160,
+    borderRadius: 14,
+  },
+  fileChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  fileName: {
+    flex: 1,
+    fontSize: 14,
+    color: ChatTheme.sidebarText,
+  },
   assistantRow: {
     width: '100%',
     marginBottom: 24,
@@ -84,6 +137,9 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 16,
     lineHeight: 26,
+  },
+  messageTextWithAttachment: {
+    marginTop: 4,
   },
   thinkingText: {
     fontSize: 15,

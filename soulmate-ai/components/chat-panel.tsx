@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -17,10 +18,19 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ChatTheme, QUICK_ACTIONS } from '@/constants/chat-theme';
 import { useSmoothStreamingText } from '@/hooks/use-smooth-streaming-text';
+import { useVoiceInput } from '@/hooks/use-voice-input';
+import {
+  canAddImageAttachment,
+  pickDocument,
+  pickImageFromLibrary,
+  showAttachMenu,
+  takePhoto,
+} from '@/lib/attachments';
+import { getMessagePreviewText, cloneAttachments } from '@/lib/build-chat-api-messages';
 import { isDefaultConversationTitle } from '@/lib/conversation-title';
 import { streamChatMessage } from '@/services/chat-api';
 import { fetchConversationTitle } from '@/services/title-api';
-import type { ChatMessage } from '@/types/chat';
+import type { ChatAttachment, ChatMessage } from '@/types/chat';
 import type { Conversation } from '@/types/conversation';
 
 type ChatPanelProps = {
@@ -44,9 +54,22 @@ export function ChatPanel({
   const isDark = colorScheme === 'dark';
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const [input, setInput] = useState('');
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const handleVoiceTranscript = useCallback((transcript: string, isFinal: boolean) => {
+    if (!isFinal || !transcript.trim()) return;
+
+    setInput((previous) => {
+      const trimmedPrevious = previous.trim();
+      return trimmedPrevious ? `${trimmedPrevious} ${transcript.trim()}` : transcript.trim();
+    });
+  }, []);
+
+  const { isListening, isSupported, toggleListening, stopListening } =
+    useVoiceInput(handleVoiceTranscript);
 
   const messages = conversation?.messages ?? [];
   const isStreaming = streamingText !== null;
@@ -58,10 +81,12 @@ export function ChatPanel({
 
   useEffect(() => {
     setInput('');
+    setAttachments([]);
     setError(null);
     setStreamingText(null);
     setIsLoading(false);
-  }, [conversation?.id]);
+    stopListening();
+  }, [conversation?.id, stopListening]);
 
   function scrollToEnd() {
     requestAnimationFrame(() => {
@@ -74,40 +99,92 @@ export function ChatPanel({
     scrollToEnd();
   }, [smoothStreamingText, isStreaming]);
 
-  async function sendMessage(text: string) {
+  async function handleAttach(action: 'library' | 'camera' | 'document') {
+    try {
+      let attachment: ChatAttachment | null = null;
+
+      if (action === 'library') {
+        attachment = await pickImageFromLibrary();
+      } else if (action === 'camera') {
+        attachment = await takePhoto();
+      } else {
+        attachment = await pickDocument();
+      }
+
+      if (!attachment) return;
+
+      if (attachment.kind === 'image' && !canAddImageAttachment(attachments)) {
+        Alert.alert('Image limit', 'You can attach up to 3 images per message.');
+        return;
+      }
+
+      setAttachments((previous) => [...previous, attachment!]);
+    } catch (attachError) {
+      const message =
+        attachError instanceof Error ? attachError.message : 'Could not attach that file.';
+      Alert.alert('Attachment failed', message);
+    }
+  }
+
+  function handleAttachPress() {
+    showAttachMenu((action) => {
+      void handleAttach(action);
+    });
+  }
+
+  function handleVoicePress() {
+    if (!isSupported) {
+      Alert.alert(
+        'Voice input',
+        Platform.OS === 'web'
+          ? 'Voice input works best in Chrome or Edge on desktop.'
+          : 'Voice input is available in the web app for now.'
+      );
+      return;
+    }
+
+    const started = toggleListening();
+    if (!started && !isListening) {
+      Alert.alert('Voice input', 'Could not start the microphone. Check browser permissions.');
+    }
+  }
+
+  function handleRemoveAttachment(attachmentId: string) {
+    setAttachments((previous) => previous.filter((attachment) => attachment.id !== attachmentId));
+  }
+
+  async function sendMessage(text: string, pendingAttachments: ChatAttachment[] = attachments) {
     if (!conversation) return;
 
     const trimmed = text.trim();
-    if (!trimmed || isLoading) return;
+    if ((!trimmed && pendingAttachments.length === 0) || isLoading) return;
 
     const isFirstExchange = messages.length === 0;
+    const messageAttachments = cloneAttachments(pendingAttachments);
 
     const userMessage: ChatMessage = {
       id: `${Date.now()}-user`,
       text: trimmed,
       role: 'user',
       createdAt: Date.now(),
+      attachments: messageAttachments.length > 0 ? messageAttachments : undefined,
     };
 
     const nextMessages = [...messages, userMessage];
 
     setInput('');
+    setAttachments([]);
     setError(null);
     setIsLoading(true);
     setStreamingText(null);
+    stopListening();
     await onUpdateMessages(conversation.id, nextMessages);
     scrollToEnd();
 
     try {
-      const reply = await streamChatMessage(
-        nextMessages.map((message) => ({
-          role: message.role,
-          content: message.text,
-        })),
-        (partialText) => {
-          setStreamingText(partialText);
-        }
-      );
+      const reply = await streamChatMessage(nextMessages, (partialText) => {
+        setStreamingText(partialText);
+      });
 
       const assistantMessage: ChatMessage = {
         id: `${Date.now()}-assistant`,
@@ -120,7 +197,7 @@ export function ChatPanel({
       await onUpdateMessages(conversation.id, [...nextMessages, assistantMessage]);
 
       if (isFirstExchange && onRenameConversation) {
-        const title = await fetchConversationTitle(trimmed);
+        const title = await fetchConversationTitle(getMessagePreviewText(userMessage));
         await onRenameConversation(conversation.id, title);
       }
     } catch (sendError) {
@@ -135,23 +212,34 @@ export function ChatPanel({
   }
 
   function handleSend() {
-    void sendMessage(input);
+    void sendMessage(input, attachments);
   }
 
-  const listData: ChatMessage[] =
-    isStreaming
-      ? [
-          ...messages,
-          {
-            id: 'streaming-assistant',
-            text: smoothStreamingText,
-            role: 'assistant',
-            createdAt: Date.now(),
-          },
-        ]
-      : messages;
+  const listData: ChatMessage[] = isStreaming
+    ? [
+        ...messages,
+        {
+          id: 'streaming-assistant',
+          text: smoothStreamingText,
+          role: 'assistant',
+          createdAt: Date.now(),
+        },
+      ]
+    : messages;
 
   const userInitial = userEmail?.charAt(0).toUpperCase() ?? '?';
+
+  const composerProps = {
+    value: input,
+    onChangeText: setInput,
+    onSend: handleSend,
+    onAttachPress: handleAttachPress,
+    onVoicePress: handleVoicePress,
+    attachments,
+    onRemoveAttachment: handleRemoveAttachment,
+    isLoading,
+    isListening,
+  };
 
   return (
     <ThemedView
@@ -182,78 +270,67 @@ export function ChatPanel({
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
           <View style={styles.mainColumn}>
-          {showHeroEmpty ? (
-            <View style={styles.heroState}>
-              <ThemedText
-                lightColor={ChatTheme.assistantText}
-                darkColor={ChatTheme.assistantTextDark}
-                style={styles.heroTitle}>
-                What&apos;s on your mind today?
-              </ThemedText>
-
-              <ChatComposer
-                variant="hero"
-                value={input}
-                onChangeText={setInput}
-                onSend={handleSend}
-                isLoading={isLoading}
-              />
-
-              <View style={styles.quickActions}>
-                {QUICK_ACTIONS.map((action) => (
-                  <Pressable
-                    key={action.label}
-                    style={({ pressed }) => [
-                      styles.quickActionChip,
-                      {
-                        borderColor: isDark ? ChatTheme.inputBorderDark : ChatTheme.inputBorder,
-                        backgroundColor: isDark ? ChatTheme.inputBgDark : ChatTheme.pageBg,
-                      },
-                      pressed && styles.pressed,
-                    ]}
-                    onPress={() => void sendMessage(action.prompt)}>
-                    <Ionicons
-                      name={action.icon}
-                      size={16}
-                      color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
-                    />
-                    <ThemedText style={styles.quickActionLabel}>{action.label}</ThemedText>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          ) : (
-            <View style={styles.threadArea}>
-              <FlatList
-                ref={listRef}
-                data={listData}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.messageList}
-                onContentSizeChange={scrollToEnd}
-                ListFooterComponent={<StreamingPlaceholder visible={showThinking} />}
-                renderItem={({ item }) => (
-                  <ChatBubble
-                    message={item}
-                    isStreaming={item.id === 'streaming-assistant' && isStreaming}
-                  />
-                )}
-              />
-
-              {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
-
-              <View style={styles.bottomComposerArea}>
-                <ChatComposer
-                  value={input}
-                  onChangeText={setInput}
-                  onSend={handleSend}
-                  isLoading={isLoading}
-                />
-                <ThemedText style={styles.disclaimer}>
-                  Soulmate AI can make mistakes. Consider checking important information.
+            {showHeroEmpty ? (
+              <View style={styles.heroState}>
+                <ThemedText
+                  lightColor={ChatTheme.assistantText}
+                  darkColor={ChatTheme.assistantTextDark}
+                  style={styles.heroTitle}>
+                  What&apos;s on your mind today?
                 </ThemedText>
+
+                <ChatComposer variant="hero" {...composerProps} />
+
+                <View style={styles.quickActions}>
+                  {QUICK_ACTIONS.map((action) => (
+                    <Pressable
+                      key={action.label}
+                      style={({ pressed }) => [
+                        styles.quickActionChip,
+                        {
+                          borderColor: isDark ? ChatTheme.inputBorderDark : ChatTheme.inputBorder,
+                          backgroundColor: isDark ? ChatTheme.inputBgDark : ChatTheme.pageBg,
+                        },
+                        pressed && styles.pressed,
+                      ]}
+                      onPress={() => void sendMessage(action.prompt)}>
+                      <Ionicons
+                        name={action.icon}
+                        size={16}
+                        color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
+                      />
+                      <ThemedText style={styles.quickActionLabel}>{action.label}</ThemedText>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
-            </View>
-          )}
+            ) : (
+              <View style={styles.threadArea}>
+                <FlatList
+                  ref={listRef}
+                  data={listData}
+                  keyExtractor={(item) => item.id}
+                  contentContainerStyle={styles.messageList}
+                  onContentSizeChange={scrollToEnd}
+                  ListFooterComponent={<StreamingPlaceholder visible={showThinking} />}
+                  renderItem={({ item }) => (
+                    <ChatBubble
+                      message={item}
+                      isStreaming={item.id === 'streaming-assistant' && isStreaming}
+                    />
+                  )}
+                />
+
+                {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+
+                <View style={styles.bottomComposerArea}>
+                  <ChatComposer {...composerProps} />
+                  <ThemedText style={styles.disclaimer}>
+                    Soulmate AI can make mistakes. Consider checking important information.
+                  </ThemedText>
+                </View>
+              </View>
+            )}
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>

@@ -12,9 +12,12 @@ $Files = @(
     "app/_layout.tsx",
     "app/api/chat+api.ts",
     "app/api/title+api.ts",
+    "app.json",
+    "package.json",
     "components/chat-bubble.tsx",
     "components/chat-composer.tsx",
     "components/chat-panel.tsx",
+    "components/composer-attachments.tsx",
     "components/conversation-sidebar.tsx",
     "components/formatted-message-text.tsx",
     "components/streaming-cursor.tsx",
@@ -22,10 +25,14 @@ $Files = @(
     "constants/chat-theme.ts",
     "hooks/use-conversations.ts",
     "hooks/use-smooth-streaming-text.ts",
+    "hooks/use-voice-input.ts",
+    "lib/attachments.ts",
+    "lib/build-chat-api-messages.ts",
     "lib/conversation-title.ts",
     "services/chat-api.ts",
     "services/conversation-storage.ts",
-    "services/title-api.ts"
+    "services/title-api.ts",
+    "types/chat.ts"
 )
 
 Write-Host ""
@@ -51,9 +58,14 @@ foreach ($RelativePath in $Files) {
 $ThemeFile = Join-Path $Root "constants\chat-theme.ts"
 $ChatFile = Join-Path $Root "app\(tabs)\chat.tsx"
 $ComposerFile = Join-Path $Root "components\chat-composer.tsx"
+$AttachmentsFile = Join-Path $Root "lib\attachments.ts"
 
 if (-not (Test-Path $ComposerFile)) {
     throw "Missing components/chat-composer.tsx after download."
+}
+
+if (-not (Test-Path $AttachmentsFile)) {
+    throw "Missing lib/attachments.ts after download."
 }
 
 $ThemeText = Get-Content $ThemeFile -Raw
@@ -62,16 +74,16 @@ if ($ThemeText -notmatch "UI_VERSION") {
 }
 
 $ChatText = Get-Content $ChatFile -Raw
-if ($ChatText -notmatch "ConversationSidebar") {
-    throw "app/(tabs)/chat.tsx is still old after download."
+if ($ChatText -notmatch "handleAttachPress") {
+    throw "app/(tabs)/chat.tsx or chat-panel is still old after download."
 }
 
 Write-Host ""
 Write-Host "SUCCESS. Files updated."
 Write-Host ""
 Write-Host "Next steps:"
-Write-Host "  1. Close the browser tab completely"
+Write-Host "  1. Run: npm install"
 Write-Host "  2. Run: npx expo start --clear"
 Write-Host "  3. Open: http://localhost:8081/chat"
-Write-Host "  4. Look for UI 2025-07-03 under Soulmate AI in the left sidebar"
+Write-Host "  4. Look for UI 2025-07-04 under Soulmate AI in the left sidebar"
 Write-Host ""

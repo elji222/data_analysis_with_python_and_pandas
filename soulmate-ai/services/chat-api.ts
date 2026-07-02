@@ -1,4 +1,5 @@
-import type { ChatApiMessage } from '@/types/chat';
+import { buildChatApiMessages } from '@/lib/build-chat-api-messages';
+import type { ChatApiMessage, ChatMessage } from '@/types/chat';
 
 type StreamEvent = {
   text?: string;
@@ -6,16 +7,18 @@ type StreamEvent = {
 };
 
 export async function streamChatMessage(
-  messages: ChatApiMessage[],
+  messages: ChatMessage[],
   onDelta: (fullText: string) => void
 ): Promise<string> {
+  const apiMessages: ChatApiMessage[] = buildChatApiMessages(messages);
+
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
     },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ messages: apiMessages }),
   });
 
   const contentType = response.headers.get('content-type') ?? '';

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { getMessagePreviewText } from '@/lib/build-chat-api-messages';
+import { createConversationTitle, isDefaultConversationTitle, shouldShortenConversationTitle } from '@/lib/conversation-title';
 import {
-  createConversationTitle,
   createEmptyConversation,
   loadActiveConversationId,
   loadConversations,
   saveActiveConversationId,
   saveConversations,
 } from '@/services/conversation-storage';
-import { isDefaultConversationTitle, shouldShortenConversationTitle } from '@/lib/conversation-title';
 import type { ChatMessage } from '@/types/chat';
 import type { Conversation } from '@/types/conversation';
 
@@ -179,17 +179,17 @@ export function useConversations(userId: string | undefined) {
         previous.map((conversation) => {
           if (conversation.id !== conversationId) return conversation;
 
-          const shouldRename =
-            isDefaultConversationTitle(conversation.title) && firstUserMessage !== undefined;
+        const shouldRename =
+          isDefaultConversationTitle(conversation.title) && firstUserMessage !== undefined;
 
-          return {
-            ...conversation,
-            messages,
-            title: shouldRename
-              ? createConversationTitle(firstUserMessage.text)
-              : conversation.title,
-            updatedAt: now,
-          };
+        return {
+          ...conversation,
+          messages,
+          title: shouldRename
+            ? createConversationTitle(getMessagePreviewText(firstUserMessage))
+            : conversation.title,
+          updatedAt: now,
+        };
         })
       );
     },
