@@ -67,6 +67,7 @@ export function ChatPanel({
   const {
     isRecording,
     isSupported,
+    transcript: recordingTranscript,
     audioLevels,
     startRecording,
     cancelRecording,
@@ -163,8 +164,8 @@ export function ChatPanel({
     setStatusMessage(null);
   }
 
-  function handleVoiceConfirm() {
-    const spokenText = confirmRecording();
+  async function handleVoiceConfirm() {
+    const spokenText = await confirmRecording();
     const base = inputBeforeRecordingRef.current.trim();
 
     if (spokenText) {
@@ -172,7 +173,7 @@ export function ChatPanel({
       setStatusMessage('Voice added to your message');
     } else {
       setInput(base);
-      setStatusMessage('No speech detected. Try speaking again.');
+      setStatusMessage('No speech detected. Speak clearly, then tap the checkmark.');
     }
 
     inputBeforeRecordingRef.current = '';
@@ -266,11 +267,12 @@ export function ChatPanel({
     onAttachPress: handleAttachPress,
     onVoicePress: () => void handleVoicePress(),
     onVoiceCancel: handleVoiceCancel,
-    onVoiceConfirm: handleVoiceConfirm,
+    onVoiceConfirm: () => void handleVoiceConfirm(),
     attachments,
     onRemoveAttachment: handleRemoveAttachment,
     isLoading,
     isRecording,
+    recordingTranscript,
     audioLevels,
   };
 

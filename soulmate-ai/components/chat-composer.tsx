@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { ComposerAttachments } from '@/components/composer-attachments';
+import { ThemedText } from '@/components/themed-text';
 import { VoiceWaveform } from '@/components/voice-waveform';
 import { ChatTheme } from '@/constants/chat-theme';
 import type { ChatAttachment } from '@/types/chat';
@@ -27,6 +28,7 @@ type ChatComposerProps = {
   onRemoveAttachment: (attachmentId: string) => void;
   isLoading?: boolean;
   isRecording?: boolean;
+  recordingTranscript?: string;
   audioLevels?: number[];
   variant?: 'hero' | 'bottom';
 };
@@ -52,6 +54,7 @@ export function ChatComposer({
   onRemoveAttachment,
   isLoading = false,
   isRecording = false,
+  recordingTranscript = '',
   audioLevels = [],
   variant = 'bottom',
 }: ChatComposerProps) {
@@ -128,6 +131,11 @@ export function ChatComposer({
           {isRecording ? (
             <View style={styles.recordingCenter}>
               <VoiceWaveform levels={audioLevels} />
+              {recordingTranscript ? (
+                <ThemedText numberOfLines={1} style={styles.recordingPreview}>
+                  {recordingTranscript}
+                </ThemedText>
+              ) : null}
             </View>
           ) : (
             <TextInput
@@ -249,6 +257,14 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: SINGLE_LINE_HEIGHT,
     justifyContent: 'center',
+    gap: 2,
+  },
+  recordingPreview: {
+    fontSize: 12,
+    lineHeight: 16,
+    opacity: 0.55,
+    textAlign: 'center',
+    paddingHorizontal: 8,
   },
   iconSlot: {
     width: ICON_SLOT,
