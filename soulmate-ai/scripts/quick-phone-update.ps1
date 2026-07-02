@@ -30,6 +30,7 @@ $Files = @(
     "lib/attachments.ts",
     "lib/auth.ts",
     "lib/enforce-build-version.ts",
+    "lib/browser-capabilities.ts",
     "lib/web-file-picker.ts",
     "metro.config.js",
     "scripts/start-phone.ps1",

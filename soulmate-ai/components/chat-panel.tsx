@@ -29,6 +29,9 @@ import { useMobileChatLayout } from '@/hooks/use-mobile-chat-layout';
 import { useCompactWebLayout } from '@/hooks/use-wide-layout';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import {
+  getWebVoiceUnsupportedReason,
+} from '@/lib/browser-capabilities';
+import {
   canAddImageAttachment,
   pickPhotosAndFiles,
   shouldShowCameraOption,
@@ -163,18 +166,7 @@ export function ChatPanel({
 
   async function handleVoicePress() {
     if (!isSupported) {
-      const isIosSafari =
-        Platform.OS === 'web' &&
-        typeof navigator !== 'undefined' &&
-        /iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-      setError(
-        isIosSafari
-          ? 'Voice input is not supported in iPhone Safari. Open this page in Chrome on your phone, or type your message.'
-          : Platform.OS === 'web'
-            ? 'Voice input works in Chrome or Edge. Try opening the app in one of those browsers.'
-            : 'Voice input is available in the web app for now.'
-      );
+      setError(getWebVoiceUnsupportedReason() ?? 'Voice input is not available right now.');
       return;
     }
 
@@ -350,6 +342,8 @@ export function ChatPanel({
 
   const userInitial = userEmail?.charAt(0).toUpperCase() ?? '?';
 
+  const voiceHint = !isSupported && isMobileChatLayout ? getWebVoiceUnsupportedReason() : null;
+
   const composerProps = {
     value: input,
     onChangeText: setInput,
@@ -425,6 +419,9 @@ export function ChatPanel({
               <MobileQuickSuggestions onSelect={(prompt) => void sendMessage(prompt)} />
               <View style={styles.mobileBottomArea}>
                 {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+                {voiceHint && !error ? (
+                  <ThemedText style={styles.voiceHintText}>{voiceHint}</ThemedText>
+                ) : null}
                 <ChatComposer variant="bottom" {...composerProps} />
               </View>
             </View>
@@ -522,6 +519,9 @@ export function ChatPanel({
                   ) : null}
                   {statusMessage && !error ? (
                     <ThemedText style={styles.statusText}>{statusMessage}</ThemedText>
+                  ) : null}
+                  {voiceHint && !error && !statusMessage ? (
+                    <ThemedText style={styles.voiceHintText}>{voiceHint}</ThemedText>
                   ) : null}
 
                   <View
@@ -790,6 +790,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 8,
     fontSize: 14,
+  },
+  voiceHintText: {
+    color: ChatTheme.sidebarMuted,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 6,
+    fontSize: 12,
+    lineHeight: 16,
   },
   bottomComposerArea: {
     paddingHorizontal: 4,

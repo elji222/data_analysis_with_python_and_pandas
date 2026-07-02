@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
+import {
+  canUseWebVoiceInput,
+  getSpeechRecognitionConstructor,
+} from '@/lib/browser-capabilities';
+
 export const VOICE_WAVEFORM_BAR_COUNT = 48;
 
 type SpeechRecognitionAlternative = {
@@ -37,17 +42,6 @@ type SpeechRecognitionInstance = {
 };
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
-
-function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null {
-  if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
-
-  const browserWindow = window as typeof window & {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  };
-
-  return browserWindow.SpeechRecognition ?? browserWindow.webkitSpeechRecognition ?? null;
-}
 
 function createIdleLevels(): number[] {
   return Array.from({ length: VOICE_WAVEFORM_BAR_COUNT }, () => 0.12);
@@ -138,7 +132,7 @@ export function useVoiceInput() {
   }, [stopAudioMonitor, stopRecognition]);
 
   useEffect(() => {
-    setIsSupported(getSpeechRecognitionConstructor() !== null);
+    setIsSupported(canUseWebVoiceInput());
 
     return () => {
       teardown();
@@ -265,9 +259,9 @@ export function useVoiceInput() {
   );
 
   const startRecording = useCallback(async () => {
-    const SpeechRecognition = getSpeechRecognitionConstructor();
+    const SpeechRecognition = getSpeechRecognitionConstructor() as SpeechRecognitionConstructor | null;
 
-    if (!SpeechRecognition || isRecordingRef.current) {
+    if (!SpeechRecognition || !canUseWebVoiceInput() || isRecordingRef.current) {
       return false;
     }
 

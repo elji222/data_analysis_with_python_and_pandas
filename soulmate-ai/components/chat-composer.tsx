@@ -107,6 +107,12 @@ export function ChatComposer({
 
   function handleAttachPress() {
     if (isLoading || isRecording) return;
+
+    if (isMobileLayout) {
+      onPickAttach('photos-and-files');
+      return;
+    }
+
     setIsAttachMenuOpen((open) => !open);
   }
 
