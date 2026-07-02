@@ -106,7 +106,6 @@ export function ChatPanel({
         })),
         (partialText) => {
           setStreamingText(partialText);
-          scrollToEnd();
         }
       );
 
