@@ -1,4 +1,4 @@
-export const UI_VERSION = '2025-07-08';
+export const UI_VERSION = '2025-07-09';
 
 export const ChatTheme = {
   pageBg: '#FFFFFF',

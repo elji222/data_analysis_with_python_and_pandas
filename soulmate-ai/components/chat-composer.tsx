@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import {
   NativeSyntheticEvent,
   Platform,
@@ -10,6 +11,7 @@ import {
   useColorScheme,
 } from 'react-native';
 
+import { AttachPopover } from '@/components/attach-popover';
 import { ComposerAttachments } from '@/components/composer-attachments';
 import { ThemedText } from '@/components/themed-text';
 import { VoiceWaveform } from '@/components/voice-waveform';
@@ -20,7 +22,7 @@ type ChatComposerProps = {
   value: string;
   onChangeText: (text: string) => void;
   onSend: () => void;
-  onAttachPress: () => void;
+  onPickAttach: (action: 'photos-and-files' | 'camera') => void;
   onVoicePress: () => void;
   onVoiceCancel?: () => void;
   onVoiceConfirm?: () => void;
@@ -30,6 +32,7 @@ type ChatComposerProps = {
   isRecording?: boolean;
   recordingTranscript?: string;
   audioLevels?: number[];
+  showCameraOption?: boolean;
   variant?: 'hero' | 'bottom';
 };
 
@@ -46,7 +49,7 @@ export function ChatComposer({
   value,
   onChangeText,
   onSend,
-  onAttachPress,
+  onPickAttach,
   onVoicePress,
   onVoiceCancel,
   onVoiceConfirm,
@@ -56,13 +59,16 @@ export function ChatComposer({
   isRecording = false,
   recordingTranscript = '',
   audioLevels = [],
+  showCameraOption = false,
   variant = 'bottom',
 }: ChatComposerProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
+  const [isAttachMenuOpen, setIsAttachMenuOpen] = useState(false);
   const canSend = (value.trim().length > 0 || attachments.length > 0) && !isLoading && !isRecording;
   const isHero = variant === 'hero';
   const isSingleLine = !value.includes('\n');
+  const hasAttachments = attachments.length > 0;
 
   function trySend() {
     if (canSend) {
@@ -96,121 +102,151 @@ export function ChatComposer({
         }
       : {};
 
+  function handleAttachPress() {
+    if (isLoading || isRecording) return;
+    setIsAttachMenuOpen((open) => !open);
+  }
+
+  function handlePickAttach(action: 'photos-and-files' | 'camera') {
+    setIsAttachMenuOpen(false);
+    onPickAttach(action);
+  }
+
   return (
     <View style={[styles.wrapper, isHero && styles.wrapperHero]}>
-      <ComposerAttachments attachments={attachments} onRemove={onRemoveAttachment} />
+      <View style={styles.composerStack}>
+        <AttachPopover
+          visible={isAttachMenuOpen}
+          onClose={() => setIsAttachMenuOpen(false)}
+          onPick={handlePickAttach}
+          showCamera={showCameraOption}
+        />
 
-      <View
-        style={[
-          styles.shell,
-          isHero && styles.shellHero,
-          isRecording && styles.shellRecording,
-          {
-            backgroundColor: isDark ? ChatTheme.inputBgDark : ChatTheme.inputBg,
-            borderColor: isRecording
-              ? ChatTheme.accent
-              : isDark
-                ? ChatTheme.inputBorderDark
-                : ChatTheme.inputBorder,
-          },
-        ]}>
-        <View style={styles.contentRow}>
-          <Pressable
-            style={({ pressed }) => [styles.iconSlot, pressed && styles.iconPressed]}
-            disabled={isLoading || isRecording}
-            onPress={onAttachPress}
-            accessibilityRole="button"
-            accessibilityLabel="Attach file">
-            <Ionicons
-              name="add"
-              size={22}
-              color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
+        <View
+          style={[
+            styles.shell,
+            isHero && styles.shellHero,
+            hasAttachments && styles.shellWithAttachments,
+            isRecording && styles.shellRecording,
+            {
+              backgroundColor: isDark ? ChatTheme.inputBgDark : ChatTheme.inputBg,
+              borderColor: isRecording
+                ? ChatTheme.accent
+                : isDark
+                  ? ChatTheme.inputBorderDark
+                  : ChatTheme.inputBorder,
+            },
+          ]}>
+          {hasAttachments ? (
+            <ComposerAttachments
+              attachments={attachments}
+              onRemove={onRemoveAttachment}
+              variant="inside"
             />
-          </Pressable>
+          ) : null}
 
-          {isRecording ? (
-            <View style={styles.recordingCenter}>
-              <VoiceWaveform levels={audioLevels} />
-              {recordingTranscript ? (
-                <ThemedText numberOfLines={1} style={styles.recordingPreview}>
-                  {recordingTranscript}
-                </ThemedText>
-              ) : null}
-            </View>
-          ) : (
-            <TextInput
-              style={[
-                styles.input,
-                isHero && styles.inputHero,
-                isSingleLine && styles.inputSingleLine,
-                Platform.OS === 'web' && styles.inputWeb,
-                Platform.OS === 'web' && isSingleLine && styles.inputWebSingleLine,
-                { color: isDark ? ChatTheme.assistantTextDark : ChatTheme.assistantText },
+          <View style={styles.contentRow}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.iconSlot,
+                isAttachMenuOpen && styles.iconSlotActive,
+                pressed && styles.iconPressed,
               ]}
-              placeholder="Ask anything"
-              placeholderTextColor={ChatTheme.inputPlaceholder}
-              value={value}
-              onChangeText={onChangeText}
-              onKeyPress={handleKeyPress}
-              returnKeyType="send"
-              blurOnSubmit={false}
-              submitBehavior="submit"
-              multiline
-              scrollEnabled={!isSingleLine}
-              editable={!isLoading}
-              underlineColorAndroid="transparent"
-              selectionColor={ChatTheme.accent}
-              {...webKeyDownProps}
-            />
-          )}
+              disabled={isLoading || isRecording}
+              onPress={handleAttachPress}
+              accessibilityRole="button"
+              accessibilityLabel="Attach file">
+              <Ionicons
+                name="add"
+                size={22}
+                color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
+              />
+            </Pressable>
 
-          {isRecording ? (
-            <View style={styles.recordingActions}>
-              <Pressable
-                style={({ pressed }) => [styles.iconSlot, pressed && styles.iconPressed]}
-                onPress={() => onVoiceCancel?.()}
-                accessibilityRole="button"
-                accessibilityLabel="Cancel voice input">
-                <Ionicons
-                  name="close"
-                  size={22}
-                  color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
-                />
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [styles.confirmButton, pressed && styles.pressed]}
-                onPress={() => onVoiceConfirm?.()}
-                accessibilityRole="button"
-                accessibilityLabel="Confirm voice input">
-                <Ionicons name="checkmark" size={20} color="#FFFFFF" />
-              </Pressable>
-            </View>
-          ) : (
-            <View style={styles.trailingActions}>
-              <Pressable
-                style={({ pressed }) => [styles.iconSlot, pressed && styles.iconPressed]}
-                disabled={isLoading}
-                onPress={onVoicePress}
-                accessibilityRole="button"
-                accessibilityLabel="Voice input">
-                <Ionicons
-                  name="mic-outline"
-                  size={20}
-                  color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
-                />
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.sendButton,
-                  !canSend && styles.sendButtonDisabled,
-                  pressed && canSend && styles.pressed,
+            {isRecording ? (
+              <View style={styles.recordingCenter}>
+                <VoiceWaveform levels={audioLevels} />
+                {recordingTranscript ? (
+                  <ThemedText numberOfLines={1} style={styles.recordingPreview}>
+                    {recordingTranscript}
+                  </ThemedText>
+                ) : null}
+              </View>
+            ) : (
+              <TextInput
+                style={[
+                  styles.input,
+                  isHero && styles.inputHero,
+                  isSingleLine && styles.inputSingleLine,
+                  Platform.OS === 'web' && styles.inputWeb,
+                  Platform.OS === 'web' && isSingleLine && styles.inputWebSingleLine,
+                  { color: isDark ? ChatTheme.assistantTextDark : ChatTheme.assistantText },
                 ]}
-                onPress={onSend}
-                disabled={!canSend}>
-                <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
-              </Pressable>
-            </View>
-          )}
+                placeholder="Ask anything"
+                placeholderTextColor={ChatTheme.inputPlaceholder}
+                value={value}
+                onChangeText={onChangeText}
+                onKeyPress={handleKeyPress}
+                returnKeyType="send"
+                blurOnSubmit={false}
+                submitBehavior="submit"
+                multiline
+                scrollEnabled={!isSingleLine}
+                editable={!isLoading}
+                underlineColorAndroid="transparent"
+                selectionColor={ChatTheme.accent}
+                {...webKeyDownProps}
+              />
+            )}
+
+            {isRecording ? (
+              <View style={styles.recordingActions}>
+                <Pressable
+                  style={({ pressed }) => [styles.iconSlot, pressed && styles.iconPressed]}
+                  onPress={() => onVoiceCancel?.()}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel voice input">
+                  <Ionicons
+                    name="close"
+                    size={22}
+                    color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
+                  />
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [styles.confirmButton, pressed && styles.pressed]}
+                  onPress={() => onVoiceConfirm?.()}
+                  accessibilityRole="button"
+                  accessibilityLabel="Confirm voice input">
+                  <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.trailingActions}>
+                <Pressable
+                  style={({ pressed }) => [styles.iconSlot, pressed && styles.iconPressed]}
+                  disabled={isLoading}
+                  onPress={onVoicePress}
+                  accessibilityRole="button"
+                  accessibilityLabel="Voice input">
+                  <Ionicons
+                    name="mic-outline"
+                    size={20}
+                    color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
+                  />
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.sendButton,
+                    !canSend && styles.sendButtonDisabled,
+                    pressed && canSend && styles.pressed,
+                  ]}
+                  onPress={onSend}
+                  disabled={!canSend}>
+                  <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
+                </Pressable>
+              </View>
+            )}
+          </View>
         </View>
       </View>
     </View>
@@ -226,6 +262,10 @@ const styles = StyleSheet.create({
   wrapperHero: {
     width: '100%',
   },
+  composerStack: {
+    position: 'relative',
+    width: '100%',
+  },
   shell: {
     borderWidth: 1,
     borderRadius: 28,
@@ -238,6 +278,10 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
+  },
+  shellWithAttachments: {
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   shellHero: {
     minHeight: 58,
@@ -275,6 +319,9 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'web'
       ? ({ cursor: 'pointer', zIndex: 2 } as const)
       : {}),
+  },
+  iconSlotActive: {
+    backgroundColor: '#F0F0F0',
   },
   iconPressed: {
     opacity: 0.7,

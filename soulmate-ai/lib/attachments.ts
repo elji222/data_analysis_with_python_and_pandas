@@ -109,6 +109,17 @@ export async function takePhoto(): Promise<ChatAttachment | null> {
   });
 }
 
+export async function pickPhotosAndFiles(): Promise<ChatAttachment | null> {
+  if (Platform.OS === 'web') {
+    return pickDocument();
+  }
+
+  const image = await pickImageFromLibrary();
+  if (image) return image;
+
+  return pickDocument();
+}
+
 export async function pickDocument(): Promise<ChatAttachment | null> {
   const result = await DocumentPicker.getDocumentAsync({
     copyToCacheDirectory: true,

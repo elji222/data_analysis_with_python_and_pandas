@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AttachMenu } from '@/components/attach-menu';
 import { ChatBubble, StreamingPlaceholder } from '@/components/chat-bubble';
 import { ChatComposer } from '@/components/chat-composer';
 import { ThemedText } from '@/components/themed-text';
@@ -21,8 +20,7 @@ import { useSmoothStreamingText } from '@/hooks/use-smooth-streaming-text';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import {
   canAddImageAttachment,
-  pickDocument,
-  pickImageFromLibrary,
+  pickPhotosAndFiles,
   shouldShowCameraOption,
   takePhoto,
 } from '@/lib/attachments';
@@ -60,7 +58,6 @@ export function ChatPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isAttachMenuOpen, setIsAttachMenuOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const inputBeforeRecordingRef = useRef('');
 
@@ -103,16 +100,14 @@ export function ChatPanel({
     scrollToEnd();
   }, [smoothStreamingText, isStreaming]);
 
-  async function handleAttach(action: 'library' | 'camera' | 'document') {
+  async function handleAttach(action: 'photos-and-files' | 'camera') {
     try {
       let attachment: ChatAttachment | null = null;
 
-      if (action === 'library') {
-        attachment = await pickImageFromLibrary();
-      } else if (action === 'camera') {
+      if (action === 'camera') {
         attachment = await takePhoto();
       } else {
-        attachment = await pickDocument();
+        attachment = await pickPhotosAndFiles();
       }
 
       if (!attachment) return;
@@ -123,16 +118,12 @@ export function ChatPanel({
       }
 
       setAttachments((previous) => [...previous, attachment!]);
-      setStatusMessage(`Attached ${attachment.name}`);
+      setStatusMessage(null);
     } catch (attachError) {
       const message =
         attachError instanceof Error ? attachError.message : 'Could not attach that file.';
       setError(message);
     }
-  }
-
-  function handleAttachPress() {
-    setIsAttachMenuOpen(true);
   }
 
   async function handleVoicePress() {
@@ -264,7 +255,7 @@ export function ChatPanel({
     value: input,
     onChangeText: setInput,
     onSend: handleSend,
-    onAttachPress: handleAttachPress,
+    onPickAttach: (action) => void handleAttach(action),
     onVoicePress: () => void handleVoicePress(),
     onVoiceCancel: handleVoiceCancel,
     onVoiceConfirm: () => void handleVoiceConfirm(),
@@ -274,6 +265,7 @@ export function ChatPanel({
     isRecording,
     recordingTranscript,
     audioLevels,
+    showCameraOption: shouldShowCameraOption(),
   };
 
   return (
@@ -281,12 +273,6 @@ export function ChatPanel({
       lightColor={ChatTheme.pageBg}
       darkColor={ChatTheme.pageBgDark}
       style={styles.container}>
-      <AttachMenu
-        visible={isAttachMenuOpen}
-        onClose={() => setIsAttachMenuOpen(false)}
-        onPick={(action) => void handleAttach(action)}
-        showCamera={shouldShowCameraOption()}
-      />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.header}>
           {showSidebarToggle ? (

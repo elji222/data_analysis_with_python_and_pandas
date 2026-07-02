@@ -14,7 +14,7 @@ $Files = @(
     "app/api/title+api.ts",
     "app.json",
     "package.json",
-    "components/attach-menu.tsx",
+    "components/attach-popover.tsx",
     "components/chat-bubble.tsx",
     "components/chat-composer.tsx",
     "components/chat-panel.tsx",
@@ -82,8 +82,8 @@ if (-not (Test-Path $ConversationStorageFile)) {
 }
 
 $ThemeText = Get-Content $ThemeFile -Raw
-if ($ThemeText -notmatch "2025-07-08") {
-    throw "constants/chat-theme.ts is still old after download. Expected UI 2025-07-08."
+if ($ThemeText -notmatch "2025-07-09") {
+    throw "constants/chat-theme.ts is still old after download. Expected UI 2025-07-09."
 }
 
 $StorageText = Get-Content $ConversationStorageFile -Raw
@@ -103,5 +103,5 @@ Write-Host "Next steps:"
 Write-Host "  1. Run: npm install"
 Write-Host "  2. Run: npx expo start --clear"
 Write-Host "  3. Open: http://localhost:8081/chat"
-Write-Host "  4. Look for UI 2025-07-08 under Soulmate AI in the left sidebar"
+Write-Host "  4. Look for UI 2025-07-09 under Soulmate AI in the left sidebar"
 Write-Host ""
