@@ -13,6 +13,7 @@ import { ChatPanel } from '@/components/chat-panel';
 import { ConversationSidebar } from '@/components/conversation-sidebar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ChatTheme } from '@/constants/chat-theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useConversations } from '@/hooks/use-conversations';
 
@@ -78,6 +79,7 @@ export default function ChatScreen() {
       onSelectConversation={handleSelectConversation}
       onNewConversation={handleNewConversation}
       onDeleteConversation={deleteConversation}
+      onClose={isWideLayout ? undefined : () => setIsSidebarOpen(false)}
     />
   );
 
@@ -89,6 +91,7 @@ export default function ChatScreen() {
           <ChatPanel
             conversation={activeConversation}
             onUpdateMessages={updateConversationMessages}
+            userEmail={user.email}
           />
         </View>
       ) : (
@@ -98,6 +101,7 @@ export default function ChatScreen() {
             onUpdateMessages={updateConversationMessages}
             onOpenSidebar={() => setIsSidebarOpen(true)}
             showSidebarToggle
+            userEmail={user.email}
           />
 
           <Modal
@@ -144,5 +148,6 @@ const styles = StyleSheet.create({
   mobileSidebar: {
     width: '82%',
     maxWidth: 320,
+    backgroundColor: ChatTheme.sidebarBg,
   },
 });

@@ -28,6 +28,7 @@ export default function TabLayout() {
         options={{
           title: 'Chat',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="bubble.left.fill" color={color} />,
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen

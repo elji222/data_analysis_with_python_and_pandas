@@ -1,7 +1,9 @@
+import { Ionicons } from '@expo/vector-icons';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ChatTheme } from '@/constants/chat-theme';
+import { ChatTheme, SIDEBAR_NAV_ITEMS } from '@/constants/chat-theme';
 import type { Conversation } from '@/types/conversation';
 
 type ConversationSidebarProps = {
@@ -10,6 +12,7 @@ type ConversationSidebarProps = {
   onSelectConversation: (conversationId: string) => void;
   onNewConversation: () => void;
   onDeleteConversation: (conversationId: string) => void;
+  onClose?: () => void;
 };
 
 export function ConversationSidebar({
@@ -18,21 +21,53 @@ export function ConversationSidebar({
   onSelectConversation,
   onNewConversation,
   onDeleteConversation,
+  onClose,
 }: ConversationSidebarProps) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.sidebar}>
+    <View style={[styles.sidebar, { paddingTop: Math.max(insets.top, 12) }]}>
+      <View style={styles.brandRow}>
+        <View style={styles.brandLeft}>
+          <View style={styles.logoMark}>
+            <Ionicons name="sparkles" size={16} color={ChatTheme.accent} />
+          </View>
+          <ThemedText style={styles.brandText}>Soulmate AI</ThemedText>
+        </View>
+        {onClose ? (
+          <Pressable style={styles.iconButton} onPress={onClose}>
+            <Ionicons name="chevron-back" size={20} color={ChatTheme.sidebarMuted} />
+          </Pressable>
+        ) : (
+          <Pressable style={styles.iconButton}>
+            <Ionicons name="create-outline" size={18} color={ChatTheme.sidebarMuted} />
+          </Pressable>
+        )}
+      </View>
+
       <Pressable
         style={({ pressed }) => [styles.newChatButton, pressed && styles.pressed]}
         onPress={onNewConversation}>
-        <ThemedText lightColor={ChatTheme.sidebarText} darkColor={ChatTheme.sidebarText}>
-          + New chat
-        </ThemedText>
+        <Ionicons name="create-outline" size={18} color={ChatTheme.sidebarText} />
+        <ThemedText style={styles.newChatLabel}>New chat</ThemedText>
       </Pressable>
+
+      <View style={styles.navSection}>
+        {SIDEBAR_NAV_ITEMS.map((item) => (
+          <Pressable key={item.label} style={({ pressed }) => [styles.navItem, pressed && styles.pressed]}>
+            <Ionicons name={item.icon} size={18} color={ChatTheme.sidebarMuted} />
+            <ThemedText style={styles.navLabel}>{item.label}</ThemedText>
+          </Pressable>
+        ))}
+      </View>
+
+      <ThemedText style={styles.sectionTitle}>Chats</ThemedText>
 
       <FlatList
         data={conversations}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
         renderItem={({ item }) => {
           const isActive = item.id === activeConversationId;
 
@@ -45,20 +80,20 @@ export function ConversationSidebar({
                   pressed && styles.pressed,
                 ]}
                 onPress={() => onSelectConversation(item.id)}>
-                <ThemedText
-                  numberOfLines={1}
-                  lightColor={ChatTheme.sidebarText}
-                  darkColor={ChatTheme.sidebarText}
-                  style={styles.conversationTitle}>
+                <Ionicons
+                  name="chatbubble-outline"
+                  size={16}
+                  color={ChatTheme.sidebarMuted}
+                  style={styles.chatIcon}
+                />
+                <ThemedText numberOfLines={1} style={styles.conversationTitle}>
                   {item.title}
                 </ThemedText>
               </Pressable>
               <Pressable
                 style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}
                 onPress={() => onDeleteConversation(item.id)}>
-                <ThemedText lightColor={ChatTheme.sidebarMuted} darkColor={ChatTheme.sidebarMuted}>
-                  ×
-                </ThemedText>
+                <Ionicons name="trash-outline" size={14} color={ChatTheme.sidebarMuted} />
               </Pressable>
             </View>
           );
@@ -70,21 +105,85 @@ export function ConversationSidebar({
 
 const styles = StyleSheet.create({
   sidebar: {
-    width: 260,
+    width: 280,
     backgroundColor: ChatTheme.sidebarBg,
     borderRightWidth: StyleSheet.hairlineWidth,
     borderRightColor: ChatTheme.sidebarBorder,
-    paddingTop: 12,
+    paddingBottom: 16,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    marginBottom: 14,
+  },
+  brandLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  logoMark: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#F3EEFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: ChatTheme.sidebarText,
+  },
+  iconButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
   },
   newChatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     marginHorizontal: 12,
-    marginBottom: 12,
-    paddingVertical: 12,
+    marginBottom: 10,
+    paddingVertical: 11,
     paddingHorizontal: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: ChatTheme.sidebarBorder,
+    borderRadius: 14,
     backgroundColor: ChatTheme.sidebarHover,
+  },
+  newChatLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: ChatTheme.sidebarText,
+  },
+  navSection: {
+    paddingHorizontal: 8,
+    marginBottom: 12,
+    gap: 2,
+  },
+  navItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  navLabel: {
+    fontSize: 14,
+    color: ChatTheme.sidebarText,
+  },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: ChatTheme.sidebarMuted,
+    paddingHorizontal: 20,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   list: {
     paddingHorizontal: 8,
@@ -94,27 +193,35 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
   },
   conversationButton: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    gap: 8,
   },
   conversationButtonActive: {
     backgroundColor: ChatTheme.sidebarActive,
   },
+  chatIcon: {
+    marginTop: 1,
+  },
   conversationTitle: {
+    flex: 1,
     fontSize: 14,
     lineHeight: 20,
+    color: ChatTheme.sidebarText,
   },
   deleteButton: {
     width: 28,
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
+    borderRadius: 8,
   },
   pressed: {
     opacity: 0.75,
