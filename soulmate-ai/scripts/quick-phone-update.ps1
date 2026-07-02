@@ -11,19 +11,26 @@ $Files = @(
     "app/(auth)/login.tsx",
     "app/(tabs)/chat.tsx",
     "app.json",
+    "components/attach-popover.tsx",
     "components/build-version-banner.tsx",
+    "components/chat-bubble.tsx",
+    "components/chat-composer.tsx",
+    "components/chat-panel.tsx",
+    "components/composer-attachments.tsx",
+    "components/conversation-sidebar.tsx",
     "components/mobile-chat-header.tsx",
     "components/mobile-quick-suggestions.tsx",
     "components/production-site-warning.tsx",
-    "components/chat-panel.tsx",
-    "components/conversation-sidebar.tsx",
-    "components/chat-composer.tsx",
+    "components/voice-waveform.tsx",
     "constants/chat-theme.ts",
     "constants/ai.ts",
-    "hooks/use-wide-layout.ts",
     "hooks/use-mobile-chat-layout.ts",
+    "hooks/use-voice-input.ts",
+    "hooks/use-wide-layout.ts",
+    "lib/attachments.ts",
     "lib/auth.ts",
     "lib/enforce-build-version.ts",
+    "lib/web-file-picker.ts",
     "metro.config.js",
     "scripts/start-phone.ps1",
     "scripts/start-phone-web.ps1",
@@ -71,8 +78,29 @@ if ($LayoutText -notmatch "BuildVersionBanner") {
     throw "Download failed. app/_layout.tsx is still old."
 }
 
+$ComposerFile = Join-Path $Root "components\chat-composer.tsx"
+$ComposerText = Get-Content $ComposerFile -Raw
+
+if ($ComposerText -notmatch "voiceModeButton") {
+    throw "Download failed. chat-composer.tsx is missing the phone mic button."
+}
+
+if ($ComposerText -notmatch "layout\?: 'default' \| 'mobile'") {
+    throw "Download failed. chat-composer.tsx is missing mobile layout support."
+}
+
+$HeaderFile = Join-Path $Root "components\mobile-chat-header.tsx"
+if (-not (Test-Path $HeaderFile)) {
+    throw "Download failed. mobile-chat-header.tsx is missing."
+}
+
 Write-Host ""
 Write-Host "SUCCESS. Phone build $uiVersion is on disk."
+Write-Host ""
+Write-Host "On phone you should see:"
+Write-Host "  - Blue pill at top: PHONE BUILD $uiVersion"
+Write-Host "  - Header center: Soulmate AI with Build $uiVersion"
+Write-Host "  - Bottom bar: + button (left), mic, blue voice button (right)"
 Write-Host ""
 Write-Host "Next: scripts\start-phone-web.cmd"
 Write-Host "On phone Safari/Chrome open the http link shown there."

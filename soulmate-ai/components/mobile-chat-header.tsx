@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ChatTheme } from '@/constants/chat-theme';
+import { ChatTheme, UI_VERSION } from '@/constants/chat-theme';
 
 type MobileChatHeaderProps = {
   onOpenSidebar: () => void;
@@ -18,6 +18,7 @@ export function MobileChatHeader({ onOpenSidebar, onNewChat }: MobileChatHeaderP
 
       <Pressable style={styles.modelPill}>
         <ThemedText style={styles.modelPillText}>Soulmate AI</ThemedText>
+        <ThemedText style={styles.buildTag}>Build {UI_VERSION}</ThemedText>
       </Pressable>
 
       <Pressable style={styles.iconButton} onPress={onNewChat} accessibilityLabel="New chat">
@@ -50,10 +51,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E5E5',
     backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    gap: 2,
   },
   modelPillText: {
     fontSize: 15,
     fontWeight: '600',
     color: ChatTheme.sidebarText,
+  },
+  buildTag: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#00A86B',
+    letterSpacing: 0.2,
   },
 });

@@ -163,10 +163,17 @@ export function ChatPanel({
 
   async function handleVoicePress() {
     if (!isSupported) {
+      const isIosSafari =
+        Platform.OS === 'web' &&
+        typeof navigator !== 'undefined' &&
+        /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
       setError(
-        Platform.OS === 'web'
-          ? 'Voice input works in Chrome or Edge. Try opening the app in one of those browsers.'
-          : 'Voice input is available in the web app for now.'
+        isIosSafari
+          ? 'Voice input is not supported in iPhone Safari. Open this page in Chrome on your phone, or type your message.'
+          : Platform.OS === 'web'
+            ? 'Voice input works in Chrome or Edge. Try opening the app in one of those browsers.'
+            : 'Voice input is available in the web app for now.'
       );
       return;
     }

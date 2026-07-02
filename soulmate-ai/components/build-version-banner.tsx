@@ -9,14 +9,12 @@ export function BuildVersionBanner() {
   const insets = useSafeAreaInsets();
   const isMobileChatLayout = useMobileChatLayout();
 
-  if (isMobileChatLayout) {
-    return null;
-  }
-
   return (
     <View pointerEvents="none" style={[styles.wrapper, { paddingTop: insets.top }]}>
-      <View style={styles.banner}>
-        <ThemedText style={styles.bannerText}>LIVE BUILD {UI_VERSION}</ThemedText>
+      <View style={[styles.banner, isMobileChatLayout && styles.bannerMobile]}>
+        <ThemedText style={styles.bannerText}>
+          {isMobileChatLayout ? `PHONE BUILD ${UI_VERSION}` : `LIVE BUILD ${UI_VERSION}`}
+        </ThemedText>
       </View>
     </View>
   );
@@ -37,6 +35,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     marginTop: 8,
+  },
+  bannerMobile: {
+    backgroundColor: '#0084FF',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
   },
   bannerText: {
     color: '#FFFFFF',

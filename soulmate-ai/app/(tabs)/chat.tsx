@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Modal,
   StyleSheet,
+  View,
 } from 'react-native';
 
 import { ChatPanel } from '@/components/chat-panel';

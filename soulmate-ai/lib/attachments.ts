@@ -3,6 +3,7 @@ import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';
 
+import { isMobileWebBrowser, pickFileViaWebInput } from '@/lib/web-file-picker';
 import type { ChatAttachment } from '@/types/chat';
 
 const MAX_TEXT_FILE_CHARS = 8000;
@@ -111,7 +112,15 @@ export async function takePhoto(): Promise<ChatAttachment | null> {
 
 export async function pickPhotosAndFiles(): Promise<ChatAttachment | null> {
   if (Platform.OS === 'web') {
-    return pickDocument();
+    if (isMobileWebBrowser()) {
+      return pickFileViaWebInput();
+    }
+
+    try {
+      return await pickDocument();
+    } catch {
+      return pickFileViaWebInput();
+    }
   }
 
   const image = await pickImageFromLibrary();
