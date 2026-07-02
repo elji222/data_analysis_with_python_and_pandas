@@ -19,7 +19,7 @@ import { ChatScrollRail } from '@/components/chat-scroll-rail';
 import { ScrollToBottomButton } from '@/components/scroll-to-bottom-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { ChatTheme, QUICK_ACTIONS } from '@/constants/chat-theme';
+import { ChatTheme, QUICK_ACTIONS, UI_VERSION } from '@/constants/chat-theme';
 import { useSmoothStreamingText } from '@/hooks/use-smooth-streaming-text';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import {
@@ -280,8 +280,7 @@ export function ChatPanel({
   const isScrollable =
     scrollMetrics.viewportHeight > 0 &&
     scrollMetrics.contentHeight > scrollMetrics.viewportHeight + 20;
-  const showScrollRail =
-    Platform.OS === 'web' && scrollMarkers.length > 0 && isScrollable;
+  const showScrollRail = scrollMarkers.length > 0 && isScrollable;
   const showJumpToBottom = shouldShowScrollToBottom(scrollMetrics);
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 30 }).current;
@@ -367,7 +366,19 @@ export function ChatPanel({
           ) : (
             <View style={styles.headerSpacer} />
           )}
-          <View style={styles.headerSpacer} />
+          {showSidebarToggle ? (
+            <View style={styles.headerCenter}>
+              <ThemedText
+                lightColor={ChatTheme.assistantText}
+                darkColor={ChatTheme.assistantTextDark}
+                style={styles.headerTitle}>
+                Soulmate AI
+              </ThemedText>
+              <ThemedText style={styles.headerVersion}>UI {UI_VERSION}</ThemedText>
+            </View>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
           <View style={styles.profileButton}>
             <ThemedText style={styles.profileInitial}>{userInitial}</ThemedText>
           </View>
@@ -529,6 +540,21 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 40,
     height: 40,
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  headerTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  headerVersion: {
+    fontSize: 10,
+    color: ChatTheme.sidebarMuted,
+    marginTop: 1,
   },
   profileButton: {
     width: 36,

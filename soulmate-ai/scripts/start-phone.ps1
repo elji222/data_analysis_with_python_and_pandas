@@ -23,6 +23,11 @@ Write-Host "If Windows asks about the firewall, click Allow."
 Write-Host ""
 Write-Host "Starting Expo. Keep this window open while you use the app."
 Write-Host ""
+Write-Host "After scanning the QR code:"
+Write-Host "  - Top of phone screen should say UI 2026-07-06"
+Write-Host "  - If you see an older UI version, shake the phone and tap Reload"
+Write-Host "  - Or close Expo Go fully, then scan the QR code again"
+Write-Host ""
 
 if (-not (Test-Path "node_modules")) {
     Write-Host "Installing npm packages. First time only."
