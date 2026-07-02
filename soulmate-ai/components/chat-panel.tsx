@@ -601,16 +601,15 @@ const styles = StyleSheet.create({
   threadCenterColumn: {
     flex: 1,
     width: '100%',
-    maxWidth: 720,
-    alignSelf: 'center',
-    paddingHorizontal: 20,
+    paddingLeft: 28,
+    paddingRight: ChatTheme.threadRailWidth + 16,
     minHeight: 0,
   },
   railDock: {
     position: 'absolute',
     right: 0,
     top: 0,
-    width: 56,
+    width: ChatTheme.threadRailWidth,
     alignItems: 'flex-end',
     justifyContent: 'center',
     paddingRight: 8,
@@ -641,7 +640,7 @@ const styles = StyleSheet.create({
       : {}),
   },
   messageList: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     paddingTop: 16,
     paddingBottom: 24,
     width: '100%',
