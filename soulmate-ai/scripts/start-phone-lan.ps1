@@ -1,0 +1,19 @@
+$ErrorActionPreference = "Stop"
+
+$Root = Split-Path -Parent $PSScriptRoot
+Set-Location $Root
+
+Write-Host ""
+Write-Host "============================================"
+Write-Host " Soulmate AI - Expo Go (same Wi-Fi)"
+Write-Host "============================================"
+Write-Host ""
+Write-Host "Use this when your phone and PC are on the same Wi-Fi (faster than tunnel)."
+Write-Host "For different networks, run scripts\start-phone.cmd instead."
+Write-Host ""
+
+if (-not (Test-Path "node_modules")) {
+    npm install
+}
+
+npx expo start --lan --clear
