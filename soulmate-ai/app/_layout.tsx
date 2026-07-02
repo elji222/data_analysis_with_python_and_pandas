@@ -29,6 +29,11 @@ function RootNavigator() {
 
     if (session && inAuthGroup) {
       router.replace('/chat');
+      return;
+    }
+
+    if (session && segments[0] === '(tabs)' && segments[1] !== 'chat') {
+      router.replace('/chat');
     }
   }, [session, isLoading, segments, router]);
 

@@ -3,7 +3,7 @@ import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ChatTheme, SIDEBAR_NAV_ITEMS } from '@/constants/chat-theme';
+import { ChatTheme, SIDEBAR_NAV_ITEMS, UI_VERSION } from '@/constants/chat-theme';
 import type { Conversation } from '@/types/conversation';
 
 type ConversationSidebarProps = {
@@ -32,7 +32,10 @@ export function ConversationSidebar({
           <View style={styles.logoMark}>
             <Ionicons name="sparkles" size={16} color={ChatTheme.accent} />
           </View>
-          <ThemedText style={styles.brandText}>Soulmate AI</ThemedText>
+          <View>
+            <ThemedText style={styles.brandText}>Soulmate AI</ThemedText>
+            <ThemedText style={styles.versionText}>UI {UI_VERSION}</ThemedText>
+          </View>
         </View>
         {onClose ? (
           <Pressable style={styles.iconButton} onPress={onClose}>
@@ -129,6 +132,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: ChatTheme.sidebarText,
+  },
+  versionText: {
+    fontSize: 11,
+    color: ChatTheme.sidebarMuted,
+    marginTop: 1,
   },
   iconButton: {
     width: 32,
