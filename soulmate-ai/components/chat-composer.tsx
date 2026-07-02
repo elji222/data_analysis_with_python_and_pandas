@@ -160,7 +160,7 @@ export function ChatComposer({
             <View style={styles.recordingActions}>
               <Pressable
                 style={({ pressed }) => [styles.iconSlot, pressed && styles.iconPressed]}
-                onPress={onVoiceCancel}
+                onPress={() => onVoiceCancel?.()}
                 accessibilityRole="button"
                 accessibilityLabel="Cancel voice input">
                 <Ionicons
@@ -171,7 +171,7 @@ export function ChatComposer({
               </Pressable>
               <Pressable
                 style={({ pressed }) => [styles.confirmButton, pressed && styles.pressed]}
-                onPress={onVoiceConfirm}
+                onPress={() => onVoiceConfirm?.()}
                 accessibilityRole="button"
                 accessibilityLabel="Confirm voice input">
                 <Ionicons name="checkmark" size={20} color="#FFFFFF" />

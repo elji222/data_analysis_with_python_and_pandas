@@ -165,13 +165,14 @@ export function ChatPanel({
 
   function handleVoiceConfirm() {
     const spokenText = confirmRecording();
+    const base = inputBeforeRecordingRef.current.trim();
 
     if (spokenText) {
-      setInput((previous) => {
-        const base = inputBeforeRecordingRef.current.trim() || previous.trim();
-        return base ? `${base} ${spokenText}` : spokenText;
-      });
+      setInput(base ? `${base} ${spokenText}` : spokenText);
       setStatusMessage('Voice added to your message');
+    } else {
+      setInput(base);
+      setStatusMessage('No speech detected. Try speaking again.');
     }
 
     inputBeforeRecordingRef.current = '';

@@ -29,6 +29,8 @@ type SpeechRecognitionInstance = {
   onresult: ((event: SpeechRecognitionEvent) => void) | null;
   onerror: ((event: { error?: string }) => void) | null;
   onend: (() => void) | null;
+  onspeechstart: (() => void) | null;
+  onspeechend: (() => void) | null;
   start: () => void;
   stop: () => void;
   abort: () => void;
@@ -51,6 +53,14 @@ function createIdleLevels(): number[] {
   return Array.from({ length: VOICE_WAVEFORM_BAR_COUNT }, () => 0.14);
 }
 
+function createSpeechLevels(energy: number): number[] {
+  return Array.from({ length: VOICE_WAVEFORM_BAR_COUNT }, (_, index) => {
+    const wave = Math.sin((index / VOICE_WAVEFORM_BAR_COUNT) * Math.PI * 4 + energy * 12);
+    const jitter = Math.random() * 0.22;
+    return Math.max(0.12, Math.min(1, 0.18 + energy * 0.75 + wave * 0.12 + jitter));
+  });
+}
+
 export function useVoiceInput() {
   const [isRecording, setIsRecording] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
@@ -58,43 +68,60 @@ export function useVoiceInput() {
   const [audioLevels, setAudioLevels] = useState<number[]>(createIdleLevels);
 
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const isRecordingRef = useRef(false);
-  const finalizedTranscriptRef = useRef('');
   const shouldRestartRef = useRef(false);
+  const finalizedTranscriptRef = useRef('');
+  const interimTranscriptRef = useRef('');
+  const transcriptRef = useRef('');
+  const speechEnergyRef = useRef(0.2);
 
-  const stopAudioMonitor = useCallback(() => {
+  const stopWaveformAnimation = useCallback(() => {
     if (animationFrameRef.current !== null) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
 
-    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
-    mediaStreamRef.current = null;
-
-    if (audioContextRef.current) {
-      void audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-
-    analyserRef.current = null;
+    speechEnergyRef.current = 0.2;
     setAudioLevels(createIdleLevels());
   }, []);
 
-  const stopRecognition = useCallback(() => {
+  const startWaveformAnimation = useCallback(() => {
+    const tick = () => {
+      if (!isRecordingRef.current) return;
+
+      speechEnergyRef.current = Math.max(0.16, speechEnergyRef.current * 0.9);
+      setAudioLevels(createSpeechLevels(speechEnergyRef.current));
+      animationFrameRef.current = requestAnimationFrame(tick);
+    };
+
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+
+    animationFrameRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  const updateTranscript = useCallback((nextTranscript: string) => {
+    transcriptRef.current = nextTranscript;
+    setTranscript(nextTranscript);
+  }, []);
+
+  const stopRecognition = useCallback((mode: 'abort' | 'stop' = 'abort') => {
     shouldRestartRef.current = false;
 
     if (!recognitionRef.current) return;
 
     try {
       recognitionRef.current.onend = null;
-      recognitionRef.current.abort();
+      if (mode === 'stop') {
+        recognitionRef.current.stop();
+      } else {
+        recognitionRef.current.abort();
+      }
     } catch {
       try {
-        recognitionRef.current.stop();
+        recognitionRef.current.abort();
       } catch {
         // Ignore stop errors when recognition already ended.
       }
@@ -105,10 +132,10 @@ export function useVoiceInput() {
 
   const teardown = useCallback(() => {
     isRecordingRef.current = false;
-    stopRecognition();
-    stopAudioMonitor();
+    stopRecognition('abort');
+    stopWaveformAnimation();
     setIsRecording(false);
-  }, [stopAudioMonitor, stopRecognition]);
+  }, [stopRecognition, stopWaveformAnimation]);
 
   useEffect(() => {
     setIsSupported(getSpeechRecognitionConstructor() !== null);
@@ -117,43 +144,6 @@ export function useVoiceInput() {
       teardown();
     };
   }, [teardown]);
-
-  const startAudioMonitor = useCallback(async () => {
-    if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.mediaDevices) {
-      return;
-    }
-
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaStreamRef.current = stream;
-
-    const audioContext = new AudioContext();
-    audioContextRef.current = audioContext;
-
-    const source = audioContext.createMediaStreamSource(stream);
-    const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 128;
-    analyser.smoothingTimeConstant = 0.82;
-    source.connect(analyser);
-    analyserRef.current = analyser;
-
-    const frequencyData = new Uint8Array(analyser.frequencyBinCount);
-
-    const updateLevels = () => {
-      if (!analyserRef.current || !isRecordingRef.current) return;
-
-      analyserRef.current.getByteFrequencyData(frequencyData);
-      const step = Math.max(1, Math.floor(frequencyData.length / VOICE_WAVEFORM_BAR_COUNT));
-      const nextLevels = Array.from({ length: VOICE_WAVEFORM_BAR_COUNT }, (_, index) => {
-        const value = frequencyData[index * step] / 255;
-        return Math.max(0.12, Math.min(1, value * 1.35));
-      });
-
-      setAudioLevels(nextLevels);
-      animationFrameRef.current = requestAnimationFrame(updateLevels);
-    };
-
-    animationFrameRef.current = requestAnimationFrame(updateLevels);
-  }, []);
 
   const bindRecognitionHandlers = useCallback(
     (recognition: SpeechRecognitionInstance) => {
@@ -165,14 +155,31 @@ export function useVoiceInput() {
           const chunk = result[0]?.transcript ?? '';
 
           if (result.isFinal) {
-          finalizedTranscriptRef.current = `${finalizedTranscriptRef.current} ${chunk}`.trim();
-        } else {
+            finalizedTranscriptRef.current = `${finalizedTranscriptRef.current} ${chunk}`.trim();
+            interimTranscriptRef.current = '';
+          } else {
             interimTranscript += chunk;
           }
         }
 
-        const combined = `${finalizedTranscriptRef.current}${interimTranscript}`.trim();
-        setTranscript(combined);
+        interimTranscriptRef.current = interimTranscript.trim();
+        const combined = `${finalizedTranscriptRef.current} ${interimTranscriptRef.current}`
+          .trim()
+          .replace(/\s+/g, ' ');
+
+        if (combined) {
+          speechEnergyRef.current = Math.min(1, speechEnergyRef.current + 0.35);
+        }
+
+        updateTranscript(combined);
+      };
+
+      recognition.onspeechstart = () => {
+        speechEnergyRef.current = Math.min(1, speechEnergyRef.current + 0.5);
+      };
+
+      recognition.onspeechend = () => {
+        speechEnergyRef.current = Math.max(0.25, speechEnergyRef.current);
       };
 
       recognition.onerror = (event) => {
@@ -198,7 +205,7 @@ export function useVoiceInput() {
         }
       };
     },
-    []
+    [updateTranscript]
   );
 
   const startRecording = useCallback(async () => {
@@ -209,18 +216,14 @@ export function useVoiceInput() {
     }
 
     finalizedTranscriptRef.current = '';
+    interimTranscriptRef.current = '';
+    transcriptRef.current = '';
     setTranscript('');
     setAudioLevels(createIdleLevels());
     isRecordingRef.current = true;
     shouldRestartRef.current = true;
     setIsRecording(true);
-
-    try {
-      await startAudioMonitor();
-    } catch {
-      teardown();
-      return false;
-    }
+    startWaveformAnimation();
 
     try {
       const recognition = new SpeechRecognition();
@@ -235,21 +238,35 @@ export function useVoiceInput() {
       teardown();
       return false;
     }
-  }, [bindRecognitionHandlers, startAudioMonitor, teardown]);
+  }, [bindRecognitionHandlers, startWaveformAnimation, teardown]);
 
   const cancelRecording = useCallback(() => {
     finalizedTranscriptRef.current = '';
+    interimTranscriptRef.current = '';
+    transcriptRef.current = '';
     setTranscript('');
     teardown();
   }, [teardown]);
 
   const confirmRecording = useCallback(() => {
-    const finalText = transcript.trim();
+    stopRecognition('stop');
+
+    const finalText =
+      transcriptRef.current.trim() ||
+      `${finalizedTranscriptRef.current} ${interimTranscriptRef.current}`.trim().replace(/\s+/g, ' ');
+
     finalizedTranscriptRef.current = '';
+    interimTranscriptRef.current = '';
+    transcriptRef.current = '';
     setTranscript('');
-    teardown();
+    isRecordingRef.current = false;
+    shouldRestartRef.current = false;
+    stopWaveformAnimation();
+    setIsRecording(false);
+    recognitionRef.current = null;
+
     return finalText;
-  }, [teardown, transcript]);
+  }, [stopRecognition, stopWaveformAnimation]);
 
   return {
     isRecording,
