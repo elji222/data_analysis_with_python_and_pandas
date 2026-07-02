@@ -1,4 +1,4 @@
-export const UI_VERSION = '2026-07-15';
+export const UI_VERSION = '2026-07-16';
 
 export const ChatTheme = {
   pageBg: '#FFFFFF',
@@ -33,6 +33,7 @@ export const ChatTheme = {
   sendButton: '#0D0D0D',
   sendButtonDisabled: '#C9C9C9',
   accent: '#7B61FF',
+  chatGptBlue: '#0084FF',
   muted: '#6E6E80',
   error: '#D64545',
 };
@@ -55,8 +56,28 @@ export const QUICK_ACTIONS = [
   },
 ];
 
+export const MOBILE_QUICK_ACTIONS = [
+  {
+    icon: 'heart-outline' as const,
+    label: 'Talk about feelings',
+    prompt: 'I want to talk about how I have been feeling lately.',
+  },
+  {
+    icon: 'image-outline' as const,
+    label: 'Create an image',
+    prompt: 'Help me create an image idea and describe what it could look like.',
+  },
+  {
+    icon: 'create-outline' as const,
+    label: 'Write or edit',
+    prompt: 'Help me write or edit something I am working on.',
+  },
+];
+
 export const SIDEBAR_NAV_ITEMS = [
-  { icon: 'search-outline' as const, label: 'Search chats' },
   { icon: 'library-outline' as const, label: 'Library' },
+  { icon: 'folder-outline' as const, label: 'Projects' },
   { icon: 'time-outline' as const, label: 'Scheduled' },
+  { icon: 'grid-outline' as const, label: 'Apps' },
+  { icon: 'ellipsis-horizontal' as const, label: 'More' },
 ];

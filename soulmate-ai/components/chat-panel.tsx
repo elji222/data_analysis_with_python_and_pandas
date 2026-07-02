@@ -17,12 +17,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChatBubble, StreamingPlaceholder } from '@/components/chat-bubble';
 import { ChatComposer } from '@/components/chat-composer';
 import { ChatScrollRail } from '@/components/chat-scroll-rail';
+import { MobileChatHeader } from '@/components/mobile-chat-header';
+import { MobileQuickSuggestions } from '@/components/mobile-quick-suggestions';
 import { ScrollToBottomButton } from '@/components/scroll-to-bottom-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ChatTheme, QUICK_ACTIONS, UI_VERSION } from '@/constants/chat-theme';
 import { CLAUDE_MODEL } from '@/constants/ai';
 import { useSmoothStreamingText } from '@/hooks/use-smooth-streaming-text';
+import { useMobileChatLayout } from '@/hooks/use-mobile-chat-layout';
 import { useCompactWebLayout } from '@/hooks/use-wide-layout';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import {
@@ -50,6 +53,7 @@ type ChatPanelProps = {
   onUpdateMessages: (conversationId: string, messages: ChatMessage[]) => Promise<void>;
   onRenameConversation?: (conversationId: string, title: string) => Promise<void>;
   onOpenSidebar?: () => void;
+  onNewConversation?: () => void;
   showSidebarToggle?: boolean;
   storageWarning?: string | null;
   userEmail?: string | null;
@@ -60,6 +64,7 @@ export function ChatPanel({
   onUpdateMessages,
   onRenameConversation,
   onOpenSidebar,
+  onNewConversation,
   showSidebarToggle = false,
   storageWarning = null,
   userEmail,
@@ -67,6 +72,7 @@ export function ChatPanel({
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
   const isCompactWeb = useCompactWebLayout();
+  const isMobileChatLayout = useMobileChatLayout();
   const { width: viewportWidth } = useWindowDimensions();
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const [input, setInput] = useState('');
@@ -285,7 +291,8 @@ export function ChatPanel({
   const isScrollable =
     scrollMetrics.viewportHeight > 0 &&
     scrollMetrics.contentHeight > scrollMetrics.viewportHeight + 20;
-  const showScrollRail = scrollMarkers.length > 0 && isScrollable;
+  const showScrollRail =
+    !isMobileChatLayout && scrollMarkers.length > 0 && isScrollable;
   const showJumpToBottom = shouldShowScrollToBottom(scrollMetrics);
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 30 }).current;
@@ -351,6 +358,7 @@ export function ChatPanel({
     recordingTranscript,
     audioLevels,
     showCameraOption: shouldShowCameraOption(),
+    layout: isMobileChatLayout ? ('mobile' as const) : ('default' as const),
   };
 
   return (
@@ -359,6 +367,9 @@ export function ChatPanel({
       darkColor={ChatTheme.pageBgDark}
       style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
+        {isMobileChatLayout && showSidebarToggle && onOpenSidebar && onNewConversation ? (
+          <MobileChatHeader onOpenSidebar={onOpenSidebar} onNewChat={onNewConversation} />
+        ) : (
         <View style={styles.header}>
           {showSidebarToggle ? (
             <Pressable style={styles.headerButton} onPress={onOpenSidebar}>
@@ -389,8 +400,9 @@ export function ChatPanel({
             <ThemedText style={styles.profileInitial}>{userInitial}</ThemedText>
           </View>
         </View>
+        )}
 
-        {Platform.OS !== 'web' && showSidebarToggle ? (
+        {Platform.OS !== 'web' && showSidebarToggle && !isMobileChatLayout ? (
           <View style={styles.mobileBuildStrip}>
             <ThemedText style={styles.mobileBuildStripText}>Phone build {UI_VERSION}</ThemedText>
           </View>
@@ -400,7 +412,16 @@ export function ChatPanel({
           style={styles.keyboardView}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
-          {showHeroEmpty ? (
+          {showHeroEmpty && isMobileChatLayout ? (
+            <View style={styles.mobileEmptyRoot}>
+              <View style={styles.mobileEmptySpacer} />
+              <MobileQuickSuggestions onSelect={(prompt) => void sendMessage(prompt)} />
+              <View style={styles.mobileBottomArea}>
+                {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+                <ChatComposer variant="bottom" {...composerProps} />
+              </View>
+            </View>
+          ) : showHeroEmpty ? (
             <View style={[styles.mainColumn, isCompactWeb && styles.mainColumnCompact]}>
               <View style={styles.heroState}>
                 <ThemedText
@@ -499,12 +520,15 @@ export function ChatPanel({
                   <View
                     style={[
                       styles.bottomComposerArea,
+                      isMobileChatLayout && styles.mobileBottomArea,
                       { backgroundColor: isDark ? ChatTheme.pageBgDark : ChatTheme.pageBg },
                     ]}>
                     <ChatComposer {...composerProps} />
-                    <ThemedText style={styles.disclaimer}>
-                      Soulmate AI can make mistakes. Consider checking important information.
-                    </ThemedText>
+                    {!isMobileChatLayout ? (
+                      <ThemedText style={styles.disclaimer}>
+                        Soulmate AI can make mistakes. Consider checking important information.
+                      </ThemedText>
+                    ) : null}
                   </View>
                 </View>
                 </View>
@@ -608,6 +632,19 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     minHeight: 0,
+  },
+  mobileEmptyRoot: {
+    flex: 1,
+    minHeight: 0,
+  },
+  mobileEmptySpacer: {
+    flex: 1,
+  },
+  mobileBottomArea: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    paddingTop: 4,
+    gap: 8,
   },
   mainColumn: {
     flex: 1,

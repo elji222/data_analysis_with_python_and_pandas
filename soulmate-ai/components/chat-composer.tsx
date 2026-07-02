@@ -34,6 +34,7 @@ type ChatComposerProps = {
   audioLevels?: number[];
   showCameraOption?: boolean;
   variant?: 'hero' | 'bottom';
+  layout?: 'default' | 'mobile';
 };
 
 type WebKeyDownEvent = {
@@ -61,9 +62,11 @@ export function ChatComposer({
   audioLevels = [],
   showCameraOption = false,
   variant = 'bottom',
+  layout = 'default',
 }: ChatComposerProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
+  const isMobileLayout = layout === 'mobile';
   const [isAttachMenuOpen, setIsAttachMenuOpen] = useState(false);
   const canSend = (value.trim().length > 0 || attachments.length > 0) && !isLoading && !isRecording;
   const isHero = variant === 'hero';
@@ -128,6 +131,7 @@ export function ChatComposer({
             isHero && styles.shellHero,
             hasAttachments && styles.shellWithAttachments,
             isRecording && styles.shellRecording,
+            isMobileLayout && styles.shellMobile,
             {
               backgroundColor: isDark ? ChatTheme.inputBgDark : ChatTheme.inputBg,
               borderColor: isRecording
@@ -182,7 +186,7 @@ export function ChatComposer({
                   Platform.OS === 'web' && isSingleLine && styles.inputWebSingleLine,
                   { color: isDark ? ChatTheme.assistantTextDark : ChatTheme.assistantText },
                 ]}
-                placeholder="Ask anything"
+                placeholder={isMobileLayout ? 'Ask Soulmate AI' : 'Ask anything'}
                 placeholderTextColor={ChatTheme.inputPlaceholder}
                 value={value}
                 onChangeText={onChangeText}
@@ -230,20 +234,37 @@ export function ChatComposer({
                   accessibilityLabel="Voice input">
                   <Ionicons
                     name="mic-outline"
-                    size={20}
+                    size={22}
                     color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
                   />
                 </Pressable>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.sendButton,
-                    !canSend && styles.sendButtonDisabled,
-                    pressed && canSend && styles.pressed,
-                  ]}
-                  onPress={onSend}
-                  disabled={!canSend}>
-                  <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
-                </Pressable>
+                {canSend ? (
+                  <Pressable
+                    style={({ pressed }) => [styles.sendButton, pressed && styles.pressed]}
+                    onPress={onSend}>
+                    <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
+                  </Pressable>
+                ) : isMobileLayout ? (
+                  <Pressable
+                    style={({ pressed }) => [styles.voiceModeButton, pressed && styles.pressed]}
+                    disabled={isLoading}
+                    onPress={onVoicePress}
+                    accessibilityRole="button"
+                    accessibilityLabel="Voice mode">
+                    <Ionicons name="pulse" size={20} color="#FFFFFF" />
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.sendButton,
+                      styles.sendButtonDisabled,
+                      pressed && styles.pressed,
+                    ]}
+                    onPress={onSend}
+                    disabled>
+                    <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
+                  </Pressable>
+                )}
               </View>
             )}
           </View>
@@ -291,6 +312,12 @@ const styles = StyleSheet.create({
   shellRecording: {
     shadowColor: ChatTheme.accent,
     shadowOpacity: 0.14,
+  },
+  shellMobile: {
+    borderRadius: 999,
+    minHeight: 56,
+    paddingHorizontal: 10,
+    shadowOpacity: 0.03,
   },
   contentRow: {
     flexDirection: 'row',
@@ -388,6 +415,14 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: ChatTheme.sendButtonDisabled,
+  },
+  voiceModeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: ChatTheme.chatGptBlue,
   },
   pressed: {
     opacity: 0.85,

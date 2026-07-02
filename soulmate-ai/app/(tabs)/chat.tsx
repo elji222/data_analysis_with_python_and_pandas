@@ -2,9 +2,7 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
-  Pressable,
   StyleSheet,
-  View,
 } from 'react-native';
 
 import { ChatPanel } from '@/components/chat-panel';
@@ -78,6 +76,8 @@ export default function ChatScreen() {
       onNewConversation={handleNewConversation}
       onDeleteConversation={deleteConversation}
       onClose={isWideLayout ? undefined : () => setIsSidebarOpen(false)}
+      variant={isWideLayout ? 'desktop' : 'mobile'}
+      userEmail={user.email}
     />
   );
 
@@ -103,6 +103,7 @@ export default function ChatScreen() {
             onUpdateMessages={updateConversationMessages}
             onRenameConversation={renameConversation}
             onOpenSidebar={() => setIsSidebarOpen(true)}
+            onNewConversation={handleNewConversation}
             showSidebarToggle
             storageWarning={storageWarning}
             userEmail={user.email}
@@ -111,12 +112,9 @@ export default function ChatScreen() {
           <Modal
             visible={isSidebarOpen}
             animationType="slide"
-            transparent
+            transparent={false}
             onRequestClose={() => setIsSidebarOpen(false)}>
-            <View style={styles.modalRoot}>
-              <Pressable style={styles.modalBackdrop} onPress={() => setIsSidebarOpen(false)} />
-              <ThemedView style={styles.mobileSidebar}>{sidebar}</ThemedView>
-            </View>
+            <ThemedView style={styles.mobileSidebar}>{sidebar}</ThemedView>
           </Modal>
         </>
       )}
@@ -147,17 +145,9 @@ const styles = StyleSheet.create({
     minHeight: 0,
     minWidth: 0,
   },
-  modalRoot: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-  },
   mobileSidebar: {
-    width: '82%',
-    maxWidth: 320,
+    flex: 1,
+    width: '100%',
     backgroundColor: ChatTheme.sidebarBg,
   },
 });

@@ -1,11 +1,17 @@
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { UI_VERSION } from '@/constants/chat-theme';
+import { useMobileChatLayout } from '@/hooks/use-mobile-chat-layout';
 
 export function BuildVersionBanner() {
   const insets = useSafeAreaInsets();
+  const isMobileChatLayout = useMobileChatLayout();
+
+  if (isMobileChatLayout) {
+    return null;
+  }
 
   return (
     <View pointerEvents="none" style={[styles.wrapper, { paddingTop: insets.top }]}>
@@ -30,7 +36,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 6,
-    marginTop: Platform.OS === 'web' ? 8 : 4,
+    marginTop: 8,
   },
   bannerText: {
     color: '#FFFFFF',

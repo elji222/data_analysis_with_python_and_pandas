@@ -1,0 +1,59 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, StyleSheet, View } from 'react-native';
+
+import { ThemedText } from '@/components/themed-text';
+import { ChatTheme } from '@/constants/chat-theme';
+
+type MobileChatHeaderProps = {
+  onOpenSidebar: () => void;
+  onNewChat: () => void;
+};
+
+export function MobileChatHeader({ onOpenSidebar, onNewChat }: MobileChatHeaderProps) {
+  return (
+    <View style={styles.header}>
+      <Pressable style={styles.iconButton} onPress={onOpenSidebar} accessibilityLabel="Open menu">
+        <Ionicons name="reorder-two" size={24} color={ChatTheme.sidebarText} />
+      </Pressable>
+
+      <Pressable style={styles.modelPill}>
+        <ThemedText style={styles.modelPillText}>Soulmate AI</ThemedText>
+      </Pressable>
+
+      <Pressable style={styles.iconButton} onPress={onNewChat} accessibilityLabel="New chat">
+        <Ionicons name="chatbubble-ellipses-outline" size={22} color={ChatTheme.sidebarText} />
+      </Pressable>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+  },
+  modelPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    backgroundColor: '#FFFFFF',
+  },
+  modelPillText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: ChatTheme.sidebarText,
+  },
+});
