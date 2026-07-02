@@ -56,6 +56,7 @@ $Files = @(
     "scripts/force-phone-reload.cmd",
     "scripts/start-phone-web.ps1",
     "scripts/start-phone-web.cmd",
+    "scripts/fix-and-update-phone.cmd",
     "scripts/quick-phone-update.ps1",
     "scripts/quick-phone-update.cmd",
     "scripts/update-local.ps1",
