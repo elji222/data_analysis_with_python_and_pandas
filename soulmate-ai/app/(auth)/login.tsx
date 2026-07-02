@@ -9,6 +9,7 @@ import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/contexts/auth-context';
 import { getAuthRedirectUri, processAuthCallbackUrl, signInWithGoogle } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { UI_VERSION } from '@/constants/chat-theme';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -87,6 +88,7 @@ export default function LoginScreen() {
         <ThemedText type="subtitle" style={styles.subtitle}>
           Your AI companion
         </ThemedText>
+        <ThemedText style={styles.buildLabel}>Phone build {UI_VERSION}</ThemedText>
         <ThemedText style={styles.description}>
           Create your account with Google to save your conversations and pick up where you left off.
         </ThemedText>
@@ -117,7 +119,9 @@ export default function LoginScreen() {
 
         {isConfigured ? (
           <ThemedText style={styles.redirectHint}>
-            Redirect URL: {getAuthRedirectUri()}
+            {Platform.OS === 'web'
+              ? `Redirect URL: ${getAuthRedirectUri()}`
+              : `Add this in Supabase Redirect URLs:\n${getAuthRedirectUri()}`}
           </ThemedText>
         ) : null}
 
@@ -144,6 +148,13 @@ const styles = StyleSheet.create({
   subtitle: {
     textAlign: 'center',
     opacity: 0.85,
+  },
+  buildLabel: {
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#7B61FF',
+    marginTop: -4,
   },
   description: {
     textAlign: 'center',

@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
-$BuildId = "2026-07-07"
+$BuildId = "2026-07-08"
 
 function Stop-MetroOnPort {
     param([int]$Port)

@@ -1,3 +1,5 @@
+import Constants from 'expo-constants';
+import * as Linking from 'expo-linking';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
@@ -7,7 +9,16 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
 
+function isExpoGo() {
+  return Constants.appOwnership === 'expo';
+}
+
 export function getAuthRedirectUri() {
+  // Expo Go must use exp://... deep links, not the standalone soulmateai:// scheme.
+  if (isExpoGo()) {
+    return Linking.createURL('/login');
+  }
+
   return makeRedirectUri({
     scheme: 'soulmateai',
     path: 'login',
@@ -62,6 +73,21 @@ export async function processAuthCallbackUrl(url: string) {
   return true;
 }
 
+async function waitForSession(timeoutMs = 1500) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      return data.session;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+
+  return null;
+}
+
 export async function signInWithGoogle() {
   assertSupabaseConfigured();
 
@@ -96,15 +122,26 @@ export async function signInWithGoogle() {
     throw new Error('Google sign-in could not be started.');
   }
 
-  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo, {
+    showInRecents: true,
+  });
 
   if (result.type === 'success') {
     await createSessionFromUrl(result.url);
     return;
   }
 
+  // On some phones the browser closes before Expo reports success, but the
+  // deep link still completes sign-in in the background.
+  const session = await waitForSession();
+  if (session) {
+    return;
+  }
+
   if (result.type === 'cancel' || result.type === 'dismiss') {
-    throw new Error('Google sign-in was cancelled.');
+    throw new Error(
+      `Google sign-in was cancelled. In Supabase, add this Redirect URL: ${redirectTo}`
+    );
   }
 
   throw new Error('Google sign-in did not complete. Please try again.');
