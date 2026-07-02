@@ -8,6 +8,7 @@ import {
   saveActiveConversationId,
   saveConversations,
 } from '@/services/conversation-storage';
+import { isDefaultConversationTitle } from '@/lib/conversation-title';
 import type { ChatMessage } from '@/types/chat';
 import type { Conversation } from '@/types/conversation';
 
@@ -122,7 +123,7 @@ export function useConversations(userId: string | undefined) {
         if (conversation.id !== conversationId) return conversation;
 
         const shouldRename =
-          conversation.title === 'New conversation' && firstUserMessage !== undefined;
+          isDefaultConversationTitle(conversation.title) && firstUserMessage !== undefined;
 
         return {
           ...conversation,
@@ -139,6 +140,22 @@ export function useConversations(userId: string | undefined) {
     [conversations, persistConversations]
   );
 
+  const renameConversation = useCallback(
+    async (conversationId: string, title: string) => {
+      const trimmedTitle = title.trim();
+      if (!trimmedTitle) return;
+
+      const nextConversations = conversations.map((conversation) =>
+        conversation.id === conversationId
+          ? { ...conversation, title: trimmedTitle, updatedAt: Date.now() }
+          : conversation
+      );
+
+      await persistConversations(nextConversations);
+    },
+    [conversations, persistConversations]
+  );
+
   return {
     conversations,
     activeConversation,
@@ -148,5 +165,6 @@ export function useConversations(userId: string | undefined) {
     startNewConversation,
     deleteConversation,
     updateConversationMessages,
+    renameConversation,
   };
 }

@@ -80,12 +80,6 @@ export function ConversationSidebar({
                   pressed && styles.pressed,
                 ]}
                 onPress={() => onSelectConversation(item.id)}>
-                <Ionicons
-                  name="chatbubble-outline"
-                  size={16}
-                  color={ChatTheme.sidebarMuted}
-                  style={styles.chatIcon}
-                />
                 <ThemedText numberOfLines={1} style={styles.conversationTitle}>
                   {item.title}
                 </ThemedText>
@@ -197,21 +191,14 @@ const styles = StyleSheet.create({
   },
   conversationButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     borderRadius: 10,
-    gap: 8,
   },
   conversationButtonActive: {
     backgroundColor: ChatTheme.sidebarActive,
   },
-  chatIcon: {
-    marginTop: 1,
-  },
   conversationTitle: {
-    flex: 1,
     fontSize: 14,
     lineHeight: 20,
     color: ChatTheme.sidebarText,

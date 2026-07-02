@@ -17,12 +17,14 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ChatTheme, QUICK_ACTIONS } from '@/constants/chat-theme';
 import { streamChatMessage } from '@/services/chat-api';
+import { fetchConversationTitle } from '@/services/title-api';
 import type { ChatMessage } from '@/types/chat';
 import type { Conversation } from '@/types/conversation';
 
 type ChatPanelProps = {
   conversation: Conversation | null;
   onUpdateMessages: (conversationId: string, messages: ChatMessage[]) => Promise<void>;
+  onRenameConversation?: (conversationId: string, title: string) => Promise<void>;
   onOpenSidebar?: () => void;
   showSidebarToggle?: boolean;
   userEmail?: string | null;
@@ -31,6 +33,7 @@ type ChatPanelProps = {
 export function ChatPanel({
   conversation,
   onUpdateMessages,
+  onRenameConversation,
   onOpenSidebar,
   showSidebarToggle = false,
   userEmail,
@@ -66,6 +69,8 @@ export function ChatPanel({
 
     const trimmed = text.trim();
     if (!trimmed || isLoading) return;
+
+    const isFirstExchange = messages.length === 0;
 
     const userMessage: ChatMessage = {
       id: `${Date.now()}-user`,
@@ -104,6 +109,11 @@ export function ChatPanel({
 
       setStreamingText(null);
       await onUpdateMessages(conversation.id, [...nextMessages, assistantMessage]);
+
+      if (isFirstExchange && onRenameConversation) {
+        const title = await fetchConversationTitle(trimmed);
+        await onRenameConversation(conversation.id, title);
+      }
     } catch (sendError) {
       setStreamingText(null);
       const message =
@@ -162,6 +172,7 @@ export function ChatPanel({
           style={styles.keyboardView}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
+          <View style={styles.mainColumn}>
           {isEmpty ? (
             <View style={styles.heroState}>
               <ThemedText
@@ -203,7 +214,7 @@ export function ChatPanel({
               </View>
             </View>
           ) : (
-            <>
+            <View style={styles.threadArea}>
               <FlatList
                 ref={listRef}
                 data={listData}
@@ -232,8 +243,9 @@ export function ChatPanel({
                   Soulmate AI can make mistakes. Consider checking important information.
                 </ThemedText>
               </View>
-            </>
+            </View>
           )}
+          </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </ThemedView>
@@ -243,6 +255,7 @@ export function ChatPanel({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
   },
   safeArea: {
     flex: 1,
@@ -281,17 +294,23 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     flex: 1,
+    width: '100%',
+  },
+  mainColumn: {
+    flex: 1,
+    width: '100%',
+    maxWidth: ChatTheme.composerMaxWidth + 48,
+    alignSelf: 'center',
+    alignItems: 'center',
   },
   heroState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 48,
     gap: 28,
     width: '100%',
-    maxWidth: ChatTheme.contentMaxWidth + 48,
-    alignSelf: 'center',
   },
   heroTitle: {
     fontSize: 32,
@@ -320,13 +339,15 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: ChatTheme.sidebarText,
   },
+  threadArea: {
+    flex: 1,
+    width: '100%',
+  },
   messageList: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingTop: 16,
     paddingBottom: 16,
     width: '100%',
-    maxWidth: ChatTheme.contentMaxWidth,
-    alignSelf: 'center',
     flexGrow: 1,
   },
   errorText: {
@@ -337,12 +358,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   bottomComposerArea: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingTop: 8,
     paddingBottom: 12,
     width: '100%',
-    maxWidth: ChatTheme.composerMaxWidth + 32,
-    alignSelf: 'center',
   },
   disclaimer: {
     marginTop: 10,

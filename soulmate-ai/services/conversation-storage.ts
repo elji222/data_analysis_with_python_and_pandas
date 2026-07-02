@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { createConversationTitle } from '@/lib/conversation-title';
 import type { Conversation } from '@/types/conversation';
 
 function getStorageKeys(userId: string) {
@@ -37,17 +38,13 @@ export async function saveActiveConversationId(userId: string, id: string): Prom
   await AsyncStorage.setItem(activeConversation, id);
 }
 
-export function createConversationTitle(firstMessage: string): string {
-  const trimmed = firstMessage.trim();
-  if (!trimmed) return 'New conversation';
-  return trimmed.length > 42 ? `${trimmed.slice(0, 42)}…` : trimmed;
-}
+export { createConversationTitle } from '@/lib/conversation-title';
 
 export function createEmptyConversation(): Conversation {
   const now = Date.now();
   return {
     id: `${now}`,
-    title: 'New conversation',
+    title: 'New chat',
     messages: [],
     createdAt: now,
     updatedAt: now,

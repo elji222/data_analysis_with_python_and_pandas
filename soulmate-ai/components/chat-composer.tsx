@@ -146,13 +146,14 @@ const styles = StyleSheet.create({
   },
   shell: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     borderWidth: 1,
     borderRadius: 28,
     paddingLeft: 6,
     paddingRight: 8,
-    paddingVertical: 8,
+    paddingVertical: 10,
     gap: 4,
+    minHeight: 52,
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowRadius: 16,
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
   shellHero: {
     minHeight: 56,
     borderRadius: 32,
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   attachButton: {
     width: 36,

@@ -34,6 +34,7 @@ export default function ChatScreen() {
     startNewConversation,
     deleteConversation,
     updateConversationMessages,
+    renameConversation,
   } = useConversations(user?.id);
 
   async function handleSelectConversation(conversationId: string) {
@@ -88,17 +89,21 @@ export default function ChatScreen() {
       {isWideLayout ? (
         <View style={styles.desktopLayout}>
           {sidebar}
-          <ChatPanel
-            conversation={activeConversation}
-            onUpdateMessages={updateConversationMessages}
-            userEmail={user.email}
-          />
+          <View style={styles.chatMain}>
+            <ChatPanel
+              conversation={activeConversation}
+              onUpdateMessages={updateConversationMessages}
+              onRenameConversation={renameConversation}
+              userEmail={user.email}
+            />
+          </View>
         </View>
       ) : (
         <>
           <ChatPanel
             conversation={activeConversation}
             onUpdateMessages={updateConversationMessages}
+            onRenameConversation={renameConversation}
             onOpenSidebar={() => setIsSidebarOpen(true)}
             showSidebarToggle
             userEmail={user.email}
@@ -136,6 +141,9 @@ const styles = StyleSheet.create({
   desktopLayout: {
     flex: 1,
     flexDirection: 'row',
+  },
+  chatMain: {
+    flex: 1,
   },
   modalRoot: {
     flex: 1,

@@ -1,5 +1,7 @@
 export const CLAUDE_MODEL = 'claude-opus-4-8';
 
+export const TITLE_MODEL = 'claude-haiku-4-5';
+
 export const MAX_OUTPUT_TOKENS = 4096;
 
 export const SOULMATE_SYSTEM_PROMPT = `You are Soulmate AI — a warm, thoughtful companion built on Claude. You help people feel heard, understood, and supported in meaningful conversation.
