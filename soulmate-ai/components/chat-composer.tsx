@@ -105,7 +105,12 @@ export function ChatComposer({
           },
         ]}>
         <View style={styles.contentRow}>
-          <Pressable style={styles.iconSlot} disabled={isLoading} onPress={onAttachPress}>
+          <Pressable
+            style={({ pressed }) => [styles.iconSlot, pressed && styles.iconPressed]}
+            disabled={isLoading}
+            onPress={onAttachPress}
+            accessibilityRole="button"
+            accessibilityLabel="Attach file">
             <Ionicons
               name="add"
               size={22}
@@ -140,9 +145,15 @@ export function ChatComposer({
 
           <View style={styles.trailingActions}>
             <Pressable
-              style={[styles.iconSlot, isListening && styles.iconSlotActive]}
+              style={({ pressed }) => [
+                styles.iconSlot,
+                isListening && styles.iconSlotActive,
+                pressed && styles.iconPressed,
+              ]}
               disabled={isLoading}
-              onPress={onVoicePress}>
+              onPress={onVoicePress}
+              accessibilityRole="button"
+              accessibilityLabel="Voice input">
               <Ionicons
                 name={isListening ? 'mic' : 'mic-outline'}
                 size={20}
@@ -208,9 +219,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
+    ...(Platform.OS === 'web'
+      ? ({ cursor: 'pointer', zIndex: 2 } as const)
+      : {}),
   },
   iconSlotActive: {
     backgroundColor: '#F3EEFF',
+  },
+  iconPressed: {
+    opacity: 0.7,
+    backgroundColor: '#F0F0F0',
   },
   input: {
     flex: 1,

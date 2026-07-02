@@ -1,7 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 import type { ChatAttachment } from '@/types/chat';
 
@@ -13,6 +13,8 @@ function createAttachmentId() {
 }
 
 async function ensureImagePermission() {
+  if (Platform.OS === 'web') return;
+
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) {
     throw new Error('Photo permission is required to attach images.');
@@ -171,25 +173,11 @@ export async function pickDocument(): Promise<ChatAttachment | null> {
   };
 }
 
-export function showAttachMenu(onPick: (action: 'library' | 'camera' | 'document') => void) {
-  const options =
-    Platform.OS === 'web'
-      ? [
-          { text: 'Photo', onPress: () => onPick('library') },
-          { text: 'Document', onPress: () => onPick('document') },
-          { text: 'Cancel', style: 'cancel' as const },
-        ]
-      : [
-          { text: 'Photo library', onPress: () => onPick('library') },
-          { text: 'Take photo', onPress: () => onPick('camera') },
-          { text: 'Document', onPress: () => onPick('document') },
-          { text: 'Cancel', style: 'cancel' as const },
-        ];
-
-  Alert.alert('Add to chat', 'Choose what to attach', options);
-}
-
 export function canAddImageAttachment(currentAttachments: ChatAttachment[]) {
   const imageCount = currentAttachments.filter((attachment) => attachment.kind === 'image').length;
   return imageCount < MAX_IMAGE_ATTACHMENTS;
+}
+
+export function shouldShowCameraOption() {
+  return Platform.OS !== 'web';
 }

@@ -14,6 +14,7 @@ $Files = @(
     "app/api/title+api.ts",
     "app.json",
     "package.json",
+    "components/attach-menu.tsx",
     "components/chat-bubble.tsx",
     "components/chat-composer.tsx",
     "components/chat-panel.tsx",
@@ -85,5 +86,5 @@ Write-Host "Next steps:"
 Write-Host "  1. Run: npm install"
 Write-Host "  2. Run: npx expo start --clear"
 Write-Host "  3. Open: http://localhost:8081/chat"
-Write-Host "  4. Look for UI 2025-07-04 under Soulmate AI in the left sidebar"
+Write-Host "  4. Look for UI 2025-07-05 under Soulmate AI in the left sidebar"
 Write-Host ""

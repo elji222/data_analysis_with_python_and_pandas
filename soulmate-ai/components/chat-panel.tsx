@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -12,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AttachMenu } from '@/components/attach-menu';
 import { ChatBubble, StreamingPlaceholder } from '@/components/chat-bubble';
 import { ChatComposer } from '@/components/chat-composer';
 import { ThemedText } from '@/components/themed-text';
@@ -23,7 +23,7 @@ import {
   canAddImageAttachment,
   pickDocument,
   pickImageFromLibrary,
-  showAttachMenu,
+  shouldShowCameraOption,
   takePhoto,
 } from '@/lib/attachments';
 import { getMessagePreviewText, cloneAttachments } from '@/lib/build-chat-api-messages';
@@ -58,14 +58,23 @@ export function ChatPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isAttachMenuOpen, setIsAttachMenuOpen] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const handleVoiceTranscript = useCallback((transcript: string, isFinal: boolean) => {
-    if (!isFinal || !transcript.trim()) return;
+    if (!transcript.trim()) return;
 
-    setInput((previous) => {
-      const trimmedPrevious = previous.trim();
-      return trimmedPrevious ? `${trimmedPrevious} ${transcript.trim()}` : transcript.trim();
-    });
+    if (isFinal) {
+      setInput((previous) => {
+        const trimmedPrevious = previous.trim();
+        return trimmedPrevious ? `${trimmedPrevious} ${transcript.trim()}` : transcript.trim();
+      });
+      setStatusMessage('Voice added to your message');
+      return;
+    }
+
+    setInput(transcript.trim());
+    setStatusMessage('Listening...');
   }, []);
 
   const { isListening, isSupported, toggleListening, stopListening } =
@@ -83,6 +92,7 @@ export function ChatPanel({
     setInput('');
     setAttachments([]);
     setError(null);
+    setStatusMessage(null);
     setStreamingText(null);
     setIsLoading(false);
     stopListening();
@@ -114,39 +124,47 @@ export function ChatPanel({
       if (!attachment) return;
 
       if (attachment.kind === 'image' && !canAddImageAttachment(attachments)) {
-        Alert.alert('Image limit', 'You can attach up to 3 images per message.');
+        setError('You can attach up to 3 images per message.');
         return;
       }
 
       setAttachments((previous) => [...previous, attachment!]);
+      setStatusMessage(`Attached ${attachment.name}`);
     } catch (attachError) {
       const message =
         attachError instanceof Error ? attachError.message : 'Could not attach that file.';
-      Alert.alert('Attachment failed', message);
+      setError(message);
     }
   }
 
   function handleAttachPress() {
-    showAttachMenu((action) => {
-      void handleAttach(action);
-    });
+    setIsAttachMenuOpen(true);
   }
 
   function handleVoicePress() {
     if (!isSupported) {
-      Alert.alert(
-        'Voice input',
+      setError(
         Platform.OS === 'web'
-          ? 'Voice input works best in Chrome or Edge on desktop.'
+          ? 'Voice input works in Chrome or Edge. Try opening the app in one of those browsers.'
           : 'Voice input is available in the web app for now.'
       );
       return;
     }
 
-    const started = toggleListening();
-    if (!started && !isListening) {
-      Alert.alert('Voice input', 'Could not start the microphone. Check browser permissions.');
+    if (isListening) {
+      stopListening();
+      setStatusMessage('Voice input stopped');
+      return;
     }
+
+    const started = toggleListening();
+    if (started) {
+      setStatusMessage('Listening... speak now');
+      setError(null);
+      return;
+    }
+
+    setError('Could not start the microphone. Allow mic access in your browser settings.');
   }
 
   function handleRemoveAttachment(attachmentId: string) {
@@ -246,6 +264,12 @@ export function ChatPanel({
       lightColor={ChatTheme.pageBg}
       darkColor={ChatTheme.pageBgDark}
       style={styles.container}>
+      <AttachMenu
+        visible={isAttachMenuOpen}
+        onClose={() => setIsAttachMenuOpen(false)}
+        onPick={(action) => void handleAttach(action)}
+        showCamera={shouldShowCameraOption()}
+      />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.header}>
           {showSidebarToggle ? (
@@ -279,9 +303,14 @@ export function ChatPanel({
                   What&apos;s on your mind today?
                 </ThemedText>
 
-                <ChatComposer variant="hero" {...composerProps} />
+              <ChatComposer variant="hero" {...composerProps} />
 
-                <View style={styles.quickActions}>
+              {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+              {statusMessage && !error ? (
+                <ThemedText style={styles.statusText}>{statusMessage}</ThemedText>
+              ) : null}
+
+              <View style={styles.quickActions}>
                   {QUICK_ACTIONS.map((action) => (
                     <Pressable
                       key={action.label}
@@ -321,9 +350,12 @@ export function ChatPanel({
                   )}
                 />
 
-                {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+              {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+              {statusMessage && !error ? (
+                <ThemedText style={styles.statusText}>{statusMessage}</ThemedText>
+              ) : null}
 
-                <View style={styles.bottomComposerArea}>
+              <View style={styles.bottomComposerArea}>
                   <ChatComposer {...composerProps} />
                   <ThemedText style={styles.disclaimer}>
                     Soulmate AI can make mistakes. Consider checking important information.
@@ -441,6 +473,13 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: ChatTheme.error,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+    fontSize: 14,
+  },
+  statusText: {
+    color: ChatTheme.accent,
     textAlign: 'center',
     paddingHorizontal: 20,
     paddingBottom: 8,
