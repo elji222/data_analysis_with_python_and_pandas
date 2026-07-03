@@ -44,7 +44,7 @@ $Files = @(
     "scripts/emergency-fix.cmd",
     "scripts/open-on-phone.ps1",
     "scripts/open-on-phone.cmd",
-    "scripts/DEPLOY.cmd",
+    "DEPLOY.cmd",
     "scripts/deploy-live-site.cmd",
     "scripts/deploy-live-site.ps1",
     "scripts/deploy-now.cmd",
