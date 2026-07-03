@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$DeployScriptVersion = "2026-07-11e"
+$DeployScriptVersion = "2026-07-11f"
 
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
@@ -286,7 +286,7 @@ function Invoke-EasDeployProduction {
 function Enable-ShortProjectDrive {
     param([string]$DriveLetter = "S:")
 
-    $drive = if ($DriveLetter.EndsWith(':')) { $DriveLetter } else { "$DriveLetter:" }
+    $drive = if ($DriveLetter.EndsWith(':')) { $DriveLetter } else { "${DriveLetter}:" }
     $driveRoot = $drive.TrimEnd(':')
 
     cmd /c "subst ${driveRoot}: /d" 2>$null | Out-Null
