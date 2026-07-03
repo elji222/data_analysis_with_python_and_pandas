@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$DeployScriptVersion = "2026-07-11d"
+$DeployScriptVersion = "2026-07-11e"
 
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
@@ -263,27 +263,52 @@ function Invoke-ExpoWebExport {
     }
 }
 
-function Get-ShortExportDir {
-    return Join-Path $env:LOCALAPPDATA "soulmate-export"
+function Invoke-EasDeployProduction {
+    param([string]$WorkingDir)
+
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+
+    try {
+        Push-Location $WorkingDir
+        $lines = & $script:EasBin deploy --prod --environment production --non-interactive --export-dir dist 2>&1 |
+            ForEach-Object { "$_" }
+        return @{
+            ExitCode = $LASTEXITCODE
+            Output = ($lines -join "`n").Trim()
+        }
+    } finally {
+        Pop-Location
+        $ErrorActionPreference = $previousPreference
+    }
 }
 
-function Clear-ShortExportDir {
-    param([string]$ExportDir)
+function Enable-ShortProjectDrive {
+    param([string]$DriveLetter = "S:")
 
-    if (Test-Path $ExportDir) {
-        Write-Host "Clearing previous export folder..."
-        $staleName = "soulmate-export-old-$(Get-Date -Format 'yyyyMMddHHmmss')"
-        $stalePath = Join-Path (Split-Path $ExportDir -Parent) $staleName
+    $drive = if ($DriveLetter.EndsWith(':')) { $DriveLetter } else { "$DriveLetter:" }
+    $driveRoot = $drive.TrimEnd(':')
 
-        try {
-            Rename-Item -LiteralPath $ExportDir -NewName $staleName -ErrorAction Stop
-            Write-Host "Moved old export to $staleName/"
-        } catch {
-            $null = Invoke-External -Command { cmd /c "rmdir /s /q `"$ExportDir`"" }
-        }
+    cmd /c "subst ${driveRoot}: /d" 2>$null | Out-Null
+    cmd /c "subst ${driveRoot}: `"$Root`""
+    if ($LASTEXITCODE -ne 0) {
+        throw @"
+Could not create short drive ${drive} for your project folder.
+
+Move the project to a simpler path and try again, for example:
+  C:\soulmate-ai
+"@
     }
 
-    New-Item -ItemType Directory -Path $ExportDir -Force | Out-Null
+    Write-Host "Mapped ${drive} to your project folder (fixes Windows path limits)."
+    return $drive
+}
+
+function Disable-ShortProjectDrive {
+    param([string]$DriveLetter = "S:")
+
+    $driveRoot = $DriveLetter.TrimEnd(':')
+    cmd /c "subst ${driveRoot}: /d" 2>$null | Out-Null
 }
 
 function Clear-DistFolder {
@@ -346,6 +371,17 @@ Try:
     }
 
     Write-Host "Bundle check passed: export contains build $ExpectedVersion"
+}
+
+function Test-ExportStructure {
+    param([string]$ExportDir)
+
+    $routesFile = Join-Path $ExportDir "server\_expo\routes.json"
+    if (-not (Test-Path $routesFile)) {
+        throw "Export is missing server routes at $routesFile"
+    }
+
+    Write-Host "Export structure check passed (server routes found)."
 }
 
 function Repair-EasJson {
@@ -612,50 +648,67 @@ Sync-ProductionEnv -EnvVars $envVars
 
 Write-Host ""
 Write-Host "Step 5: Build web app..."
-$exportDir = Get-ShortExportDir
-Clear-ShortExportDir -ExportDir $exportDir
-Write-Host "Using short export path (fixes Windows long-folder errors):"
-Write-Host "  $exportDir"
-Write-Host ""
+$shortDrive = Enable-ShortProjectDrive
+$exportDir = Join-Path $shortDrive "dist"
 
-$exportResult = Invoke-ExpoWebExport -OutputDir $exportDir
-if ($exportResult.Output) {
-    Write-Host $exportResult.Output
+try {
+    Write-Host "Export folder: $exportDir"
     Write-Host ""
-}
 
-$bundle = Get-ChildItem -Path $exportDir -Recurse -Filter "entry*.js" -ErrorAction SilentlyContinue |
-    Select-Object -First 1
-if (-not $bundle) {
-    throw @"
+    Clear-DistFolder -DistPath $exportDir
+
+    $exportResult = Invoke-ExpoWebExport -OutputDir $exportDir
+    if ($exportResult.Output) {
+        Write-Host $exportResult.Output
+        Write-Host ""
+    }
+
+    $bundle = Get-ChildItem -Path $exportDir -Recurse -Filter "entry*.js" -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if (-not $bundle) {
+        throw @"
 Web export failed. No bundle was created.
 
-Common fix on Windows: move the project to a shorter folder, for example:
+Move the project to a shorter folder and try again, for example:
   C:\soulmate-ai
-
-Copy your .env file into that folder, then run:
-  scripts\deploy-live-site.cmd
 "@
+    }
+
+    if ($exportResult.ExitCode -ne 0) {
+        Write-Host "Export reported a warning, but bundle was created. Continuing..."
+    }
+
+    Test-ExportedBundleVersion -ExpectedVersion $uiVersion -ExportDir $exportDir
+    Test-ExportStructure -ExportDir $exportDir
+
+    Write-Host ""
+    Write-Host "Step 6: Deploy to EAS Hosting (production)..."
+    $easText = Get-Content "eas.json" -Raw
+    if ($easText -match '"deploy"') {
+        throw "eas.json is still invalid. Delete eas.json and run this script again."
+    }
+    Write-Host "Uploading build $uiVersion to production..."
+    Write-Host ""
+
+    $deployResult = Invoke-EasDeployProduction -WorkingDir $shortDrive
+
+    if ($deployResult.Output) {
+        Write-Host $deployResult.Output
+        Write-Host ""
+    }
+
+    if ($deployResult.ExitCode -ne 0) {
+        throw @"
+Deploy failed. See the error details above.
+
+You can also try manually in CMD:
+  cd /d $Root
+  npx eas deploy --prod --environment production --export-dir dist
+"@
+    }
 }
-
-if ($exportResult.ExitCode -ne 0) {
-    Write-Host "Export reported a warning, but bundle was created. Continuing..."
-}
-
-Test-ExportedBundleVersion -ExpectedVersion $uiVersion -ExportDir $exportDir
-
-Write-Host ""
-Write-Host "Step 6: Deploy to EAS Hosting (production)..."
-$easText = Get-Content "eas.json" -Raw
-if ($easText -match '"deploy"') {
-    throw "eas.json is still invalid. Delete eas.json and run this script again."
-}
-Write-Host "If this is your first deploy, choose subdomain: soulmate-ai"
-Write-Host ""
-
-$deployCode = Invoke-Eas deploy --prod --environment production --export-dir $exportDir
-if ($deployCode -ne 0) {
-    throw "Deploy failed."
+finally {
+    Disable-ShortProjectDrive -DriveLetter $shortDrive
 }
 
 Write-Host ""
