@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$DeployScriptVersion = "2026-07-11f"
+$DeployScriptVersion = "2026-07-11g"
 
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
@@ -284,28 +284,28 @@ function Invoke-EasDeployProduction {
 }
 
 function Enable-ShortProjectDrive {
-    param([string]$DriveLetter = "S:")
+    param([string]$DriveLetter = "S")
 
-    $drive = if ($DriveLetter.EndsWith(':')) { $DriveLetter } else { "${DriveLetter}:" }
-    $driveRoot = $drive.TrimEnd(':')
+    $driveRoot = $DriveLetter.TrimEnd(':')
+    $drive = $driveRoot + ':'
 
     cmd /c "subst ${driveRoot}: /d" 2>$null | Out-Null
     cmd /c "subst ${driveRoot}: `"$Root`""
     if ($LASTEXITCODE -ne 0) {
         throw @"
-Could not create short drive ${drive} for your project folder.
+Could not create short drive $drive for your project folder.
 
 Move the project to a simpler path and try again, for example:
   C:\soulmate-ai
 "@
     }
 
-    Write-Host "Mapped ${drive} to your project folder (fixes Windows path limits)."
+    Write-Host "Mapped $drive to your project folder (fixes Windows path limits)."
     return $drive
 }
 
 function Disable-ShortProjectDrive {
-    param([string]$DriveLetter = "S:")
+    param([string]$DriveLetter = "S")
 
     $driveRoot = $DriveLetter.TrimEnd(':')
     cmd /c "subst ${driveRoot}: /d" 2>$null | Out-Null
