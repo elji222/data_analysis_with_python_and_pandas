@@ -7,7 +7,15 @@ echo  QUICK DEPLOY - downloads latest code, then deploys
 echo ============================================================
 echo.
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai/scripts/deploy-live-site.ps1?2026-07-11g' -OutFile 'scripts\deploy-live-site.ps1' -UseBasicParsing; Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai/scripts/quick-phone-update.ps1?2026-07-11g' -OutFile 'scripts\quick-phone-update.ps1' -UseBasicParsing"
+powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\download-deploy-scripts.ps1"
+if errorlevel 1 (
+  echo Could not download deploy scripts.
+  echo.
+  echo Run this once in CMD to fix:
+  echo   powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai/scripts/download-deploy-scripts.ps1?v=11h' -OutFile 'scripts\download-deploy-scripts.ps1'"
+  pause
+  exit /b 1
+)
 
 echo Downloading latest app files from GitHub...
 powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\quick-phone-update.ps1"
@@ -16,6 +24,8 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\download-deploy-scripts.ps1"
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$env:SKIP_NPM_INSTALL='1'; $env:SKIP_SOURCE_SYNC='1'; & 'scripts\deploy-live-site.ps1'"

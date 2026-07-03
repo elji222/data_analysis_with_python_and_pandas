@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-07-11g"
+$CacheBust = "2026-07-11h"
 
 $Files = @(
     "app/_layout.tsx",
@@ -44,6 +44,7 @@ $Files = @(
     "scripts/emergency-fix.cmd",
     "scripts/open-on-phone.ps1",
     "scripts/open-on-phone.cmd",
+    "scripts/download-deploy-scripts.ps1",
     "scripts/deploy-live-site.cmd",
     "scripts/deploy-live-site.ps1",
     "scripts/deploy-now.cmd",
