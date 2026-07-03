@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$DeployScriptVersion = "2026-07-09"
+$DeployScriptVersion = "2026-07-11"
 
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
@@ -202,6 +202,57 @@ function Read-DotEnv {
     }
 
     return $vars
+}
+
+function Get-UiVersion {
+    $themeFile = Join-Path $Root "constants\chat-theme.ts"
+    if (-not (Test-Path $themeFile)) {
+        return "missing"
+    }
+
+    $themeText = Get-Content $themeFile -Raw
+    if ($themeText -match "UI_VERSION\s*=\s*'([^']+)'") {
+        return $Matches[1]
+    }
+
+    return "unknown"
+}
+
+function Sync-LatestSource {
+    $updateScript = Join-Path $PSScriptRoot "quick-phone-update.ps1"
+    if (-not (Test-Path $updateScript)) {
+        throw "Missing scripts/quick-phone-update.ps1"
+    }
+
+    Write-Host "Downloading latest app files from GitHub..."
+    & $updateScript
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not download the latest app files from GitHub."
+    }
+}
+
+function Test-ExportedBundleVersion {
+    param([string]$ExpectedVersion)
+
+    $bundle = Get-ChildItem -Path (Join-Path $Root "dist") -Recurse -Filter "entry*.js" -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+
+    if (-not $bundle) {
+        throw "Web export finished but no bundle was found in dist/."
+    }
+
+    $content = Get-Content $bundle.FullName -Raw
+    if ($content -notmatch [regex]::Escape($ExpectedVersion)) {
+        throw @"
+The exported bundle is still old (expected build $ExpectedVersion).
+
+Try:
+  rmdir /s /q dist
+  scripts\deploy-live-site.cmd
+"@
+    }
+
+    Write-Host "Bundle check passed: dist contains build $ExpectedVersion"
 }
 
 function Repair-EasJson {
@@ -441,29 +492,42 @@ if (-not (Test-Path ".env")) {
 
 $envVars = Read-DotEnv -Path ".env"
 
-Write-Host "Step 1: Clear cache, fix eas.json, install dependencies..."
+Write-Host "Step 1: Download latest app source from GitHub..."
+Sync-LatestSource
+$uiVersion = Get-UiVersion
+Write-Host ""
+Write-Host ">>> BUILD ON DISK: $uiVersion <<<"
+Write-Host ""
+
+Write-Host "Step 2: Clear cache, fix eas.json, install dependencies..."
 Clear-NpmCaches
 Repair-EasJson
 Install-ProjectDependencies
 Ensure-EasInstalled
 
 Write-Host ""
-Write-Host "Step 2: Log in to Expo..."
+Write-Host "Step 3: Log in to Expo..."
 Ensure-EasLogin
 
 Write-Host ""
-Write-Host "Step 3: Upload production environment variables..."
+Write-Host "Step 4: Upload production environment variables..."
 Sync-ProductionEnv -EnvVars $envVars
 
 Write-Host ""
-Write-Host "Step 4: Build web app..."
+Write-Host "Step 5: Build web app..."
+$distPath = Join-Path $Root "dist"
+if (Test-Path $distPath) {
+    Write-Host "Removing old dist/ folder..."
+    Remove-Item -LiteralPath $distPath -Recurse -Force
+}
 $exportCode = Invoke-External -Command { npx expo export --platform web }
 if ($exportCode -ne 0) {
     throw "Web export failed."
 }
+Test-ExportedBundleVersion -ExpectedVersion $uiVersion
 
 Write-Host ""
-Write-Host "Step 5: Deploy to EAS Hosting (production)..."
+Write-Host "Step 6: Deploy to EAS Hosting (production)..."
 $easText = Get-Content "eas.json" -Raw
 if ($easText -match '"deploy"') {
     throw "eas.json is still invalid. Delete eas.json and run this script again."
@@ -481,5 +545,9 @@ Write-Host "============================================================"
 Write-Host " DEPLOYED!"
 Write-Host " Open on your phone:"
 Write-Host " https://soulmate-ai.expo.app/chat"
+Write-Host ""
+Write-Host " You MUST see: LIVE BUILD $uiVersion"
+Write-Host " If you still see an older build, deploy did not finish."
+Write-Host " Run scripts\deploy-live-site.cmd again."
 Write-Host "============================================================"
 Write-Host ""

@@ -120,6 +120,10 @@ if ($ComposerText -notmatch "layout\?: 'default' \| 'mobile'") {
     throw "Download failed. chat-composer.tsx is missing mobile layout support."
 }
 
+if ($ComposerText -notmatch "syncInputHeight|scrollHeight") {
+    throw "Download failed. chat-composer.tsx is missing auto-grow input."
+}
+
 if ($LayoutText -notmatch "StaleBundleGate") {
     throw "Download failed. app/_layout.tsx is missing the phone cache fix."
 }
