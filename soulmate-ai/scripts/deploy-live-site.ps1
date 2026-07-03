@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$DeployScriptVersion = "2026-07-11c"
+$DeployScriptVersion = "2026-07-11d"
 
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
@@ -246,6 +246,46 @@ function Sync-LatestSource {
     Write-Host "Source updated to build $afterVersion"
 }
 
+function Invoke-ExpoWebExport {
+    param([string]$OutputDir)
+
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+
+    try {
+        $lines = & npx expo export --platform web --output-dir $OutputDir --clear 2>&1 | ForEach-Object { "$_" }
+        return @{
+            ExitCode = $LASTEXITCODE
+            Output = ($lines -join "`n").Trim()
+        }
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+}
+
+function Get-ShortExportDir {
+    return Join-Path $env:LOCALAPPDATA "soulmate-export"
+}
+
+function Clear-ShortExportDir {
+    param([string]$ExportDir)
+
+    if (Test-Path $ExportDir) {
+        Write-Host "Clearing previous export folder..."
+        $staleName = "soulmate-export-old-$(Get-Date -Format 'yyyyMMddHHmmss')"
+        $stalePath = Join-Path (Split-Path $ExportDir -Parent) $staleName
+
+        try {
+            Rename-Item -LiteralPath $ExportDir -NewName $staleName -ErrorAction Stop
+            Write-Host "Moved old export to $staleName/"
+        } catch {
+            $null = Invoke-External -Command { cmd /c "rmdir /s /q `"$ExportDir`"" }
+        }
+    }
+
+    New-Item -ItemType Directory -Path $ExportDir -Force | Out-Null
+}
+
 function Clear-DistFolder {
     param([string]$DistPath)
 
@@ -283,13 +323,16 @@ After that, run scripts\deploy-live-site.cmd again.
 }
 
 function Test-ExportedBundleVersion {
-    param([string]$ExpectedVersion)
+    param(
+        [string]$ExpectedVersion,
+        [string]$ExportDir
+    )
 
-    $bundle = Get-ChildItem -Path (Join-Path $Root "dist") -Recurse -Filter "entry*.js" -ErrorAction SilentlyContinue |
+    $bundle = Get-ChildItem -Path $ExportDir -Recurse -Filter "entry*.js" -ErrorAction SilentlyContinue |
         Select-Object -First 1
 
     if (-not $bundle) {
-        throw "Web export finished but no bundle was found in dist/."
+        throw "Web export finished but no bundle was found in $ExportDir."
     }
 
     $content = Get-Content $bundle.FullName -Raw
@@ -298,12 +341,11 @@ function Test-ExportedBundleVersion {
 The exported bundle is still old (expected build $ExpectedVersion).
 
 Try:
-  rmdir /s /q dist
   scripts\deploy-live-site.cmd
 "@
     }
 
-    Write-Host "Bundle check passed: dist contains build $ExpectedVersion"
+    Write-Host "Bundle check passed: export contains build $ExpectedVersion"
 }
 
 function Repair-EasJson {
@@ -570,13 +612,37 @@ Sync-ProductionEnv -EnvVars $envVars
 
 Write-Host ""
 Write-Host "Step 5: Build web app..."
-$distPath = Join-Path $Root "dist"
-Clear-DistFolder -DistPath $distPath
-$exportCode = Invoke-External -Command { npx expo export --platform web }
-if ($exportCode -ne 0) {
-    throw "Web export failed."
+$exportDir = Get-ShortExportDir
+Clear-ShortExportDir -ExportDir $exportDir
+Write-Host "Using short export path (fixes Windows long-folder errors):"
+Write-Host "  $exportDir"
+Write-Host ""
+
+$exportResult = Invoke-ExpoWebExport -OutputDir $exportDir
+if ($exportResult.Output) {
+    Write-Host $exportResult.Output
+    Write-Host ""
 }
-Test-ExportedBundleVersion -ExpectedVersion $uiVersion
+
+$bundle = Get-ChildItem -Path $exportDir -Recurse -Filter "entry*.js" -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+if (-not $bundle) {
+    throw @"
+Web export failed. No bundle was created.
+
+Common fix on Windows: move the project to a shorter folder, for example:
+  C:\soulmate-ai
+
+Copy your .env file into that folder, then run:
+  scripts\deploy-live-site.cmd
+"@
+}
+
+if ($exportResult.ExitCode -ne 0) {
+    Write-Host "Export reported a warning, but bundle was created. Continuing..."
+}
+
+Test-ExportedBundleVersion -ExpectedVersion $uiVersion -ExportDir $exportDir
 
 Write-Host ""
 Write-Host "Step 6: Deploy to EAS Hosting (production)..."
@@ -587,7 +653,7 @@ if ($easText -match '"deploy"') {
 Write-Host "If this is your first deploy, choose subdomain: soulmate-ai"
 Write-Host ""
 
-$deployCode = Invoke-Eas deploy --prod --environment production
+$deployCode = Invoke-Eas deploy --prod --environment production --export-dir $exportDir
 if ($deployCode -ne 0) {
     throw "Deploy failed."
 }
