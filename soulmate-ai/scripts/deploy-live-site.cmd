@@ -3,34 +3,27 @@ cd /d "%~dp0.."
 
 echo.
 echo ============================================================
-echo  DEPLOY WEB APP TO soulmate-ai.expo.app
+echo  DEPLOY SOULMATE AI TO soulmate-ai.expo.app
 echo ============================================================
 echo.
 
-echo Downloading latest scripts from GitHub...
-powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\download-deploy-scripts.ps1"
-if errorlevel 1 (
-  echo Download failed. Check your internet.
-  pause
-  exit /b 1
-)
-
-echo Updating project files...
+echo Step A - download latest files from GitHub...
 powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\quick-phone-update.ps1"
-if errorlevel 1 (
-  echo Update failed.
-  pause
-  exit /b 1
-)
+if errorlevel 1 goto failed
 
-echo Downloading latest deploy script again...
-powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\download-deploy-scripts.ps1"
-if errorlevel 1 (
-  echo Deploy script download failed.
-  pause
-  exit /b 1
-)
-
+echo.
+echo Step B - deploy to production...
 set SKIP_SOURCE_SYNC=1
 powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\deploy-live-site.ps1"
+if errorlevel 1 goto failed
+
+goto done
+
+:failed
+echo.
+echo DEPLOY FAILED - see error above.
+pause
+exit /b 1
+
+:done
 pause

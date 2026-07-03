@@ -1,11 +1,10 @@
 @echo off
-cd /d "%~dp0.."
+cd /d "%~dp0"
 
 echo.
 echo ============================================================
-echo  QUICK DEPLOY - skips npm install
+echo  DEPLOY SOULMATE AI - double click this file
 echo ============================================================
 echo.
 
-set SKIP_NPM_INSTALL=1
 call scripts\deploy-live-site.cmd

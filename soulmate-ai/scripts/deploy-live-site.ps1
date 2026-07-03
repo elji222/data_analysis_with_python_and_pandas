@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$DeployScriptVersion = "2026-07-11h"
+$DeployScriptVersion = "2026-07-11i"
 
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
