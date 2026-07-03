@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   NativeSyntheticEvent,
   Platform,
@@ -44,7 +44,10 @@ type WebKeyDownEvent = {
 };
 
 const ICON_SLOT = 40;
-const SINGLE_LINE_HEIGHT = 24;
+const INPUT_LINE_HEIGHT = ChatTheme.messageLineHeight;
+const INPUT_MAX_LINES = 5;
+const INPUT_MIN_HEIGHT = INPUT_LINE_HEIGHT;
+const INPUT_MAX_HEIGHT = INPUT_LINE_HEIGHT * INPUT_MAX_LINES;
 
 export function ChatComposer({
   value,
@@ -68,10 +71,28 @@ export function ChatComposer({
   const isDark = colorScheme === 'dark';
   const isMobileLayout = layout === 'mobile';
   const [isAttachMenuOpen, setIsAttachMenuOpen] = useState(false);
+  const [inputHeight, setInputHeight] = useState(INPUT_MIN_HEIGHT);
   const canSend = (value.trim().length > 0 || attachments.length > 0) && !isLoading && !isRecording;
   const isHero = variant === 'hero';
-  const isSingleLine = !value.includes('\n');
   const hasAttachments = attachments.length > 0;
+  const isAtMaxHeight = inputHeight >= INPUT_MAX_HEIGHT - 1;
+  const isExpanded = inputHeight > INPUT_MIN_HEIGHT + 2;
+
+  useEffect(() => {
+    if (!value) {
+      setInputHeight(INPUT_MIN_HEIGHT);
+    }
+  }, [value]);
+
+  function handleInputContentSizeChange(event: {
+    nativeEvent: { contentSize: { height: number } };
+  }) {
+    const nextHeight = Math.min(
+      INPUT_MAX_HEIGHT,
+      Math.max(INPUT_MIN_HEIGHT, Math.ceil(event.nativeEvent.contentSize.height))
+    );
+    setInputHeight(nextHeight);
+  }
 
   function trySend() {
     if (canSend) {
@@ -137,7 +158,7 @@ export function ChatComposer({
             isHero && styles.shellHero,
             hasAttachments && styles.shellWithAttachments,
             isRecording && styles.shellRecording,
-            isMobileLayout && styles.shellMobile,
+            isMobileLayout && (isExpanded ? styles.shellMobileExpanded : styles.shellMobile),
             {
               backgroundColor: isDark ? ChatTheme.inputBgDark : ChatTheme.inputBg,
               borderColor: isRecording
@@ -155,7 +176,7 @@ export function ChatComposer({
             />
           ) : null}
 
-          <View style={styles.contentRow}>
+          <View style={[styles.contentRow, isExpanded && styles.contentRowExpanded]}>
             <Pressable
               style={({ pressed }) => [
                 styles.iconSlot,
@@ -187,24 +208,29 @@ export function ChatComposer({
                 style={[
                   styles.input,
                   isHero && styles.inputHero,
-                  isSingleLine && styles.inputSingleLine,
                   Platform.OS === 'web' && styles.inputWeb,
-                  Platform.OS === 'web' && isSingleLine && styles.inputWebSingleLine,
-                  { color: isDark ? ChatTheme.assistantTextDark : ChatTheme.assistantText },
+                  Platform.OS === 'web' && isAtMaxHeight && styles.inputWebScrollable,
+                  {
+                    color: isDark ? ChatTheme.assistantTextDark : ChatTheme.assistantText,
+                    height: inputHeight,
+                    maxHeight: INPUT_MAX_HEIGHT,
+                  },
                 ]}
                 placeholder={isMobileLayout ? 'Ask Soulmate AI' : 'Ask anything'}
                 placeholderTextColor={ChatTheme.inputPlaceholder}
                 value={value}
                 onChangeText={onChangeText}
+                onContentSizeChange={handleInputContentSizeChange}
                 onKeyPress={handleKeyPress}
                 returnKeyType="send"
                 blurOnSubmit={false}
                 submitBehavior="submit"
                 multiline
-                scrollEnabled={!isSingleLine}
+                scrollEnabled={isAtMaxHeight}
                 editable={!isLoading}
                 underlineColorAndroid="transparent"
                 selectionColor={ChatTheme.accent}
+                textAlignVertical="top"
                 {...webKeyDownProps}
               />
             )}
@@ -325,14 +351,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     shadowOpacity: 0.03,
   },
+  shellMobileExpanded: {
+    borderRadius: 24,
+    minHeight: 56,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    shadowOpacity: 0.03,
+  },
   contentRow: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
   },
+  contentRowExpanded: {
+    alignItems: 'flex-end',
+  },
   recordingCenter: {
     flex: 1,
-    minHeight: SINGLE_LINE_HEIGHT,
+    minHeight: INPUT_MIN_HEIGHT,
     justifyContent: 'center',
     gap: 2,
   },
@@ -362,19 +398,16 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    minHeight: SINGLE_LINE_HEIGHT,
-    maxHeight: 160,
+    minHeight: INPUT_MIN_HEIGHT,
+    maxHeight: INPUT_MAX_HEIGHT,
     fontSize: ChatTheme.messageFontSize,
-    lineHeight: ChatTheme.messageLineHeight,
+    lineHeight: INPUT_LINE_HEIGHT,
     paddingHorizontal: 4,
     paddingVertical: 0,
     margin: 0,
     backgroundColor: 'transparent',
     borderWidth: 0,
-    ...(Platform.OS === 'android' ? { textAlignVertical: 'center' as const } : {}),
-  },
-  inputSingleLine: {
-    height: SINGLE_LINE_HEIGHT,
+    ...(Platform.OS === 'android' ? { textAlignVertical: 'top' as const } : {}),
   },
   inputWeb: {
     outlineStyle: 'none',
@@ -384,10 +417,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     paddingTop: 0,
     paddingBottom: 0,
+    wordBreak: 'break-word',
+    whiteSpace: 'pre-wrap',
   } as const,
-  inputWebSingleLine: {
-    height: SINGLE_LINE_HEIGHT,
-    lineHeight: '20px',
+  inputWebScrollable: {
+    overflow: 'auto',
   } as const,
   inputHero: {
     fontSize: 17,
