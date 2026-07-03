@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   NativeSyntheticEvent,
   Platform,
@@ -49,6 +49,19 @@ const INPUT_MAX_LINES = 5;
 const INPUT_MIN_HEIGHT = INPUT_LINE_HEIGHT;
 const INPUT_MAX_HEIGHT = INPUT_LINE_HEIGHT * INPUT_MAX_LINES;
 
+function getWebTextareaElement(
+  inputRef: React.RefObject<TextInput | null>
+): HTMLTextAreaElement | null {
+  const current = inputRef.current as
+    | (TextInput & { _element?: HTMLTextAreaElement })
+    | HTMLTextAreaElement
+    | null;
+  if (!current) return null;
+  if (current instanceof HTMLTextAreaElement) return current;
+  if (current._element instanceof HTMLTextAreaElement) return current._element;
+  return null;
+}
+
 export function ChatComposer({
   value,
   onChangeText,
@@ -72,11 +85,28 @@ export function ChatComposer({
   const isMobileLayout = layout === 'mobile';
   const [isAttachMenuOpen, setIsAttachMenuOpen] = useState(false);
   const [inputHeight, setInputHeight] = useState(INPUT_MIN_HEIGHT);
+  const inputRef = useRef<TextInput>(null);
   const canSend = (value.trim().length > 0 || attachments.length > 0) && !isLoading && !isRecording;
   const isHero = variant === 'hero';
   const hasAttachments = attachments.length > 0;
   const isAtMaxHeight = inputHeight >= INPUT_MAX_HEIGHT - 1;
   const isExpanded = inputHeight > INPUT_MIN_HEIGHT + 2;
+
+  const syncInputHeight = useCallback(() => {
+    if (Platform.OS === 'web') {
+      const textarea = getWebTextareaElement(inputRef);
+      if (!textarea) return;
+
+      textarea.style.height = `${INPUT_MIN_HEIGHT}px`;
+      const measured = Math.min(
+        INPUT_MAX_HEIGHT,
+        Math.max(INPUT_MIN_HEIGHT, textarea.scrollHeight)
+      );
+      textarea.style.height = `${measured}px`;
+      setInputHeight((previous) => (previous === measured ? previous : measured));
+      return;
+    }
+  }, []);
 
   useEffect(() => {
     if (!value) {
@@ -84,9 +114,24 @@ export function ChatComposer({
     }
   }, [value]);
 
+  useLayoutEffect(() => {
+    if (Platform.OS === 'web') {
+      syncInputHeight();
+    }
+  }, [value, syncInputHeight]);
+
+  function handleChangeText(text: string) {
+    onChangeText(text);
+    if (Platform.OS === 'web') {
+      requestAnimationFrame(syncInputHeight);
+    }
+  }
+
   function handleInputContentSizeChange(event: {
     nativeEvent: { contentSize: { height: number } };
   }) {
+    if (Platform.OS === 'web') return;
+
     const nextHeight = Math.min(
       INPUT_MAX_HEIGHT,
       Math.max(INPUT_MIN_HEIGHT, Math.ceil(event.nativeEvent.contentSize.height))
@@ -205,6 +250,7 @@ export function ChatComposer({
               </View>
             ) : (
               <TextInput
+                ref={inputRef}
                 style={[
                   styles.input,
                   isHero && styles.inputHero,
@@ -212,14 +258,15 @@ export function ChatComposer({
                   Platform.OS === 'web' && isAtMaxHeight && styles.inputWebScrollable,
                   {
                     color: isDark ? ChatTheme.assistantTextDark : ChatTheme.assistantText,
-                    height: inputHeight,
-                    maxHeight: INPUT_MAX_HEIGHT,
+                    ...(Platform.OS === 'web'
+                      ? { maxHeight: INPUT_MAX_HEIGHT }
+                      : { height: inputHeight, maxHeight: INPUT_MAX_HEIGHT }),
                   },
                 ]}
                 placeholder={isMobileLayout ? 'Ask Soulmate AI' : 'Ask anything'}
                 placeholderTextColor={ChatTheme.inputPlaceholder}
                 value={value}
-                onChangeText={onChangeText}
+                onChangeText={handleChangeText}
                 onContentSizeChange={handleInputContentSizeChange}
                 onKeyPress={handleKeyPress}
                 returnKeyType="send"
