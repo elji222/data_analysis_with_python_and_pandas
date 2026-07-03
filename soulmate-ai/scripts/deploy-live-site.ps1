@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$DeployScriptVersion = "2026-07-11b"
+$DeployScriptVersion = "2026-07-11c"
 
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
@@ -244,6 +244,42 @@ function Sync-LatestSource {
     }
 
     Write-Host "Source updated to build $afterVersion"
+}
+
+function Clear-DistFolder {
+    param([string]$DistPath)
+
+    if (-not (Test-Path $DistPath)) {
+        return
+    }
+
+    Write-Host "Moving old dist/ out of the way..."
+    $staleName = "dist-old-$(Get-Date -Format 'yyyyMMddHHmmss')"
+    $stalePath = Join-Path (Split-Path $DistPath -Parent) $staleName
+
+    try {
+        Rename-Item -LiteralPath $DistPath -NewName $staleName -ErrorAction Stop
+        Write-Host "Old build moved to $staleName/"
+        Write-Host "You can delete $staleName/ later to free disk space."
+        return
+    } catch {
+        Write-Host "Rename failed. Trying Windows rmdir..."
+    }
+
+    $rmdirCode = Invoke-External -Command { cmd /c "rmdir /s /q `"$DistPath`"" }
+    if ($rmdirCode -eq 0 -and -not (Test-Path $DistPath)) {
+        Write-Host "Old dist/ removed."
+        return
+    }
+
+    throw @"
+Could not clear the old dist/ folder.
+
+Close File Explorer windows in soulmate-ai, then delete this folder manually:
+  $DistPath
+
+After that, run scripts\deploy-live-site.cmd again.
+"@
 }
 
 function Test-ExportedBundleVersion {
@@ -535,10 +571,7 @@ Sync-ProductionEnv -EnvVars $envVars
 Write-Host ""
 Write-Host "Step 5: Build web app..."
 $distPath = Join-Path $Root "dist"
-if (Test-Path $distPath) {
-    Write-Host "Removing old dist/ folder..."
-    Remove-Item -LiteralPath $distPath -Recurse -Force
-}
+Clear-DistFolder -DistPath $distPath
 $exportCode = Invoke-External -Command { npx expo export --platform web }
 if ($exportCode -ne 0) {
     throw "Web export failed."
