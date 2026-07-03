@@ -168,3 +168,5 @@ Write-Host ""
 Write-Host "Next: scripts\start-phone-web.cmd"
 Write-Host "On phone Safari/Chrome open the http link shown there."
 Write-Host ""
+
+exit 0

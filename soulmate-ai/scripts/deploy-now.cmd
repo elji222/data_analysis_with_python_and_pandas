@@ -18,6 +18,6 @@ if errorlevel 1 (
 )
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$env:SKIP_NPM_INSTALL='1'; & 'scripts\deploy-live-site.ps1'"
+  "$env:SKIP_NPM_INSTALL='1'; $env:SKIP_SOURCE_SYNC='1'; & 'scripts\deploy-live-site.ps1'"
 
 pause

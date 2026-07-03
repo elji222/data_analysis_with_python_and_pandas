@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$DeployScriptVersion = "2026-07-11"
+$DeployScriptVersion = "2026-07-11b"
 
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
@@ -219,16 +219,31 @@ function Get-UiVersion {
 }
 
 function Sync-LatestSource {
+    if ($env:SKIP_SOURCE_SYNC -eq '1') {
+        Write-Host "Skipping GitHub download (already updated by deploy-live-site.cmd)."
+        return
+    }
+
     $updateScript = Join-Path $PSScriptRoot "quick-phone-update.ps1"
     if (-not (Test-Path $updateScript)) {
         throw "Missing scripts/quick-phone-update.ps1"
     }
 
+    $beforeVersion = Get-UiVersion
+    if ($beforeVersion -match '^\d{4}-\d{2}-\d{2}$' -and $beforeVersion -ge '2026-07-11') {
+        Write-Host "Source already at build $beforeVersion. Skipping GitHub download."
+        return
+    }
+
     Write-Host "Downloading latest app files from GitHub..."
     & $updateScript
-    if ($LASTEXITCODE -ne 0) {
-        throw "Could not download the latest app files from GitHub."
+
+    $afterVersion = Get-UiVersion
+    if ($afterVersion -eq "missing" -or $afterVersion -eq "unknown") {
+        throw "Could not verify UI_VERSION after GitHub download."
     }
+
+    Write-Host "Source updated to build $afterVersion"
 }
 
 function Test-ExportedBundleVersion {
@@ -492,12 +507,16 @@ if (-not (Test-Path ".env")) {
 
 $envVars = Read-DotEnv -Path ".env"
 
-Write-Host "Step 1: Download latest app source from GitHub..."
+Write-Host "Step 1: Check build on disk..."
 Sync-LatestSource
 $uiVersion = Get-UiVersion
 Write-Host ""
 Write-Host ">>> BUILD ON DISK: $uiVersion <<<"
 Write-Host ""
+
+if ($uiVersion -eq "missing" -or $uiVersion -eq "unknown") {
+    throw "Could not read UI_VERSION. Run scripts\quick-phone-update.cmd first."
+}
 
 Write-Host "Step 2: Clear cache, fix eas.json, install dependencies..."
 Clear-NpmCaches

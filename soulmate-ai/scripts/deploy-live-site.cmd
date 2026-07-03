@@ -23,5 +23,6 @@ if errorlevel 1 (
   exit /b 1
 )
 
+set SKIP_SOURCE_SYNC=1
 powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\deploy-live-site.ps1"
 pause
