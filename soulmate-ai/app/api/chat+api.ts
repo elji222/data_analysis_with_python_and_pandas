@@ -3,12 +3,34 @@ import {
   MAX_OUTPUT_TOKENS,
   SOULMATE_SYSTEM_PROMPT,
 } from '@/constants/ai';
-import type { ChatApiMessage } from '@/types/chat';
+import { buildChatSystemPrompt } from '@/lib/memory/prompt';
+import { processMessageMemory } from '@/lib/memory/process';
+import {
+  ensureMemorySettings,
+  listActiveMemories,
+} from '@/lib/memory/repository';
+import { rankMemoriesForQuery } from '@/lib/memory/search';
+import {
+  createSupabaseServerClient,
+  getAuthenticatedUserId,
+  getBearerToken,
+} from '@/lib/supabase-server';
+import type { ApiContentBlock, ApiTextBlock, ChatApiMessage } from '@/types/chat';
 
 const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com/v1/messages';
 
 function sseLine(payload: string) {
   return `data: ${payload}\n\n`;
+}
+
+function getMessageText(content: string | ApiContentBlock[]): string {
+  if (typeof content === 'string') return content;
+
+  return content
+    .filter((block): block is ApiTextBlock => block.type === 'text')
+    .map((block) => block.text)
+    .join('\n')
+    .trim();
 }
 
 export async function POST(request: Request) {
@@ -24,9 +46,36 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const messages = body.messages as ChatApiMessage[] | undefined;
+    const conversationId = typeof body.conversationId === 'string' ? body.conversationId : null;
+    const messageId = typeof body.messageId === 'string' ? body.messageId : null;
+    const skipMemory = body.skipMemory === true;
 
     if (!messages?.length) {
       return Response.json({ error: 'Please send at least one message.' }, { status: 400 });
+    }
+
+    const userId = await getAuthenticatedUserId(request);
+    const accessToken = getBearerToken(request);
+
+    let systemPrompt = SOULMATE_SYSTEM_PROMPT;
+    let memoryEnabled = false;
+
+    if (userId && accessToken && !skipMemory) {
+      const client = createSupabaseServerClient(accessToken);
+      const settings = await ensureMemorySettings(client, userId);
+      memoryEnabled = settings.enabled;
+
+      if (settings.enabled) {
+        const memories = await listActiveMemories(client, userId);
+        const latestUserMessage =
+          [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
+        const relevant = rankMemoriesForQuery(
+          memories,
+          getMessageText(latestUserMessage),
+          15
+        );
+        systemPrompt = buildChatSystemPrompt(settings, relevant);
+      }
     }
 
     const anthropicResponse = await fetch(ANTHROPIC_ENDPOINT, {
@@ -39,7 +88,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         model: CLAUDE_MODEL,
         max_tokens: MAX_OUTPUT_TOKENS,
-        system: SOULMATE_SYSTEM_PROMPT,
+        system: systemPrompt,
         messages,
         stream: true,
       }),
@@ -63,6 +112,7 @@ export async function POST(request: Request) {
     const stream = new ReadableStream({
       async start(controller) {
         let buffer = '';
+        let fullReply = '';
 
         try {
           while (true) {
@@ -98,6 +148,7 @@ export async function POST(request: Request) {
                   event.delta?.type === 'text_delta' &&
                   event.delta.text
                 ) {
+                  fullReply += event.delta.text;
                   controller.enqueue(
                     encoder.encode(sseLine(JSON.stringify({ text: event.delta.text })))
                   );
@@ -105,6 +156,34 @@ export async function POST(request: Request) {
               } catch {
                 // Skip malformed SSE chunks
               }
+            }
+          }
+
+          if (userId && accessToken && memoryEnabled && !skipMemory) {
+            try {
+              const client = createSupabaseServerClient(accessToken);
+              const latestUserMessage =
+                [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
+
+              const memoryResult = await processMessageMemory({
+                apiKey,
+                client,
+                userId,
+                userMessage: getMessageText(latestUserMessage),
+                assistantReply: fullReply,
+                conversationId,
+                messageId,
+                enabled: true,
+              });
+
+              const savedMemories = memoryResult.saved.map((memory) => memory.memory_text);
+              if (savedMemories.length > 0) {
+                controller.enqueue(
+                  encoder.encode(sseLine(JSON.stringify({ savedMemories })))
+                );
+              }
+            } catch {
+              // Memory extraction should not break chat streaming.
             }
           }
 

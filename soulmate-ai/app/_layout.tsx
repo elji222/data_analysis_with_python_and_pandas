@@ -49,7 +49,7 @@ function RootNavigator() {
       return;
     }
 
-    if (session && segments[0] === '(tabs)' && segments[1] !== 'chat') {
+    if (session && segments[0] === '(tabs)' && segments[1] === 'index') {
       router.replace('/chat');
     }
   }, [session, isLoading, segments, router]);

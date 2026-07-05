@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -10,6 +11,8 @@ type MobileChatHeaderProps = {
 };
 
 export function MobileChatHeader({ onOpenSidebar, onNewChat }: MobileChatHeaderProps) {
+  const router = useRouter();
+
   return (
     <View style={styles.header} testID="mobile-chat-header">
       <Pressable style={styles.iconButton} onPress={onOpenSidebar} accessibilityLabel="Open menu">
@@ -21,9 +24,18 @@ export function MobileChatHeader({ onOpenSidebar, onNewChat }: MobileChatHeaderP
         <ThemedText style={styles.buildTag}>Build {UI_VERSION}</ThemedText>
       </Pressable>
 
-      <Pressable style={styles.iconButton} onPress={onNewChat} accessibilityLabel="New chat">
-        <Ionicons name="chatbubble-ellipses-outline" size={22} color={ChatTheme.sidebarText} />
-      </Pressable>
+      <View style={styles.rightActions}>
+        <Pressable
+          style={styles.iconButton}
+          onPress={() => router.push('/memory')}
+          accessibilityLabel="Open memory">
+          <Ionicons name="bookmark-outline" size={22} color={ChatTheme.sidebarText} />
+        </Pressable>
+
+        <Pressable style={styles.iconButton} onPress={onNewChat} accessibilityLabel="New chat">
+          <Ionicons name="chatbubble-ellipses-outline" size={22} color={ChatTheme.sidebarText} />
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -43,6 +55,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
+  },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   modelPill: {
     paddingHorizontal: 16,

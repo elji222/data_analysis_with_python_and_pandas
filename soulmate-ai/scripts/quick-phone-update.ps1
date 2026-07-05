@@ -5,12 +5,16 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-07-11h"
+$CacheBust = "2026-07-12a"
 
 $Files = @(
     "app/_layout.tsx",
     "app/(auth)/login.tsx",
+    "app/(tabs)/_layout.tsx",
     "app/(tabs)/chat.tsx",
+    "app/(tabs)/memory.tsx",
+    "app/api/chat+api.ts",
+    "app/api/memories+api.ts",
     "app.json",
     "components/attach-popover.tsx",
     "components/build-version-banner.tsx",
@@ -23,17 +27,31 @@ $Files = @(
     "components/mobile-quick-suggestions.tsx",
     "components/production-site-warning.tsx",
     "components/stale-bundle-gate.tsx",
+    "components/ui/icon-symbol.tsx",
     "components/voice-waveform.tsx",
     "constants/chat-theme.ts",
     "constants/ai.ts",
     "hooks/use-mobile-chat-layout.ts",
+    "hooks/use-user-memories.ts",
     "hooks/use-voice-input.ts",
     "hooks/use-wide-layout.ts",
+    "lib/anthropic.ts",
     "lib/attachments.ts",
     "lib/auth.ts",
     "lib/enforce-build-version.ts",
     "lib/browser-capabilities.ts",
+    "lib/memory/extract.ts",
+    "lib/memory/intent.ts",
+    "lib/memory/process.ts",
+    "lib/memory/prompt.ts",
+    "lib/memory/repository.ts",
+    "lib/memory/search.ts",
+    "lib/memory/trivial.ts",
     "lib/recover-stale-web-bundle.ts",
+    "lib/supabase-server.ts",
+    "services/chat-api.ts",
+    "services/memory-api.ts",
+    "types/memory.ts",
     "eas.json",
     ".npmrc",
     "metro.config.js",
@@ -161,6 +179,21 @@ if (-not (Test-Path $HeaderFile)) {
 $HeaderText = Get-Content $HeaderFile -Raw
 if ($HeaderText -notmatch "mobile-chat-header") {
     throw "Download failed. mobile-chat-header.tsx is still old."
+}
+
+$MemoryTabFile = Join-Path $Root "app\(tabs)\memory.tsx"
+if (-not (Test-Path $MemoryTabFile)) {
+    throw "Download failed. memory.tsx is missing."
+}
+
+$TabLayoutFile = Join-Path $Root "app\(tabs)\_layout.tsx"
+$TabLayoutText = Get-Content $TabLayoutFile -Raw
+if ($TabLayoutText -notmatch "brain.head.profile") {
+    throw "Download failed. Memory tab is missing from app/(tabs)/_layout.tsx."
+}
+
+if ($ThemeText -notmatch "2026-07-12") {
+    throw "Download failed. constants/chat-theme.ts is not on build 2026-07-12."
 }
 
 Write-Host ""

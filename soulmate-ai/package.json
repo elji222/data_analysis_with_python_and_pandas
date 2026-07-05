@@ -11,6 +11,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "deploy:web": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/deploy-live-site.ps1"
   },
   "dependencies": {
@@ -52,7 +54,8 @@
     "eas-cli": "^16.32.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vitest": "^3.2.6"
   },
   "private": true,
   "trustedDependencies": [

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -28,6 +29,7 @@ export function ConversationSidebar({
   variant = 'desktop',
   userEmail,
 }: ConversationSidebarProps) {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const isMobile = variant === 'mobile';
   const userInitial = userEmail?.charAt(0).toUpperCase() ?? 'U';
@@ -51,7 +53,15 @@ export function ConversationSidebar({
 
         <View style={styles.navSection}>
           {SIDEBAR_NAV_ITEMS.map((item) => (
-            <Pressable key={item.label} style={({ pressed }) => [styles.navItem, pressed && styles.pressed]}>
+            <Pressable
+              key={item.label}
+              style={({ pressed }) => [styles.navItem, pressed && styles.pressed]}
+              onPress={() => {
+                if ('route' in item && item.route) {
+                  router.push(item.route);
+                  onClose?.();
+                }
+              }}>
               <Ionicons name={item.icon} size={20} color={ChatTheme.sidebarText} />
               <ThemedText style={styles.navLabel}>{item.label}</ThemedText>
             </Pressable>
@@ -137,8 +147,16 @@ export function ConversationSidebar({
       </Pressable>
 
       <View style={styles.navSection}>
-        {SIDEBAR_NAV_ITEMS.slice(0, 3).map((item) => (
-          <Pressable key={item.label} style={({ pressed }) => [styles.navItem, pressed && styles.pressed]}>
+        {SIDEBAR_NAV_ITEMS.slice(0, 4).map((item) => (
+          <Pressable
+            key={item.label}
+            style={({ pressed }) => [styles.navItem, pressed && styles.pressed]}
+            onPress={() => {
+              if ('route' in item && item.route) {
+                router.push(item.route);
+                onClose?.();
+              }
+            }}>
             <Ionicons name={item.icon} size={18} color={ChatTheme.sidebarMuted} />
             <ThemedText style={styles.navLabel}>{item.label}</ThemedText>
           </Pressable>
