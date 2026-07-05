@@ -5,6 +5,7 @@ import { detectMemoryIntent } from '@/lib/memory/intent';
 import { buildChatSystemPrompt } from '@/lib/memory/prompt';
 import {
   buildMemoryPromptSection,
+  filterMemoriesForAiPrompt,
   findBestForgetMatch,
   findDuplicateMemory,
   rankMemoriesForQuery,
@@ -17,6 +18,7 @@ function makeMemory(overrides: Partial<UserMemory> = {}): UserMemory {
     id: overrides.id ?? 'memory-1',
     user_id: 'user-1',
     category: overrides.category ?? 'preferences',
+    visibility: overrides.visibility ?? 'personal',
     memory_text: overrides.memory_text ?? 'User prefers concise answers.',
     confidence: overrides.confidence ?? 0.9,
     source_conversation_id: null,
@@ -48,7 +50,7 @@ describe('memory intent detection', () => {
 
   it('finds the best memory to forget', () => {
     const memories = [
-      makeMemory({ id: 'work', memory_text: 'User works at Acme Corp.', category: 'work' }),
+      makeMemory({ id: 'work', memory_text: 'User works at Acme Corp.', category: 'work_career' }),
       makeMemory({ id: 'food', memory_text: 'User likes sushi.', category: 'preferences' }),
     ];
 
@@ -79,9 +81,20 @@ describe('duplicate prevention', () => {
 });
 
 describe('memory retrieval', () => {
+  it('only uses personal memories for AI prompt retrieval', () => {
+    const memories = [
+      makeMemory({ id: 'personal', visibility: 'personal' }),
+      makeMemory({ id: 'friends', visibility: 'friends', memory_text: 'User likes hiking.' }),
+      makeMemory({ id: 'public', visibility: 'public', memory_text: 'User is a designer.' }),
+    ];
+
+    const aiMemories = filterMemoriesForAiPrompt(memories);
+    expect(aiMemories.map((memory) => memory.id)).toEqual(['personal']);
+  });
+
   it('ranks relevant memories for a query', () => {
     const memories = [
-      makeMemory({ id: 'a', memory_text: 'User works in healthcare.', category: 'work' }),
+      makeMemory({ id: 'a', memory_text: 'User works in healthcare.', category: 'work_career' }),
       makeMemory({
         id: 'b',
         memory_text: 'User prefers concise answers.',
@@ -134,7 +147,7 @@ describe('memory extraction parsing', () => {
 
   it('returns none actions without crashing', () => {
     const items = parseExtractionResponse(
-      '[{"action":"none","memory_id":null,"category":"other","memory_text":"","confidence":0,"reason":"nothing durable"}]'
+      '[{"action":"none","memory_id":null,"category":"everything_else","memory_text":"","confidence":0,"reason":"nothing durable"}]'
     );
     expect(items[0]?.action).toBe('none');
   });

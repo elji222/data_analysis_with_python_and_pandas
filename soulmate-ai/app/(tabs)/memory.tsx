@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Modal,
   Pressable,
+  ScrollView,
+  SectionList,
   StyleSheet,
   Switch,
   TextInput,
@@ -19,9 +20,14 @@ import { ThemedView } from '@/components/themed-view';
 import { ChatTheme } from '@/constants/chat-theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useUserMemories } from '@/hooks/use-user-memories';
-import type { MemoryCategory } from '@/types/memory';
+import {
+  formatMemoryCategory,
+  formatMemoryVisibility,
+  MEMORY_VISIBILITY_LABELS,
+} from '@/lib/memory/categories';
+import type { MemoryCategory, MemoryVisibility, UserMemory } from '@/types/memory';
 
-function formatCreatedDate(value: string) {
+function formatUpdatedDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
@@ -29,17 +35,42 @@ function formatCreatedDate(value: string) {
   });
 }
 
+type FilterChipProps = {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+};
+
+function FilterChip({ label, active, onPress }: FilterChipProps) {
+  return (
+    <Pressable
+      style={[styles.filterChip, active && styles.filterChipActive]}
+      onPress={onPress}>
+      <ThemedText style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+        {label}
+      </ThemedText>
+    </Pressable>
+  );
+}
+
 export default function MemoryScreen() {
   const router = useRouter();
   const { session, user } = useAuth();
   const accessToken = session?.access_token;
   const {
+    groupedMemories,
     filteredMemories,
     settings,
+    categories,
+    visibilities,
     isLoading,
     error,
     searchQuery,
     setSearchQuery,
+    categoryFilter,
+    setCategoryFilter,
+    visibilityFilter,
+    setVisibilityFilter,
     reload,
     addMemory,
     editMemory,
@@ -52,27 +83,23 @@ export default function MemoryScreen() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftText, setDraftText] = useState('');
+  const [draftCategory, setDraftCategory] = useState<MemoryCategory>('everything_else');
+  const [draftVisibility, setDraftVisibility] = useState<MemoryVisibility>('personal');
   const [isSaving, setIsSaving] = useState(false);
-
-  const sortedMemories = useMemo(
-    () =>
-      [...filteredMemories].sort(
-        (left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
-      ),
-    [filteredMemories]
-  );
 
   function openCreate() {
     setEditingId(null);
     setDraftText('');
+    setDraftCategory('everything_else');
+    setDraftVisibility('personal');
     setEditorOpen(true);
   }
 
-  function openEdit(memoryId: string) {
-    const memory = sortedMemories.find((item) => item.id === memoryId);
-    if (!memory) return;
+  function openEdit(memory: UserMemory) {
     setEditingId(memory.id);
     setDraftText(memory.memory_text);
+    setDraftCategory(memory.category);
+    setDraftVisibility(memory.visibility);
     setEditorOpen(true);
   }
 
@@ -86,12 +113,14 @@ export default function MemoryScreen() {
         await editMemory({
           id: editingId,
           memory_text: text,
-          category: 'other' as MemoryCategory,
+          category: draftCategory,
+          visibility: draftVisibility,
         });
       } else {
         await addMemory({
           memory_text: text,
-          category: 'other',
+          category: draftCategory,
+          visibility: draftVisibility,
         });
       }
       setEditorOpen(false);
@@ -163,10 +192,48 @@ export default function MemoryScreen() {
         <TextInput
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Search"
+          placeholder="Search memories"
           placeholderTextColor="#9A9A9A"
           style={styles.searchInput}
         />
+
+        <View style={styles.filterSection}>
+          <ThemedText style={styles.filterLabel}>Category</ThemedText>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+            <FilterChip
+              label="All"
+              active={categoryFilter === 'all'}
+              onPress={() => setCategoryFilter('all')}
+            />
+            {categories.map((category) => (
+              <FilterChip
+                key={category}
+                label={formatMemoryCategory(category)}
+                active={categoryFilter === category}
+                onPress={() => setCategoryFilter(category)}
+              />
+            ))}
+          </ScrollView>
+        </View>
+
+        <View style={styles.filterSection}>
+          <ThemedText style={styles.filterLabel}>Visibility</ThemedText>
+          <View style={styles.filterRow}>
+            <FilterChip
+              label="All"
+              active={visibilityFilter === 'all'}
+              onPress={() => setVisibilityFilter('all')}
+            />
+            {visibilities.map((visibility) => (
+              <FilterChip
+                key={visibility}
+                label={formatMemoryVisibility(visibility)}
+                active={visibilityFilter === visibility}
+                onPress={() => setVisibilityFilter(visibility)}
+              />
+            ))}
+          </View>
+        </View>
 
         {isLoading ? (
           <View style={styles.centered}>
@@ -180,30 +247,42 @@ export default function MemoryScreen() {
             </Pressable>
           </View>
         ) : (
-          <FlatList
-            data={sortedMemories}
+          <SectionList
+            sections={groupedMemories}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            stickySectionHeadersEnabled={false}
             ListEmptyComponent={
               <ThemedText style={styles.emptyText}>
                 No saved memories yet. Tell the AI something like “Remember that I prefer concise
                 answers.”
               </ThemedText>
             }
+            renderSectionHeader={({ section }) => (
+              <ThemedText style={styles.sectionTitle}>{section.title}</ThemedText>
+            )}
             renderItem={({ item }) => (
               <Pressable
                 style={styles.memoryCard}
-                onPress={() => openEdit(item.id)}
+                onPress={() => openEdit(item)}
                 onLongPress={() => confirmDelete(item.id)}>
                 <ThemedText style={styles.memoryText}>{item.memory_text}</ThemedText>
+                <View style={styles.memoryMetaRow}>
+                  <ThemedText style={styles.memoryMeta}>
+                    {formatMemoryCategory(item.category)}
+                  </ThemedText>
+                  <ThemedText style={styles.memoryMeta}>
+                    {formatMemoryVisibility(item.visibility)}
+                  </ThemedText>
+                </View>
                 <ThemedText style={styles.memoryDate}>
-                  Created {formatCreatedDate(item.created_at)}
+                  Updated {formatUpdatedDate(item.updated_at)}
                 </ThemedText>
               </Pressable>
             )}
             ListFooterComponent={
-              sortedMemories.length > 0 ? (
+              filteredMemories.length > 0 ? (
                 <View style={styles.footer}>
                   <Pressable style={styles.addMemoryButton} onPress={openCreate}>
                     <ThemedText style={styles.addMemoryText}>Add memory</ThemedText>
@@ -227,8 +306,8 @@ export default function MemoryScreen() {
           <Pressable style={styles.infoCard} onPress={(event) => event.stopPropagation()}>
             <ThemedText style={styles.infoTitle}>Saved memories</ThemedText>
             <ThemedText style={styles.infoBody}>
-              Soulmate AI remembers useful details across chats so replies feel more personal. You
-              can review, edit, or remove anything here.
+              Memories are grouped by category. Personal memories are used by the AI in your chats.
+              Friends and Public are saved for future sharing features.
             </ThemedText>
             <View style={styles.settingRow}>
               <ThemedText style={styles.settingLabel}>Memory enabled</ThemedText>
@@ -247,7 +326,7 @@ export default function MemoryScreen() {
       </Modal>
 
       <Modal visible={editorOpen} animationType="slide" transparent onRequestClose={() => setEditorOpen(false)}>
-        <View style={styles.modalBackdrop}>
+        <View style={styles.editorBackdrop}>
           <ThemedView style={styles.editorCard}>
             <ThemedText style={styles.editorTitle}>
               {editingId ? 'Edit memory' : 'Add memory'}
@@ -261,6 +340,41 @@ export default function MemoryScreen() {
               autoFocus
               style={styles.editorInput}
             />
+
+            <ThemedText style={styles.fieldLabel}>Category</ThemedText>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+              {categories.map((category) => (
+                <FilterChip
+                  key={category}
+                  label={formatMemoryCategory(category)}
+                  active={draftCategory === category}
+                  onPress={() => setDraftCategory(category)}
+                />
+              ))}
+            </ScrollView>
+
+            <ThemedText style={styles.fieldLabel}>Visibility</ThemedText>
+            <View style={styles.visibilityRow}>
+              {visibilities.map((visibility) => {
+                const active = draftVisibility === visibility;
+                const label = MEMORY_VISIBILITY_LABELS[visibility];
+                return (
+                  <Pressable
+                    key={visibility}
+                    style={[styles.visibilityOption, active && styles.visibilityOptionActive]}
+                    onPress={() => setDraftVisibility(visibility)}>
+                    <ThemedText
+                      style={[
+                        styles.visibilityOptionText,
+                        active && styles.visibilityOptionTextActive,
+                      ]}>
+                      {label.icon} {label.label}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
+
             <View style={styles.editorActions}>
               {editingId ? (
                 <Pressable onPress={() => confirmDelete(editingId)}>
@@ -291,14 +405,8 @@ export default function MemoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  safeArea: { flex: 1, paddingHorizontal: 16 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -324,23 +432,59 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: ChatTheme.sidebarText,
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  listContent: {
-    gap: 10,
-    paddingBottom: 32,
+  filterSection: { marginBottom: 10 },
+  filterLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B6B6B',
+    marginBottom: 8,
+  },
+  filterRow: { gap: 8, paddingBottom: 4 },
+  filterChip: {
+    borderWidth: 1,
+    borderColor: '#E4E4E4',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  filterChipActive: {
+    backgroundColor: '#F4F4F4',
+    borderColor: ChatTheme.sidebarText,
+  },
+  filterChipText: { fontSize: 13, color: ChatTheme.sidebarText },
+  filterChipTextActive: { fontWeight: '600' },
+  listContent: { gap: 10, paddingBottom: 32 },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: ChatTheme.sidebarText,
+    marginTop: 8,
+    marginBottom: 8,
   },
   memoryCard: {
     backgroundColor: '#F4F4F4',
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    gap: 10,
+    gap: 8,
+    marginBottom: 10,
   },
   memoryText: {
     fontSize: 16,
     lineHeight: 24,
     color: ChatTheme.sidebarText,
+  },
+  memoryMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  memoryMeta: {
+    fontSize: 12,
+    color: '#6B6B6B',
   },
   memoryDate: {
     fontSize: 12,
@@ -350,24 +494,17 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: 'center',
     gap: 18,
-    paddingTop: 28,
+    paddingTop: 20,
     paddingBottom: 8,
   },
-  addMemoryButton: {
-    paddingVertical: 8,
-  },
-  emptyAddButton: {
-    alignItems: 'center',
-    paddingTop: 20,
-  },
+  addMemoryButton: { paddingVertical: 8 },
+  emptyAddButton: { alignItems: 'center', paddingTop: 20 },
   addMemoryText: {
     fontSize: 15,
     color: ChatTheme.sidebarText,
     fontWeight: '500',
   },
-  deleteAllButton: {
-    paddingVertical: 8,
-  },
+  deleteAllButton: { paddingVertical: 8 },
   deleteAllText: {
     fontSize: 15,
     color: '#D64545',
@@ -386,18 +523,9 @@ const styles = StyleSheet.create({
     color: '#8A8A8A',
     paddingTop: 24,
   },
-  errorText: {
-    color: '#D64545',
-    textAlign: 'center',
-  },
-  retryButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  retryButtonText: {
-    color: ChatTheme.sidebarText,
-    fontWeight: '600',
-  },
+  errorText: { color: '#D64545', textAlign: 'center' },
+  retryButton: { paddingHorizontal: 16, paddingVertical: 10 },
+  retryButtonText: { color: ChatTheme.sidebarText, fontWeight: '600' },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.35)',
@@ -426,25 +554,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 4,
   },
-  settingLabel: {
-    fontSize: 15,
-    color: ChatTheme.sidebarText,
-  },
-  infoCloseButton: {
-    alignSelf: 'flex-end',
-    paddingVertical: 8,
-  },
-  infoCloseText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: ChatTheme.sidebarText,
+  settingLabel: { fontSize: 15, color: ChatTheme.sidebarText },
+  infoCloseButton: { alignSelf: 'flex-end', paddingVertical: 8 },
+  infoCloseText: { fontSize: 15, fontWeight: '600', color: ChatTheme.sidebarText },
+  editorBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'flex-end',
   },
   editorCard: {
-    marginTop: 'auto',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
-    gap: 14,
+    gap: 12,
+    maxHeight: '88%',
   },
   editorTitle: {
     fontSize: 17,
@@ -452,7 +575,7 @@ const styles = StyleSheet.create({
     color: ChatTheme.sidebarText,
   },
   editorInput: {
-    minHeight: 120,
+    minHeight: 110,
     borderRadius: 14,
     backgroundColor: '#F4F4F4',
     paddingHorizontal: 14,
@@ -462,10 +585,40 @@ const styles = StyleSheet.create({
     color: ChatTheme.sidebarText,
     textAlignVertical: 'top',
   },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B6B6B',
+  },
+  visibilityRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  visibilityOption: {
+    borderWidth: 1,
+    borderColor: '#E4E4E4',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  visibilityOptionActive: {
+    backgroundColor: '#F4F4F4',
+    borderColor: ChatTheme.sidebarText,
+  },
+  visibilityOptionText: {
+    fontSize: 13,
+    color: ChatTheme.sidebarText,
+  },
+  visibilityOptionTextActive: {
+    fontWeight: '600',
+  },
   editorActions: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingTop: 4,
   },
   editorRightActions: {
     flexDirection: 'row',
@@ -478,10 +631,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 18,
   },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
+  primaryButtonText: { color: '#FFFFFF', fontWeight: '600' },
   secondaryButton: {
     borderRadius: 999,
     paddingVertical: 10,

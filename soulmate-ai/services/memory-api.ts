@@ -1,5 +1,6 @@
 import type {
   MemoryCategory,
+  MemoryVisibility,
   UserMemory,
   UserMemorySettings,
 } from '@/types/memory';
@@ -38,6 +39,7 @@ export async function createMemory(
   input: {
     category: MemoryCategory;
     memory_text: string;
+    visibility?: MemoryVisibility;
     is_pinned?: boolean;
   }
 ): Promise<UserMemory> {
@@ -59,6 +61,7 @@ export async function updateMemory(
     id: string;
     memory_text?: string;
     category?: MemoryCategory;
+    visibility?: MemoryVisibility;
     is_pinned?: boolean;
     importance?: number;
   }

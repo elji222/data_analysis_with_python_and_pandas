@@ -1,19 +1,27 @@
 export const MEMORY_CATEGORIES = [
-  'identity',
+  'basic_information',
   'preferences',
-  'goals',
-  'work',
-  'projects',
-  'family',
-  'education',
-  'location',
-  'interests',
   'communication_style',
+  'work_career',
+  'projects',
+  'goals_ambitions',
+  'family_relationships',
+  'education',
+  'location_lifestyle',
+  'interests_hobbies',
+  'skills_expertise',
+  'health_food_preferences',
+  'ai_preferences',
   'important_dates',
-  'other',
+  'favorites',
+  'everything_else',
 ] as const;
 
+export const MEMORY_VISIBILITIES = ['personal', 'friends', 'public'] as const;
+
 export type MemoryCategory = (typeof MEMORY_CATEGORIES)[number];
+
+export type MemoryVisibility = (typeof MEMORY_VISIBILITIES)[number];
 
 export type MemoryExtractionAction = 'add' | 'update' | 'delete' | 'none';
 
@@ -30,6 +38,7 @@ export type UserMemory = {
   id: string;
   user_id: string;
   category: MemoryCategory;
+  visibility: MemoryVisibility;
   memory_text: string;
   confidence: number;
   source_conversation_id: string | null;
