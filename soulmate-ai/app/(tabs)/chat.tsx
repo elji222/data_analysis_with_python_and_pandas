@@ -90,6 +90,7 @@ export default function ChatScreen() {
           {sidebar}
           <View style={styles.chatMain}>
             <ChatPanel
+              key={activeConversationId}
               conversation={activeConversation}
               onUpdateMessages={updateConversationMessages}
               onRenameConversation={renameConversation}
@@ -101,6 +102,7 @@ export default function ChatScreen() {
       ) : (
         <>
           <ChatPanel
+            key={activeConversationId}
             conversation={activeConversation}
             onUpdateMessages={updateConversationMessages}
             onRenameConversation={renameConversation}

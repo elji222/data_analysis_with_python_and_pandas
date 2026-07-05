@@ -204,6 +204,8 @@ export function useConversations(userId: string | undefined) {
   const selectConversation = useCallback(
     async (conversationId: string) => {
       if (!userId) return;
+
+      activeConversationIdRef.current = conversationId;
       setActiveConversationId(conversationId);
 
       try {
@@ -216,24 +218,38 @@ export function useConversations(userId: string | undefined) {
   );
 
   const startNewConversation = useCallback(async () => {
-    const active = conversationsRef.current.find(
-      (conversation) => conversation.id === activeConversationIdRef.current
-    );
-
-    if (
-      active &&
-      active.messages.length === 0 &&
-      isDefaultConversationTitle(active.title)
-    ) {
-      await selectConversation(active.id);
-      return active.id;
-    }
+    if (!userId) return null;
 
     const conversation = createEmptyConversation();
-    await persistUpdater((previous) => [conversation, ...previous]);
-    await selectConversation(conversation.id);
+    const pruned = conversationsRef.current.filter((item) => item.messages.length > 0);
+    const nextConversations = sortConversations([conversation, ...pruned]);
+
+    activeConversationIdRef.current = conversation.id;
+    setActiveConversationId(conversation.id);
+    applyConversations(nextConversations);
+
+    try {
+      await persistSyncedConversations(userId, nextConversations);
+      await persistSyncedActiveConversationId(userId, conversation.id);
+      setStorageWarning(null);
+    } catch (error) {
+      if (error instanceof ConversationCloudError) {
+        setStorageWarning(
+          'Could not sync chats to the cloud. Your messages are saved on this device for now.'
+        );
+      } else if (error instanceof ConversationStorageError || isStorageQuotaError(error)) {
+        setStorageWarning(
+          error instanceof Error
+            ? error.message
+            : 'Could not save chat history on this device. Your messages will stay in this session.'
+        );
+      } else {
+        throw error;
+      }
+    }
+
     return conversation.id;
-  }, [persistUpdater, selectConversation]);
+  }, [applyConversations, userId]);
 
   const deleteConversation = useCallback(
     async (conversationId: string) => {
