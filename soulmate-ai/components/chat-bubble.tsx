@@ -1,6 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { FormattedMessageText } from '@/components/formatted-message-text';
 import { StreamingCursor } from '@/components/streaming-cursor';
@@ -92,12 +102,47 @@ type StreamingPlaceholderProps = {
   visible: boolean;
 };
 
+function ThinkingDot({ delayMs }: { delayMs: number }) {
+  const offsetY = useSharedValue(0);
+
+  useEffect(() => {
+    offsetY.value = withDelay(
+      delayMs,
+      withRepeat(
+        withSequence(
+          withTiming(-4, { duration: 220 }),
+          withTiming(0, { duration: 220 })
+        ),
+        -1,
+        false
+      )
+    );
+
+    return () => {
+      cancelAnimation(offsetY);
+    };
+  }, [delayMs, offsetY]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: offsetY.value }],
+  }));
+
+  return <Animated.View style={[styles.dot, animatedStyle]} />;
+}
+
 export function StreamingPlaceholder({ visible }: StreamingPlaceholderProps) {
   if (!visible) return null;
 
   return (
     <View style={styles.assistantRow}>
-      <ThemedText style={styles.thinkingText}>Soulmate AI is thinking...</ThemedText>
+      <View style={styles.thinkingRow}>
+        <ThemedText style={styles.thinkingText}>Soulmate AI is thinking</ThemedText>
+        <View style={styles.dots}>
+          <ThinkingDot delayMs={0} />
+          <ThinkingDot delayMs={120} />
+          <ThinkingDot delayMs={240} />
+        </View>
+      </View>
     </View>
   );
 }
@@ -159,10 +204,29 @@ const styles = StyleSheet.create({
   messageTextWithAttachment: {
     marginTop: 4,
   },
+  thinkingRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 2,
+  },
   thinkingText: {
     fontSize: ChatTheme.messageFontSize,
     lineHeight: ChatTheme.messageLineHeight,
     opacity: 0.55,
     fontStyle: 'italic',
+  },
+  dots: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 4,
+    paddingBottom: 5,
+    marginLeft: 2,
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: ChatTheme.sidebarMuted,
+    opacity: 0.7,
   },
 });

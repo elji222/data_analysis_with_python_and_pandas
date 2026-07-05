@@ -109,7 +109,7 @@ export function ChatPanel({
   const messages = conversation?.messages ?? [];
   const isStreaming = streamingText !== null;
   const smoothStreamingText = useSmoothStreamingText(streamingText, isStreaming);
-  const showThinking = isLoading && !isStreaming;
+  const showThinking = isLoading && streamingText === null;
   const isNewChat = isDefaultConversationTitle(conversation?.title ?? 'New chat');
   const showHeroEmpty =
     messages.length === 0 && !showThinking && !isStreaming && isNewChat;
@@ -280,20 +280,21 @@ export function ChatPanel({
         createdAt: Date.now(),
       };
 
-      setStreamingText(null);
       await onUpdateMessages(conversation.id, [...nextMessages, assistantMessage]);
+      setStreamingText(null);
+      setIsLoading(false);
 
       if (isFirstExchange && onRenameConversation) {
-        const title = await fetchConversationTitle(getMessagePreviewText(userMessage));
-        await onRenameConversation(conversation.id, title);
+        void fetchConversationTitle(getMessagePreviewText(userMessage)).then((title) => {
+          void onRenameConversation(conversation.id, title);
+        });
       }
     } catch (sendError) {
       setStreamingText(null);
+      setIsLoading(false);
       const message =
         sendError instanceof Error ? sendError.message : 'Something went wrong. Please try again.';
       setError(message);
-    } finally {
-      setIsLoading(false);
     }
   }
 
