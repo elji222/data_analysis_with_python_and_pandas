@@ -1,4 +1,4 @@
-export const UI_VERSION = '2026-07-11';
+export const UI_VERSION = '2026-07-12';
 export const MOBILE_UI_MARKER = 'chatgpt-mobile-v3';
 
 export const ChatTheme = {
@@ -78,6 +78,7 @@ export const MOBILE_QUICK_ACTIONS = [
 export const SIDEBAR_NAV_ITEMS = [
   { icon: 'library-outline' as const, label: 'Library' },
   { icon: 'folder-outline' as const, label: 'Projects' },
+  { icon: 'bookmark-outline' as const, label: 'Memory', route: '/memory' as const },
   { icon: 'time-outline' as const, label: 'Scheduled' },
   { icon: 'grid-outline' as const, label: 'Apps' },
   { icon: 'ellipsis-horizontal' as const, label: 'More' },

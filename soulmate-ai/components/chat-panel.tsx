@@ -46,6 +46,7 @@ import {
 } from '@/lib/chat-scroll';
 import { getMessagePreviewText, cloneAttachments } from '@/lib/build-chat-api-messages';
 import { isDefaultConversationTitle } from '@/lib/conversation-title';
+import { useAuth } from '@/contexts/auth-context';
 import { streamChatMessage } from '@/services/chat-api';
 import { fetchConversationTitle } from '@/services/title-api';
 import type { ChatAttachment, ChatMessage } from '@/types/chat';
@@ -72,6 +73,7 @@ export function ChatPanel({
   storageWarning = null,
   userEmail,
 }: ChatPanelProps) {
+  const { session } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
   const isCompactWeb = useCompactWebLayout();
@@ -238,9 +240,22 @@ export function ChatPanel({
     scrollToEnd();
 
     try {
-      const reply = await streamChatMessage(nextMessages, (partialText) => {
-        setStreamingText(partialText);
-      });
+      const reply = await streamChatMessage(
+        nextMessages,
+        (partialText) => {
+          setStreamingText(partialText);
+        },
+        {
+          accessToken: session?.access_token,
+          conversationId: conversation.id,
+          messageId: userMessage.id,
+          onSavedMemories: (savedMemories) => {
+            if (savedMemories.length > 0) {
+              setStatusMessage('Saved to Memory.');
+            }
+          },
+        }
+      );
 
       const assistantMessage: ChatMessage = {
         id: `${Date.now()}-assistant`,
