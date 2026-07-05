@@ -1,18 +1,23 @@
+import { classifyMemoryCategory } from '@/lib/memory/categories';
 import type { MemoryCategory, UserMemory, UserMemorySettings } from '@/types/memory';
 
 const CATEGORY_KEYWORDS: Record<MemoryCategory, string[]> = {
-  identity: ['name', 'called', 'i am', "i'm", 'gender', 'pronoun', 'age'],
+  basic_information: ['name', 'called', 'i am', "i'm", 'gender', 'pronoun', 'age'],
   preferences: ['prefer', 'like', 'favorite', 'favourite', 'love', 'hate', 'avoid', 'want'],
-  goals: ['goal', 'plan', 'hope', 'dream', 'aim', 'aspire', 'want to'],
-  work: ['work', 'job', 'career', 'employer', 'office', 'boss', 'colleague'],
-  projects: ['project', 'building', 'app', 'startup', 'side hustle'],
-  family: ['family', 'wife', 'husband', 'partner', 'child', 'son', 'daughter', 'parent', 'mom', 'dad'],
-  education: ['school', 'university', 'college', 'study', 'degree', 'class', 'course'],
-  location: ['live', 'city', 'country', 'timezone', 'based in', 'from'],
-  interests: ['hobby', 'interest', 'enjoy', 'into', 'fan of', 'play', 'read'],
   communication_style: ['concise', 'detailed', 'brief', 'tone', 'style', 'explain', 'emoji'],
+  work_career: ['work', 'job', 'career', 'employer', 'office', 'boss', 'colleague'],
+  projects: ['project', 'building', 'app', 'startup', 'side hustle'],
+  goals_ambitions: ['goal', 'plan', 'hope', 'dream', 'aim', 'aspire'],
+  family_relationships: ['family', 'wife', 'husband', 'partner', 'child', 'son', 'daughter', 'parent', 'mom', 'dad'],
+  education: ['school', 'university', 'college', 'study', 'degree', 'class', 'course'],
+  location_lifestyle: ['live', 'city', 'country', 'timezone', 'based in', 'from'],
+  interests_hobbies: ['hobby', 'interest', 'enjoy', 'into', 'fan of', 'play', 'read'],
+  skills_expertise: ['skill', 'expert', 'experience', 'proficient', 'specialist'],
+  health_food_preferences: ['health', 'diet', 'food', 'allergy', 'vegetarian', 'vegan'],
+  ai_preferences: ['ai', 'assistant', 'chatgpt', 'model', 'memory', 'response'],
   important_dates: ['birthday', 'anniversary', 'deadline', 'date', 'event'],
-  other: [],
+  favorites: ['favorite', 'favourite', 'best', 'top', 'go-to'],
+  everything_else: [],
 };
 
 function tokenize(text: string): string[] {
@@ -43,6 +48,10 @@ function scoreMemory(memory: UserMemory, queryTokens: string[]): number {
   }
 
   return score;
+}
+
+export function filterMemoriesForAiPrompt(memories: UserMemory[]): UserMemory[] {
+  return memories.filter((memory) => (memory.visibility ?? 'personal') === 'personal');
 }
 
 export function rankMemoriesForQuery(
@@ -108,3 +117,5 @@ export function findBestForgetMatch(memories: UserMemory[], query: string): User
   const ranked = rankMemoriesForQuery(memories, query, 5);
   return ranked[0] ?? null;
 }
+
+export { classifyMemoryCategory };

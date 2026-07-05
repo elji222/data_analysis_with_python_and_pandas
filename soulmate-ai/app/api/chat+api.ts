@@ -9,7 +9,7 @@ import {
   ensureMemorySettings,
   listActiveMemories,
 } from '@/lib/memory/repository';
-import { rankMemoriesForQuery } from '@/lib/memory/search';
+import { filterMemoriesForAiPrompt, rankMemoriesForQuery } from '@/lib/memory/search';
 import {
   createSupabaseServerClient,
   getAuthenticatedUserId,
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
       memoryEnabled = settings.enabled;
 
       if (settings.enabled) {
-        const memories = await listActiveMemories(client, userId);
+        const memories = filterMemoriesForAiPrompt(await listActiveMemories(client, userId));
         const latestUserMessage =
           [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
         const relevant = rankMemoriesForQuery(

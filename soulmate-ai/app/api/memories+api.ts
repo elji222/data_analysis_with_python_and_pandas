@@ -1,5 +1,9 @@
 import { addManualMemory } from '@/lib/memory/process';
 import {
+  isMemoryCategory,
+  isMemoryVisibility,
+} from '@/lib/memory/categories';
+import {
   clearAllMemories,
   ensureMemorySettings,
   listActiveMemories,
@@ -7,16 +11,11 @@ import {
   updateMemory,
   updateMemorySettings,
 } from '@/lib/memory/repository';
-import { MEMORY_CATEGORIES, type MemoryCategory } from '@/types/memory';
 import {
   createSupabaseServerClient,
   getAuthenticatedUserId,
   getBearerToken,
 } from '@/lib/supabase-server';
-
-function isMemoryCategory(value: unknown): value is MemoryCategory {
-  return typeof value === 'string' && MEMORY_CATEGORIES.includes(value as MemoryCategory);
-}
 
 async function getClient(request: Request) {
   const userId = await getAuthenticatedUserId(request);
@@ -72,9 +71,12 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Invalid memory category' }, { status: 400 });
   }
 
+  const visibility = isMemoryVisibility(body.visibility) ? body.visibility : 'personal';
+
   const memory = await addManualMemory(auth.client, auth.userId, {
     category: body.category,
     memory_text: memoryText,
+    visibility,
     is_pinned: body.is_pinned === true,
     importance: typeof body.importance === 'number' ? body.importance : 1,
   });
@@ -95,6 +97,7 @@ export async function PATCH(request: Request) {
   const patch: Parameters<typeof updateMemory>[3] = {};
   if (typeof body.memory_text === 'string') patch.memory_text = body.memory_text.trim();
   if (isMemoryCategory(body.category)) patch.category = body.category;
+  if (isMemoryVisibility(body.visibility)) patch.visibility = body.visibility;
   if (typeof body.confidence === 'number') patch.confidence = body.confidence;
   if (typeof body.importance === 'number') patch.importance = body.importance;
   if (typeof body.is_pinned === 'boolean') patch.is_pinned = body.is_pinned;

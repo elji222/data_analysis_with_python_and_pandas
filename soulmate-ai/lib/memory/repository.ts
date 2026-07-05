@@ -3,9 +3,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   MemoryCategory,
   MemoryExtractionItem,
+  MemoryVisibility,
   UserMemory,
   UserMemorySettings,
 } from '@/types/memory';
+
+import { normalizeMemoryCategory, normalizeMemoryVisibility } from '@/lib/memory/categories';
 
 import { findDuplicateMemory } from './search';
 import { isTrivialMemory } from './trivial';
@@ -75,7 +78,15 @@ export async function listActiveMemories(
     .order('updated_at', { ascending: false });
 
   if (error) throw error;
-  return (data ?? []) as UserMemory[];
+  return (data ?? []).map((row) => normalizeMemoryRow(row as UserMemory));
+}
+
+function normalizeMemoryRow(memory: UserMemory): UserMemory {
+  return {
+    ...memory,
+    category: normalizeMemoryCategory(memory.category),
+    visibility: normalizeMemoryVisibility(memory.visibility),
+  };
 }
 
 export async function createMemory(
@@ -84,6 +95,7 @@ export async function createMemory(
     user_id: string;
     category: MemoryCategory;
     memory_text: string;
+    visibility?: MemoryVisibility;
     confidence?: number;
     source_conversation_id?: string | null;
     source_message_id?: string | null;
@@ -96,6 +108,7 @@ export async function createMemory(
     .insert({
       user_id: input.user_id,
       category: input.category,
+      visibility: input.visibility ?? 'personal',
       memory_text: input.memory_text,
       confidence: input.confidence ?? 0.85,
       source_conversation_id: input.source_conversation_id ?? null,
@@ -108,7 +121,7 @@ export async function createMemory(
     .single();
 
   if (error) throw error;
-  return data as UserMemory;
+  return normalizeMemoryRow(data as UserMemory);
 }
 
 export async function updateMemory(
@@ -116,7 +129,10 @@ export async function updateMemory(
   userId: string,
   memoryId: string,
   patch: Partial<
-    Pick<UserMemory, 'category' | 'memory_text' | 'confidence' | 'importance' | 'is_pinned'>
+    Pick<
+      UserMemory,
+      'category' | 'visibility' | 'memory_text' | 'confidence' | 'importance' | 'is_pinned'
+    >
   >
 ): Promise<UserMemory> {
   const { data, error } = await client
@@ -128,7 +144,7 @@ export async function updateMemory(
     .single();
 
   if (error) throw error;
-  return data as UserMemory;
+  return normalizeMemoryRow(data as UserMemory);
 }
 
 export async function softDeleteMemory(

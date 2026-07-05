@@ -9,9 +9,10 @@ import {
   listActiveMemories,
   softDeleteMemory,
 } from '@/lib/memory/repository';
+import { classifyMemoryCategory } from '@/lib/memory/categories';
 import { findBestForgetMatch } from '@/lib/memory/search';
 import { isTrivialMemory } from '@/lib/memory/trivial';
-import type { MemoryCategory, UserMemory } from '@/types/memory';
+import type { MemoryCategory, MemoryVisibility, UserMemory } from '@/types/memory';
 
 type ProcessMemoryOptions = {
   apiKey: string;
@@ -55,7 +56,7 @@ export async function processMessageMemory(
         {
           action: 'add',
           memory_id: null,
-          category: 'other',
+          category: classifyMemoryCategory(intent.text),
           memory_text: intent.text,
           confidence: 0.95,
           reason: 'explicit remember request',
@@ -120,6 +121,7 @@ export async function addManualMemory(
   input: {
     category: MemoryCategory;
     memory_text: string;
+    visibility?: MemoryVisibility;
     is_pinned?: boolean;
     importance?: number;
   }
@@ -128,6 +130,7 @@ export async function addManualMemory(
     user_id: userId,
     category: input.category,
     memory_text: input.memory_text,
+    visibility: input.visibility ?? 'personal',
     confidence: 1,
     importance: input.importance ?? 1,
     is_pinned: input.is_pinned ?? false,

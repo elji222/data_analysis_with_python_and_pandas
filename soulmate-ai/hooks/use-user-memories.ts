@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 
 import {
+  formatMemoryCategory,
+  formatMemoryVisibility,
+} from '@/lib/memory/categories';
+import {
   clearAllMemories,
   createMemory,
   deleteMemory,
@@ -9,7 +13,14 @@ import {
   updateMemory,
   updateMemorySettings,
 } from '@/services/memory-api';
-import { MEMORY_CATEGORIES, type MemoryCategory, type UserMemory, type UserMemorySettings } from '@/types/memory';
+import {
+  MEMORY_CATEGORIES,
+  MEMORY_VISIBILITIES,
+  type MemoryCategory,
+  type MemoryVisibility,
+  type UserMemory,
+  type UserMemorySettings,
+} from '@/types/memory';
 
 export function useUserMemories(accessToken: string | null | undefined) {
   const [memories, setMemories] = useState<UserMemory[]>([]);
@@ -18,6 +29,7 @@ export function useUserMemories(accessToken: string | null | undefined) {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<MemoryCategory | 'all'>('all');
+  const [visibilityFilter, setVisibilityFilter] = useState<MemoryVisibility | 'all'>('all');
 
   const reload = useCallback(async () => {
     if (!accessToken) {
@@ -58,16 +70,45 @@ export function useUserMemories(accessToken: string | null | undefined) {
 
     return memories.filter((memory) => {
       if (categoryFilter !== 'all' && memory.category !== categoryFilter) return false;
+      if (visibilityFilter !== 'all' && memory.visibility !== visibilityFilter) return false;
       if (!query) return true;
+
       return (
         memory.memory_text.toLowerCase().includes(query) ||
-        memory.category.toLowerCase().includes(query)
+        formatMemoryCategory(memory.category).toLowerCase().includes(query) ||
+        formatMemoryVisibility(memory.visibility).toLowerCase().includes(query)
       );
     });
-  }, [memories, searchQuery, categoryFilter]);
+  }, [memories, searchQuery, categoryFilter, visibilityFilter]);
+
+  const groupedMemories = useMemo(() => {
+    const groups = new Map<MemoryCategory, UserMemory[]>();
+
+    for (const category of MEMORY_CATEGORIES) {
+      groups.set(category, []);
+    }
+
+    for (const memory of filteredMemories) {
+      const bucket = groups.get(memory.category) ?? groups.get('everything_else')!;
+      bucket.push(memory);
+    }
+
+    return MEMORY_CATEGORIES.map((category) => ({
+      category,
+      title: formatMemoryCategory(category),
+      data: (groups.get(category) ?? []).sort(
+        (left, right) => new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime()
+      ),
+    })).filter((section) => section.data.length > 0);
+  }, [filteredMemories]);
 
   const addMemory = useCallback(
-    async (input: { category: MemoryCategory; memory_text: string; is_pinned?: boolean }) => {
+    async (input: {
+      category: MemoryCategory;
+      memory_text: string;
+      visibility?: MemoryVisibility;
+      is_pinned?: boolean;
+    }) => {
       if (!accessToken) return;
       const memory = await createMemory(accessToken, input);
       setMemories((current) => [memory, ...current]);
@@ -81,6 +122,7 @@ export function useUserMemories(accessToken: string | null | undefined) {
       id: string;
       memory_text?: string;
       category?: MemoryCategory;
+      visibility?: MemoryVisibility;
       is_pinned?: boolean;
     }) => {
       if (!accessToken) return;
@@ -128,13 +170,17 @@ export function useUserMemories(accessToken: string | null | undefined) {
     memories,
     settings,
     filteredMemories,
+    groupedMemories,
     categories: MEMORY_CATEGORIES,
+    visibilities: MEMORY_VISIBILITIES,
     isLoading,
     error,
     searchQuery,
     setSearchQuery,
     categoryFilter,
     setCategoryFilter,
+    visibilityFilter,
+    setVisibilityFilter,
     reload,
     addMemory,
     editMemory,
