@@ -1,5 +1,10 @@
 import type { ChatAttachment, ChatMessage } from '@/types/chat';
 import type { Conversation } from '@/types/conversation';
+import {
+  createConversationTitle,
+  isDefaultConversationTitle,
+  shouldShortenConversationTitle,
+} from '@/lib/conversation-title';
 
 type ConversationRow = {
   id: string;
@@ -58,6 +63,57 @@ export function conversationsNeedCloudUpload(
   mergedConversations: Conversation[]
 ) {
   return conversationSignature(cloudConversations) !== conversationSignature(mergedConversations);
+}
+
+function normalizeStoredConversations(conversations: Conversation[]): Conversation[] {
+  return conversations.map((conversation) => {
+    const firstUserMessage = conversation.messages.find((message) => message.role === 'user');
+    if (!firstUserMessage) return conversation;
+
+    if (!shouldShortenConversationTitle(conversation.title, firstUserMessage.text)) {
+      return conversation;
+    }
+
+    return {
+      ...conversation,
+      title: createConversationTitle(firstUserMessage.text),
+    };
+  });
+}
+
+export function repairStoredConversations(
+  conversations: Conversation[],
+  preferredActiveConversationId?: string | null,
+  createEmpty: () => Conversation = () => ({
+    id: `${Date.now()}`,
+    title: 'New chat',
+    messages: [],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  })
+): Conversation[] {
+  const normalized = normalizeStoredConversations(conversations);
+  const withMessages = normalized.filter((conversation) => conversation.messages.length > 0);
+  const emptyNewChats = normalized.filter(
+    (conversation) =>
+      conversation.messages.length === 0 && isDefaultConversationTitle(conversation.title)
+  );
+
+  const preferredEmpty =
+    preferredActiveConversationId &&
+    emptyNewChats.find((conversation) => conversation.id === preferredActiveConversationId);
+
+  const emptyToKeep = preferredEmpty ?? emptyNewChats[0] ?? null;
+
+  if (withMessages.length > 0) {
+    return sortConversations([...withMessages, ...(emptyToKeep ? [emptyToKeep] : [])]);
+  }
+
+  if (emptyToKeep) {
+    return [emptyToKeep];
+  }
+
+  return [createEmpty()];
 }
 
 export function mapRowsToConversations(

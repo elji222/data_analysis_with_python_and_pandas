@@ -5,6 +5,7 @@ import {
   conversationsNeedCloudUpload,
   mapRowsToConversations,
   mergeConversations,
+  repairStoredConversations,
 } from '@/lib/conversations/sync';
 import type { Conversation } from '@/types/conversation';
 
@@ -92,5 +93,29 @@ describe('conversation cloud sync', () => {
 
     expect(conversationsNeedCloudUpload(cloud, merged)).toBe(true);
     expect(conversationSignature(cloud)).not.toBe(conversationSignature(merged));
+  });
+
+  it('keeps the active empty new chat when repairing stored conversations', () => {
+    const withMessages = baseConversation({ id: 'chat-1', updatedAt: 3000 });
+    const olderEmpty = baseConversation({
+      id: 'empty-old',
+      title: 'New chat',
+      updatedAt: 2000,
+      messages: [],
+    });
+    const activeEmpty = baseConversation({
+      id: 'empty-active',
+      title: 'New chat',
+      updatedAt: 4000,
+      messages: [],
+    });
+
+    const repaired = repairStoredConversations(
+      [withMessages, olderEmpty, activeEmpty],
+      'empty-active',
+      () => baseConversation({ id: 'fallback-empty', title: 'New chat', messages: [], updatedAt: 0, createdAt: 0 })
+    );
+
+    expect(repaired.map((conversation) => conversation.id)).toEqual(['empty-active', 'chat-1']);
   });
 });
