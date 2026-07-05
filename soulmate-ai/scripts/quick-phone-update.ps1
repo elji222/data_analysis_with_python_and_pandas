@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-07-12a"
+$CacheBust = "2026-07-13a"
 
 $Files = @(
     "app/_layout.tsx",
@@ -192,8 +192,8 @@ if ($TabLayoutText -notmatch "brain.head.profile") {
     throw "Download failed. Memory tab is missing from app/(tabs)/_layout.tsx."
 }
 
-if ($ThemeText -notmatch "2026-07-12") {
-    throw "Download failed. constants/chat-theme.ts is not on build 2026-07-12."
+if ($ThemeText -notmatch "2026-07-13") {
+    throw "Download failed. constants/chat-theme.ts is not on build 2026-07-13."
 }
 
 Write-Host ""

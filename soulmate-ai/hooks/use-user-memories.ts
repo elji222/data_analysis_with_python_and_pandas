@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 
 import {
   clearAllMemories,
@@ -45,6 +46,12 @@ export function useUserMemories(accessToken: string | null | undefined) {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void reload();
+    }, [reload])
+  );
 
   const filteredMemories = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
