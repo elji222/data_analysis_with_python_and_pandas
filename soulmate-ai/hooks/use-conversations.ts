@@ -5,8 +5,8 @@ import { getMessagePreviewText } from '@/lib/build-chat-api-messages';
 import {
   createConversationTitle,
   isDefaultConversationTitle,
-  shouldShortenConversationTitle,
 } from '@/lib/conversation-title';
+import { conversationSignature, repairStoredConversations, sortConversations } from '@/lib/conversations/sync';
 import { isStorageQuotaError } from '@/lib/strip-attachments-for-storage';
 import {
   ConversationCloudError,
@@ -25,46 +25,6 @@ import {
 import type { ChatMessage } from '@/types/chat';
 import type { Conversation } from '@/types/conversation';
 
-import { conversationSignature, sortConversations } from '@/lib/conversations/sync';
-
-function normalizeStoredConversations(conversations: Conversation[]): Conversation[] {
-  return conversations.map((conversation) => {
-    const firstUserMessage = conversation.messages.find((message) => message.role === 'user');
-    if (!firstUserMessage) return conversation;
-
-    if (!shouldShortenConversationTitle(conversation.title, firstUserMessage.text)) {
-      return conversation;
-    }
-
-    return {
-      ...conversation,
-      title: createConversationTitle(firstUserMessage.text),
-    };
-  });
-}
-
-function repairStoredConversations(conversations: Conversation[]): Conversation[] {
-  const normalized = normalizeStoredConversations(conversations);
-  const withMessages = normalized.filter((conversation) => conversation.messages.length > 0);
-  const emptyNewChats = normalized.filter(
-    (conversation) =>
-      conversation.messages.length === 0 && isDefaultConversationTitle(conversation.title)
-  );
-
-  if (withMessages.length > 0) {
-    return sortConversations([
-      ...withMessages,
-      ...(emptyNewChats.length > 0 ? [emptyNewChats[0]] : []),
-    ]);
-  }
-
-  if (emptyNewChats.length > 0) {
-    return [emptyNewChats[0]];
-  }
-
-  return [createEmptyConversation()];
-}
-
 export function useConversations(userId: string | undefined) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -72,10 +32,15 @@ export function useConversations(userId: string | undefined) {
   const [storageWarning, setStorageWarning] = useState<string | null>(null);
   const conversationsRef = useRef<Conversation[]>([]);
   const signatureRef = useRef<string>('');
+  const activeConversationIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     conversationsRef.current = conversations;
   }, [conversations]);
+
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
 
   const applyConversations = useCallback((nextConversations: Conversation[]) => {
     const sorted = sortConversations(nextConversations);
@@ -94,7 +59,17 @@ export function useConversations(userId: string | undefined) {
 
       try {
         const synced = await loadSyncedConversations(userId);
-        let nextConversations = repairStoredConversations(synced.conversations);
+        const preferredActiveId =
+          synced.activeConversationId &&
+          synced.conversations.some((conversation) => conversation.id === synced.activeConversationId)
+            ? synced.activeConversationId
+            : null;
+
+        let nextConversations = repairStoredConversations(
+          synced.conversations,
+          preferredActiveId,
+          createEmptyConversation
+        );
 
         if (nextConversations.length === 0) {
           nextConversations = [createEmptyConversation()];
@@ -104,9 +79,9 @@ export function useConversations(userId: string | undefined) {
         }
 
         const activeId =
-          synced.activeConversationId &&
-          nextConversations.some((conversation) => conversation.id === synced.activeConversationId)
-            ? synced.activeConversationId
+          preferredActiveId &&
+          nextConversations.some((conversation) => conversation.id === preferredActiveId)
+            ? preferredActiveId
             : nextConversations[0].id;
 
         applyConversations(nextConversations);
@@ -164,12 +139,12 @@ export function useConversations(userId: string | undefined) {
         .then((refreshed) => {
           if (cancelled) return;
 
-          const repaired = repairStoredConversations(refreshed);
+          const activeId = activeConversationIdRef.current;
+          const repaired = repairStoredConversations(refreshed, activeId, createEmptyConversation);
           if (conversationSignature(repaired) === signatureRef.current) return;
 
           const activeStillExists =
-            activeConversationId &&
-            repaired.some((conversation) => conversation.id === activeConversationId);
+            activeId && repaired.some((conversation) => conversation.id === activeId);
 
           applyConversations(repaired);
           if (!activeStillExists) {
@@ -187,7 +162,7 @@ export function useConversations(userId: string | undefined) {
       return () => {
         cancelled = true;
       };
-    }, [activeConversationId, applyConversations, isReady, userId])
+    }, [applyConversations, isReady, userId])
   );
 
   const activeConversation =
@@ -241,6 +216,19 @@ export function useConversations(userId: string | undefined) {
   );
 
   const startNewConversation = useCallback(async () => {
+    const active = conversationsRef.current.find(
+      (conversation) => conversation.id === activeConversationIdRef.current
+    );
+
+    if (
+      active &&
+      active.messages.length === 0 &&
+      isDefaultConversationTitle(active.title)
+    ) {
+      await selectConversation(active.id);
+      return active.id;
+    }
+
     const conversation = createEmptyConversation();
     await persistUpdater((previous) => [conversation, ...previous]);
     await selectConversation(conversation.id);
