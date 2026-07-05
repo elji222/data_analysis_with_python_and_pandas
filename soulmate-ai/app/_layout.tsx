@@ -5,10 +5,8 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import 'react-native-reanimated';
 
-import { BuildVersionBanner } from '@/components/build-version-banner';
 import { StaleBundleGate } from '@/components/stale-bundle-gate';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
-import { UI_VERSION } from '@/constants/chat-theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { enforceCurrentBuild } from '@/lib/enforce-build-version';
 
@@ -31,7 +29,7 @@ function RootNavigator() {
       return;
     }
 
-    document.title = `Soulmate AI ${UI_VERSION}`;
+    document.title = 'Soulmate AI';
   }, []);
 
   useEffect(() => {
@@ -57,7 +55,6 @@ function RootNavigator() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <StaleBundleGate>
-        <BuildVersionBanner />
         <Stack>
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

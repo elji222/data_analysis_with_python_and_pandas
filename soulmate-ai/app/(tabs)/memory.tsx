@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { LogoutButton } from '@/components/logout-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ChatTheme } from '@/constants/chat-theme';
@@ -318,6 +319,7 @@ export default function MemoryScreen() {
                 }}
               />
             </View>
+            <LogoutButton variant="text" />
             <Pressable style={styles.infoCloseButton} onPress={() => setInfoOpen(false)}>
               <ThemedText style={styles.infoCloseText}>Close</ThemedText>
             </Pressable>

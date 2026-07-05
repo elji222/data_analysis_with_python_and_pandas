@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-07-14a"
+$CacheBust = "2026-07-16a"
 
 $Files = @(
     "app/_layout.tsx",
@@ -17,12 +17,12 @@ $Files = @(
     "app/api/memories+api.ts",
     "app.json",
     "components/attach-popover.tsx",
-    "components/build-version-banner.tsx",
     "components/chat-bubble.tsx",
     "components/chat-composer.tsx",
     "components/chat-panel.tsx",
     "components/composer-attachments.tsx",
     "components/conversation-sidebar.tsx",
+    "components/logout-button.tsx",
     "components/mobile-chat-header.tsx",
     "components/mobile-quick-suggestions.tsx",
     "components/production-site-warning.tsx",
@@ -31,6 +31,7 @@ $Files = @(
     "components/voice-waveform.tsx",
     "constants/chat-theme.ts",
     "constants/ai.ts",
+    "contexts/auth-context.tsx",
     "hooks/use-mobile-chat-layout.ts",
     "hooks/use-conversations.ts",
     "hooks/use-user-memories.ts",
@@ -121,8 +122,26 @@ $uiVersion = if ($versionMatch.Success) { $versionMatch.Groups[1].Value } else {
 $LayoutFile = Join-Path $Root "app\_layout.tsx"
 $LayoutText = Get-Content $LayoutFile -Raw
 
-if ($LayoutText -notmatch "BuildVersionBanner") {
-    throw "Download failed. app/_layout.tsx is still old."
+if ($LayoutText -match "BuildVersionBanner") {
+    throw "Download failed. app/_layout.tsx still shows the old version banner."
+}
+
+if ($LayoutText -notmatch "document\.title = 'Soulmate AI'") {
+    throw "Download failed. app/_layout.tsx is missing the minimal Soulmate AI title."
+}
+
+$SidebarFile = Join-Path $Root "components\conversation-sidebar.tsx"
+$SidebarText = Get-Content $SidebarFile -Raw
+
+if ($SidebarText -notmatch "LogoutButton") {
+    throw "Download failed. conversation-sidebar.tsx is missing the logout option."
+}
+
+$LoginFile = Join-Path $Root "app\(auth)\login.tsx"
+$LoginText = Get-Content $LoginFile -Raw
+
+if ($LoginText -match "EXPO GO BUILD") {
+    throw "Download failed. login.tsx still shows the old build badge."
 }
 
 $AttachmentsFile = Join-Path $Root "lib\attachments.ts"
@@ -218,8 +237,8 @@ Write-Host "SUCCESS. Phone build $uiVersion is on disk."
 Write-Host "Stale web-file-picker.ts removed (if it existed)."
 Write-Host ""
 Write-Host "On phone you should see:"
-Write-Host "  - Blue pill at top: PHONE BUILD $uiVersion"
-Write-Host "  - Header center: Soulmate AI with Build $uiVersion"
+Write-Host "  - Clean Soulmate AI header (no blue build pill)"
+Write-Host "  - Log out at the bottom of the menu sidebar"
 Write-Host "  - Memory tab with Saved memories screen"
 Write-Host "  - Chats sync across phone and laptop when signed in"
 Write-Host "  - Bottom bar: + button (left), mic, blue voice button (right)"

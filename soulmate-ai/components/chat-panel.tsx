@@ -22,8 +22,7 @@ import { MobileQuickSuggestions } from '@/components/mobile-quick-suggestions';
 import { ScrollToBottomButton } from '@/components/scroll-to-bottom-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { ChatTheme, QUICK_ACTIONS, UI_VERSION } from '@/constants/chat-theme';
-import { CLAUDE_MODEL } from '@/constants/ai';
+import { ChatTheme, QUICK_ACTIONS } from '@/constants/chat-theme';
 import { useSmoothStreamingText } from '@/hooks/use-smooth-streaming-text';
 import { useMobileChatLayout } from '@/hooks/use-mobile-chat-layout';
 import { useCompactWebLayout } from '@/hooks/use-wide-layout';
@@ -385,43 +384,25 @@ export function ChatPanel({
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         {isMobileChatLayout && showSidebarToggle && onOpenSidebar && onNewConversation ? (
           <MobileChatHeader onOpenSidebar={onOpenSidebar} onNewChat={onNewConversation} />
-        ) : (
+        ) : showSidebarToggle ? (
         <View style={styles.header}>
-          {showSidebarToggle ? (
-            <Pressable style={styles.headerButton} onPress={onOpenSidebar}>
-              <Ionicons
-                name="menu-outline"
-                size={22}
-                color={isDark ? ChatTheme.sidebarTextDark : ChatTheme.sidebarText}
-              />
-            </Pressable>
-          ) : (
-            <View style={styles.headerSpacer} />
-          )}
-          {showSidebarToggle ? (
-            <View style={styles.headerCenter}>
-              <ThemedText
-                lightColor={ChatTheme.assistantText}
-                darkColor={ChatTheme.assistantTextDark}
-                style={styles.headerTitle}>
-                Soulmate AI
-              </ThemedText>
-              <ThemedText style={styles.headerVersion}>UI {UI_VERSION}</ThemedText>
-              <ThemedText style={styles.headerModel}>{CLAUDE_MODEL}</ThemedText>
-            </View>
-          ) : (
-            <View style={styles.headerSpacer} />
-          )}
-          <View style={styles.profileButton}>
-            <ThemedText style={styles.profileInitial}>{userInitial}</ThemedText>
+          <Pressable style={styles.headerButton} onPress={onOpenSidebar}>
+            <Ionicons
+              name="menu-outline"
+              size={22}
+              color={isDark ? ChatTheme.sidebarTextDark : ChatTheme.sidebarText}
+            />
+          </Pressable>
+          <View style={styles.headerCenter}>
+            <ThemedText
+              lightColor={ChatTheme.assistantText}
+              darkColor={ChatTheme.assistantTextDark}
+              style={styles.headerTitle}>
+              Soulmate AI
+            </ThemedText>
           </View>
+          <View style={styles.headerSpacer} />
         </View>
-        )}
-
-        {Platform.OS !== 'web' && showSidebarToggle && !isMobileChatLayout ? (
-          <View style={styles.mobileBuildStrip}>
-            <ThemedText style={styles.mobileBuildStripText}>Phone build {UI_VERSION}</ThemedText>
-          </View>
         ) : null}
 
         <KeyboardAvoidingView
@@ -612,43 +593,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 15,
     fontWeight: '600',
-  },
-  headerVersion: {
-    fontSize: 10,
-    color: ChatTheme.sidebarMuted,
-    marginTop: 1,
-  },
-  headerModel: {
-    fontSize: 9,
-    color: ChatTheme.sidebarMuted,
-    marginTop: 1,
-  },
-  mobileBuildStrip: {
-    alignSelf: 'center',
-    backgroundColor: ChatTheme.accent,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    marginBottom: 6,
-  },
-  mobileBuildStripText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  profileButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#E8E8E8',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileInitial: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: ChatTheme.sidebarText,
   },
   keyboardView: {
     flex: 1,

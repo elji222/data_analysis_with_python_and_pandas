@@ -3,9 +3,9 @@ import { useRouter } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { LogoutButton } from '@/components/logout-button';
 import { ThemedText } from '@/components/themed-text';
-import { ChatTheme, SIDEBAR_NAV_ITEMS, UI_VERSION } from '@/constants/chat-theme';
-import { CLAUDE_MODEL } from '@/constants/ai';
+import { ChatTheme, SIDEBAR_NAV_ITEMS } from '@/constants/chat-theme';
 import type { Conversation } from '@/types/conversation';
 
 type ConversationSidebarProps = {
@@ -32,7 +32,6 @@ export function ConversationSidebar({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const isMobile = variant === 'mobile';
-  const userInitial = userEmail?.charAt(0).toUpperCase() ?? 'U';
 
   if (isMobile) {
     return (
@@ -96,20 +95,7 @@ export function ConversationSidebar({
         />
 
         <View style={[styles.mobileFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-          <Pressable
-            style={({ pressed }) => [styles.mobileChatButton, pressed && styles.pressed]}
-            onPress={onNewConversation}>
-            <Ionicons name="create-outline" size={18} color="#FFFFFF" />
-            <ThemedText style={styles.mobileChatButtonText}>Chat</ThemedText>
-          </Pressable>
-
-          <View style={styles.mobileAvatar}>
-            <ThemedText style={styles.mobileAvatarText}>{userInitial}</ThemedText>
-          </View>
-
-          <Pressable style={styles.mobileVoiceButton}>
-            <Ionicons name="pulse" size={18} color="#FFFFFF" />
-          </Pressable>
+          <LogoutButton variant="row" onLoggedOut={onClose} />
         </View>
       </View>
     );
@@ -124,8 +110,6 @@ export function ConversationSidebar({
           </View>
           <View>
             <ThemedText style={styles.brandText}>Soulmate AI</ThemedText>
-            <ThemedText style={styles.versionText}>UI {UI_VERSION}</ThemedText>
-            <ThemedText style={styles.modelText}>{CLAUDE_MODEL}</ThemedText>
           </View>
         </View>
         {onClose ? (
@@ -168,6 +152,7 @@ export function ConversationSidebar({
       <FlatList
         data={conversations}
         keyExtractor={(item) => item.id}
+        style={styles.listScroll}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => {
@@ -195,17 +180,22 @@ export function ConversationSidebar({
           );
         }}
       />
+
+      <View style={styles.sidebarFooter}>
+        <LogoutButton variant="row" />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   sidebar: {
+    flex: 1,
     width: 280,
+    maxWidth: 280,
     backgroundColor: ChatTheme.sidebarBg,
     borderRightWidth: StyleSheet.hairlineWidth,
     borderRightColor: ChatTheme.sidebarBorder,
-    paddingBottom: 16,
   },
   mobileSidebar: {
     flex: 1,
@@ -255,16 +245,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: ChatTheme.sidebarText,
   },
-  versionText: {
-    fontSize: 11,
-    color: ChatTheme.sidebarMuted,
-    marginTop: 1,
-  },
-  modelText: {
-    fontSize: 10,
-    color: ChatTheme.sidebarMuted,
-    marginTop: 1,
-  },
   iconButton: {
     width: 32,
     height: 32,
@@ -312,10 +292,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 8,
   },
+  listScroll: {
+    flex: 1,
+    minHeight: 0,
+  },
   list: {
     paddingHorizontal: 8,
-    paddingBottom: 16,
+    paddingBottom: 8,
     gap: 2,
+  },
+  sidebarFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: ChatTheme.sidebarBorder,
+    paddingTop: 4,
+    paddingBottom: 12,
+    paddingHorizontal: 4,
   },
   mobileList: {
     paddingHorizontal: 12,
@@ -362,50 +353,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingHorizontal: 4,
+    paddingTop: 8,
     backgroundColor: '#FFFFFF',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#ECECEC',
-  },
-  mobileChatButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: ChatTheme.chatGptBlue,
-    borderRadius: 999,
-    paddingVertical: 14,
-  },
-  mobileChatButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  mobileAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#C8E6C9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mobileAvatarText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1B5E20',
-  },
-  mobileVoiceButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: ChatTheme.chatGptBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   pressed: {
     opacity: 0.75,
