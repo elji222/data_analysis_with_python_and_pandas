@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-07-13a"
+$CacheBust = "2026-07-13b"
 
 $Files = @(
     "app/_layout.tsx",
@@ -186,14 +186,19 @@ if (-not (Test-Path $MemoryTabFile)) {
     throw "Download failed. memory.tsx is missing."
 }
 
+$MemoryText = Get-Content $MemoryTabFile -Raw
+if ($MemoryText -notmatch "Saved memories") {
+    throw "Download failed. memory.tsx is missing the new Saved memories screen."
+}
+
 $TabLayoutFile = Join-Path $Root "app\(tabs)\_layout.tsx"
 $TabLayoutText = Get-Content $TabLayoutFile -Raw
 if ($TabLayoutText -notmatch "brain.head.profile") {
     throw "Download failed. Memory tab is missing from app/(tabs)/_layout.tsx."
 }
 
-if ($ThemeText -notmatch "2026-07-13") {
-    throw "Download failed. constants/chat-theme.ts is not on build 2026-07-13."
+if ($uiVersion -eq "unknown") {
+    throw "Download failed. Could not read UI_VERSION from constants/chat-theme.ts."
 }
 
 Write-Host ""
@@ -203,6 +208,7 @@ Write-Host ""
 Write-Host "On phone you should see:"
 Write-Host "  - Blue pill at top: PHONE BUILD $uiVersion"
 Write-Host "  - Header center: Soulmate AI with Build $uiVersion"
+Write-Host "  - Memory tab with Saved memories screen"
 Write-Host "  - Bottom bar: + button (left), mic, blue voice button (right)"
 Write-Host ""
 Write-Host "Next: scripts\start-phone-web.cmd"
