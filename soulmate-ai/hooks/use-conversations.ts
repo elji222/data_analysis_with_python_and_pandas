@@ -1,23 +1,31 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 
 import { getMessagePreviewText } from '@/lib/build-chat-api-messages';
-import { createConversationTitle, isDefaultConversationTitle, shouldShortenConversationTitle } from '@/lib/conversation-title';
+import {
+  createConversationTitle,
+  isDefaultConversationTitle,
+  shouldShortenConversationTitle,
+} from '@/lib/conversation-title';
 import { isStorageQuotaError } from '@/lib/strip-attachments-for-storage';
+import {
+  ConversationCloudError,
+  loadSyncedConversations,
+  persistSyncedActiveConversationId,
+  persistSyncedConversation,
+  persistSyncedConversations,
+  refreshCloudConversations,
+  removeSyncedConversation,
+} from '@/services/conversation-cloud';
 import {
   clearConversationsStorage,
   ConversationStorageError,
   createEmptyConversation,
-  loadActiveConversationId,
-  loadConversations,
-  saveActiveConversationId,
-  saveConversations,
 } from '@/services/conversation-storage';
 import type { ChatMessage } from '@/types/chat';
 import type { Conversation } from '@/types/conversation';
 
-function sortConversations(items: Conversation[]): Conversation[] {
-  return [...items].sort((a, b) => b.updatedAt - a.updatedAt);
-}
+import { conversationSignature, sortConversations } from '@/lib/conversations/sync';
 
 function normalizeStoredConversations(conversations: Conversation[]): Conversation[] {
   return conversations.map((conversation) => {
@@ -63,10 +71,77 @@ export function useConversations(userId: string | undefined) {
   const [isReady, setIsReady] = useState(false);
   const [storageWarning, setStorageWarning] = useState<string | null>(null);
   const conversationsRef = useRef<Conversation[]>([]);
+  const signatureRef = useRef<string>('');
 
   useEffect(() => {
     conversationsRef.current = conversations;
   }, [conversations]);
+
+  const applyConversations = useCallback((nextConversations: Conversation[]) => {
+    const sorted = sortConversations(nextConversations);
+    conversationsRef.current = sorted;
+    signatureRef.current = conversationSignature(sorted);
+    setConversations(sorted);
+  }, []);
+
+  const hydrateFromSource = useCallback(
+    async (showLoading = true) => {
+      if (!userId) return;
+
+      if (showLoading) {
+        setIsReady(false);
+      }
+
+      try {
+        const synced = await loadSyncedConversations(userId);
+        let nextConversations = repairStoredConversations(synced.conversations);
+
+        if (nextConversations.length === 0) {
+          nextConversations = [createEmptyConversation()];
+          await persistSyncedConversations(userId, nextConversations);
+        } else if (conversationSignature(nextConversations) !== conversationSignature(synced.conversations)) {
+          await persistSyncedConversations(userId, nextConversations);
+        }
+
+        const activeId =
+          synced.activeConversationId &&
+          nextConversations.some((conversation) => conversation.id === synced.activeConversationId)
+            ? synced.activeConversationId
+            : nextConversations[0].id;
+
+        applyConversations(nextConversations);
+        setActiveConversationId(activeId);
+        await persistSyncedActiveConversationId(userId, activeId);
+
+        if (synced.source === 'merged') {
+          setStorageWarning('Your chats from this device were merged into your cloud history.');
+        } else if (synced.source === 'local') {
+          setStorageWarning('Cloud sync is unavailable right now. Showing chats saved on this device.');
+        } else {
+          setStorageWarning(null);
+        }
+      } catch (error) {
+        if (error instanceof ConversationCloudError) {
+          setStorageWarning(error.message);
+          applyConversations([createEmptyConversation()]);
+          setActiveConversationId(conversationsRef.current[0]?.id ?? null);
+        } else if (isStorageQuotaError(error) || error instanceof ConversationStorageError) {
+          await clearConversationsStorage(userId);
+          const freshConversation = createEmptyConversation();
+          applyConversations([freshConversation]);
+          setActiveConversationId(freshConversation.id);
+          setStorageWarning(
+            'Your browser storage was full, so old local chats were cleared. Cloud sync will keep new chats.'
+          );
+        } else {
+          throw error;
+        }
+      } finally {
+        setIsReady(true);
+      }
+    },
+    [applyConversations, userId]
+  );
 
   useEffect(() => {
     if (!userId) {
@@ -74,72 +149,48 @@ export function useConversations(userId: string | undefined) {
       setActiveConversationId(null);
       setIsReady(false);
       conversationsRef.current = [];
+      signatureRef.current = '';
       return;
     }
 
-    let isMounted = true;
+    void hydrateFromSource();
+  }, [hydrateFromSource, userId]);
 
-    async function hydrate() {
-      const [storedConversations, storedActiveId] = await Promise.all([
-        loadConversations(userId!),
-        loadActiveConversationId(userId!),
-      ]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId || !isReady) return;
 
-      if (!isMounted) return;
+      let cancelled = false;
 
-      async function persistInitialState(
-        nextConversations: Conversation[],
-        activeId: string
-      ): Promise<void> {
-        conversationsRef.current = nextConversations;
-        setConversations(nextConversations);
-        setActiveConversationId(activeId);
+      void refreshCloudConversations(userId)
+        .then((refreshed) => {
+          if (cancelled) return;
 
-        try {
-          await saveConversations(userId!, nextConversations);
-          await saveActiveConversationId(userId!, activeId);
-          setStorageWarning(null);
-        } catch (error) {
-          if (isStorageQuotaError(error) || error instanceof ConversationStorageError) {
-            await clearConversationsStorage(userId!);
-            const freshConversation = createEmptyConversation();
-            const freshState = [freshConversation];
-            conversationsRef.current = freshState;
-            setConversations(freshState);
-            setActiveConversationId(freshConversation.id);
-            await saveActiveConversationId(userId!, freshConversation.id);
-            setStorageWarning(
-              'Your browser storage was full, so old chats were cleared. You can chat normally now.'
-            );
-            return;
+          const repaired = repairStoredConversations(refreshed);
+          if (conversationSignature(repaired) === signatureRef.current) return;
+
+          const activeStillExists =
+            activeConversationId &&
+            repaired.some((conversation) => conversation.id === activeConversationId);
+
+          applyConversations(repaired);
+          if (!activeStillExists) {
+            const nextActiveId = repaired[0]?.id ?? null;
+            setActiveConversationId(nextActiveId);
+            if (nextActiveId) {
+              void persistSyncedActiveConversationId(userId, nextActiveId);
+            }
           }
+        })
+        .catch(() => {
+          // Keep the current session if a background refresh fails.
+        });
 
-          throw error;
-        }
-      }
-
-      if (storedConversations.length === 0) {
-        const firstConversation = createEmptyConversation();
-        await persistInitialState([firstConversation], firstConversation.id);
-      } else {
-        const normalizedConversations = repairStoredConversations(storedConversations);
-        const activeId =
-          storedActiveId && normalizedConversations.some((item) => item.id === storedActiveId)
-            ? storedActiveId
-            : normalizedConversations[0].id;
-
-        await persistInitialState(normalizedConversations, activeId);
-      }
-
-      setIsReady(true);
-    }
-
-    hydrate();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [userId]);
+      return () => {
+        cancelled = true;
+      };
+    }, [activeConversationId, applyConversations, isReady, userId])
+  );
 
   const activeConversation =
     conversations.find((conversation) => conversation.id === activeConversationId) ?? null;
@@ -149,13 +200,19 @@ export function useConversations(userId: string | undefined) {
       if (!userId) return;
 
       const nextConversations = sortConversations(updater(conversationsRef.current));
-      conversationsRef.current = nextConversations;
-      setConversations(nextConversations);
+      applyConversations(nextConversations);
 
       try {
-        await saveConversations(userId, nextConversations);
+        await persistSyncedConversations(userId, nextConversations);
         setStorageWarning(null);
       } catch (error) {
+        if (error instanceof ConversationCloudError) {
+          setStorageWarning(
+            'Could not sync chats to the cloud. Your messages are saved on this device for now.'
+          );
+          return;
+        }
+
         if (error instanceof ConversationStorageError || isStorageQuotaError(error)) {
           setStorageWarning(
             error instanceof Error
@@ -168,14 +225,19 @@ export function useConversations(userId: string | undefined) {
         throw error;
       }
     },
-    [userId]
+    [applyConversations, userId]
   );
 
   const selectConversation = useCallback(
     async (conversationId: string) => {
       if (!userId) return;
       setActiveConversationId(conversationId);
-      await saveActiveConversationId(userId, conversationId);
+
+      try {
+        await persistSyncedActiveConversationId(userId, conversationId);
+      } catch {
+        setStorageWarning('Could not sync your active chat selection to the cloud.');
+      }
     },
     [userId]
   );
@@ -189,6 +251,8 @@ export function useConversations(userId: string | undefined) {
 
   const deleteConversation = useCallback(
     async (conversationId: string) => {
+      if (!userId) return;
+
       const remaining = conversationsRef.current.filter(
         (conversation) => conversation.id !== conversationId
       );
@@ -200,15 +264,24 @@ export function useConversations(userId: string | undefined) {
         return;
       }
 
-      await persistUpdater((previous) =>
-        previous.filter((conversation) => conversation.id !== conversationId)
-      );
+      applyConversations(remaining);
+
+      try {
+        await removeSyncedConversation(userId, conversationId, remaining);
+        setStorageWarning(null);
+      } catch (error) {
+        if (error instanceof ConversationCloudError) {
+          setStorageWarning('Could not delete that chat from the cloud. It was removed on this device.');
+        } else {
+          throw error;
+        }
+      }
 
       if (activeConversationId === conversationId) {
         await selectConversation(remaining[0].id);
       }
     },
-    [activeConversationId, persistUpdater, selectConversation]
+    [activeConversationId, applyConversations, selectConversation, userId]
   );
 
   const updateConversationMessages = useCallback(
@@ -216,25 +289,55 @@ export function useConversations(userId: string | undefined) {
       const now = Date.now();
       const firstUserMessage = messages.find((message) => message.role === 'user');
 
-      await persistUpdater((previous) =>
-        previous.map((conversation) => {
+      const nextConversations = sortConversations(
+        conversationsRef.current.map((conversation) => {
           if (conversation.id !== conversationId) return conversation;
 
-        const shouldRename =
-          isDefaultConversationTitle(conversation.title) && firstUserMessage !== undefined;
+          const shouldRename =
+            isDefaultConversationTitle(conversation.title) && firstUserMessage !== undefined;
 
-        return {
-          ...conversation,
-          messages,
-          title: shouldRename
-            ? createConversationTitle(getMessagePreviewText(firstUserMessage))
-            : conversation.title,
-          updatedAt: now,
-        };
+          return {
+            ...conversation,
+            messages,
+            title: shouldRename
+              ? createConversationTitle(getMessagePreviewText(firstUserMessage))
+              : conversation.title,
+            updatedAt: now,
+          };
         })
       );
+
+      const updatedConversation =
+        nextConversations.find((conversation) => conversation.id === conversationId) ?? null;
+
+      applyConversations(nextConversations);
+
+      if (!userId || !updatedConversation) return;
+
+      try {
+        await persistSyncedConversation(userId, updatedConversation, nextConversations);
+        setStorageWarning(null);
+      } catch (error) {
+        if (error instanceof ConversationCloudError) {
+          setStorageWarning(
+            'Could not sync this chat to the cloud. It is still saved on this device.'
+          );
+          return;
+        }
+
+        if (error instanceof ConversationStorageError || isStorageQuotaError(error)) {
+          setStorageWarning(
+            error instanceof Error
+              ? error.message
+              : 'Could not save chat history on this device.'
+          );
+          return;
+        }
+
+        throw error;
+      }
     },
-    [persistUpdater]
+    [applyConversations, userId]
   );
 
   const renameConversation = useCallback(
@@ -264,5 +367,6 @@ export function useConversations(userId: string | undefined) {
     deleteConversation,
     updateConversationMessages,
     renameConversation,
+    refreshConversations: hydrateFromSource,
   };
-}
+};

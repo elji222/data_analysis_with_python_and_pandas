@@ -106,7 +106,7 @@ export default function LoginScreen() {
           Your AI companion
         </ThemedText>
         <ThemedText style={styles.description}>
-          Create your account with Google to save your conversations and pick up where you left off.
+          Create your account with Google to sync chats and memories across your phone and laptop.
         </ThemedText>
 
         {Platform.OS !== 'web' ? (

@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-07-13b"
+$CacheBust = "2026-07-14a"
 
 $Files = @(
     "app/_layout.tsx",
@@ -32,6 +32,7 @@ $Files = @(
     "constants/chat-theme.ts",
     "constants/ai.ts",
     "hooks/use-mobile-chat-layout.ts",
+    "hooks/use-conversations.ts",
     "hooks/use-user-memories.ts",
     "hooks/use-voice-input.ts",
     "hooks/use-wide-layout.ts",
@@ -40,6 +41,8 @@ $Files = @(
     "lib/auth.ts",
     "lib/enforce-build-version.ts",
     "lib/browser-capabilities.ts",
+    "lib/conversations/repository.ts",
+    "lib/conversations/sync.ts",
     "lib/memory/extract.ts",
     "lib/memory/intent.ts",
     "lib/memory/process.ts",
@@ -50,6 +53,7 @@ $Files = @(
     "lib/recover-stale-web-bundle.ts",
     "lib/supabase-server.ts",
     "services/chat-api.ts",
+    "services/conversation-cloud.ts",
     "services/memory-api.ts",
     "types/memory.ts",
     "eas.json",
@@ -197,6 +201,12 @@ if ($TabLayoutText -notmatch "brain.head.profile") {
     throw "Download failed. Memory tab is missing from app/(tabs)/_layout.tsx."
 }
 
+$ConversationsHookFile = Join-Path $Root "hooks\use-conversations.ts"
+$ConversationsHookText = Get-Content $ConversationsHookFile -Raw
+if ($ConversationsHookText -notmatch "loadSyncedConversations") {
+    throw "Download failed. Cloud chat sync is missing from hooks/use-conversations.ts."
+}
+
 if ($uiVersion -eq "unknown") {
     throw "Download failed. Could not read UI_VERSION from constants/chat-theme.ts."
 }
@@ -209,6 +219,7 @@ Write-Host "On phone you should see:"
 Write-Host "  - Blue pill at top: PHONE BUILD $uiVersion"
 Write-Host "  - Header center: Soulmate AI with Build $uiVersion"
 Write-Host "  - Memory tab with Saved memories screen"
+Write-Host "  - Chats sync across phone and laptop when signed in"
 Write-Host "  - Bottom bar: + button (left), mic, blue voice button (right)"
 Write-Host ""
 Write-Host "Next: scripts\start-phone-web.cmd"
