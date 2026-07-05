@@ -14,7 +14,9 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { sendChatMessage } from '@/services/chat-api';
+import { useAuth } from '@/contexts/auth-context';
+import { sendChatMessageWithMemory } from '@/services/memory-api';
+import { detectMemoryIntent } from '@/lib/memory/intent';
 import type { ChatMessage } from '@/types/chat';
 import type { Conversation } from '@/types/conversation';
 
@@ -31,18 +33,21 @@ export function ChatPanel({
   onOpenSidebar,
   showSidebarToggle = false,
 }: ChatPanelProps) {
+  const { session } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [memoryNotice, setMemoryNotice] = useState<string | null>(null);
 
   const messages = conversation?.messages ?? [];
 
   useEffect(() => {
     setInput('');
     setError(null);
+    setMemoryNotice(null);
   }, [conversation?.id]);
 
   async function handleSend() {
@@ -62,16 +67,34 @@ export function ChatPanel({
 
     setInput('');
     setError(null);
+    setMemoryNotice(null);
     setIsLoading(true);
     await onUpdateMessages(conversation.id, nextMessages);
 
     try {
-      const reply = await sendChatMessage(
+      const accessToken = session?.access_token;
+      const skipMemory = detectMemoryIntent(trimmed).type === 'skip';
+
+      if (!accessToken) {
+        throw new Error('Please sign in again to chat with memory support.');
+      }
+
+      const { reply, savedMemories } = await sendChatMessageWithMemory(
         nextMessages.map((message) => ({
           role: message.role,
           content: message.text,
-        }))
+        })),
+        {
+          accessToken,
+          conversationId: conversation.id,
+          messageId: userMessage.id,
+          skipMemory,
+        }
       );
+
+      if (savedMemories.length > 0) {
+        setMemoryNotice('Saved to Memory.');
+      }
 
       const assistantMessage: ChatMessage = {
         id: `${Date.now()}-assistant`,
@@ -137,6 +160,7 @@ export function ChatPanel({
           />
 
           {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+          {memoryNotice ? <ThemedText style={styles.memoryNotice}>{memoryNotice}</ThemedText> : null}
 
           <ThemedView style={styles.inputRow}>
             <TextInput
@@ -235,6 +259,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 8,
     fontSize: 14,
+  },
+  memoryNotice: {
+    color: '#7B61FF',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+    fontSize: 13,
+    fontWeight: '600',
   },
   inputRow: {
     flexDirection: 'row',

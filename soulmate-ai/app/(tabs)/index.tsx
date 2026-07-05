@@ -1,3 +1,4 @@
+import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -37,6 +38,11 @@ export default function HomeScreen() {
           <ThemedView style={styles.accountCard}>
             <ThemedText style={styles.signedInLabel}>Signed in as</ThemedText>
             <ThemedText type="defaultSemiBold">{user.email}</ThemedText>
+            <Link href="/memory" asChild>
+              <Pressable style={({ pressed }) => [styles.memoryLink, pressed && styles.pressed]}>
+                <ThemedText style={styles.memoryLinkText}>Open Memory</ThemedText>
+              </Pressable>
+            </Link>
             <Pressable
               style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed]}
               onPress={handleSignOut}
@@ -89,6 +95,17 @@ const styles = StyleSheet.create({
   signedInLabel: {
     opacity: 0.6,
     fontSize: 14,
+  },
+  memoryLink: {
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: '#F3EEFF',
+  },
+  memoryLinkText: {
+    color: '#7B61FF',
+    fontWeight: '600',
   },
   signOutButton: {
     marginTop: 8,
