@@ -5,6 +5,7 @@ import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ChatTheme } from '@/constants/chat-theme';
 import { useAuth } from '@/contexts/auth-context';
+import { confirmAction } from '@/lib/confirm';
 
 type LogoutButtonProps = {
   variant?: 'text' | 'row';
@@ -16,26 +17,26 @@ export function LogoutButton({ variant = 'text', onLoggedOut }: LogoutButtonProp
   const router = useRouter();
 
   async function handleLogout() {
-    Alert.alert('Log out?', 'You will need to sign in again to use Soulmate AI.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log out',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            try {
-              await signOut();
-              onLoggedOut?.();
-              router.replace('/login');
-            } catch (error) {
-              const message =
-                error instanceof Error ? error.message : 'Could not log out. Please try again.';
-              Alert.alert('Log out failed', message);
-            }
-          })();
-        },
-      },
-    ]);
+    const confirmed = await confirmAction({
+      title: 'Log out?',
+      message: 'You will need to sign in again to use Soulmate AI.',
+      confirmLabel: 'Log out',
+      destructive: true,
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await signOut();
+      onLoggedOut?.();
+      router.replace('/login');
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Could not log out. Please try again.';
+      Alert.alert('Log out failed', message);
+    }
   }
 
   if (variant === 'row') {
@@ -60,7 +61,9 @@ export function LogoutButton({ variant = 'text', onLoggedOut }: LogoutButtonProp
   }
 
   return (
-    <Pressable style={({ pressed }) => [styles.textButton, pressed && styles.pressed]} onPress={() => void handleLogout()}>
+    <Pressable
+      style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}
+      onPress={() => void handleLogout()}>
       <ThemedText style={styles.textButtonLabel}>Log out</ThemedText>
     </Pressable>
   );
