@@ -94,6 +94,7 @@ export function ChatPanel({
   const [listViewportHeight, setListViewportHeight] = useState(0);
   const inputBeforeRecordingRef = useRef('');
   const listDataRef = useRef<ChatMessage[]>([]);
+  const scrolledToResponseStartRef = useRef(false);
 
   const {
     isRecording,
@@ -130,14 +131,31 @@ export function ChatPanel({
   }
 
   useEffect(() => {
-    if (!isStreaming) return;
-    scrollToEnd();
-  }, [smoothStreamingText, isStreaming]);
-
-  useEffect(() => {
     if (messages.length === 0) return;
     scrollToEnd();
-  }, [conversation?.id, messages.length]);
+  }, [conversation?.id]);
+
+  useEffect(() => {
+    if (!isStreaming) {
+      scrolledToResponseStartRef.current = false;
+      return;
+    }
+
+    if (scrolledToResponseStartRef.current || !smoothStreamingText) {
+      return;
+    }
+
+    scrolledToResponseStartRef.current = true;
+    const responseIndex = messages.length;
+
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToIndex({
+        index: responseIndex,
+        viewPosition: 0,
+        animated: false,
+      });
+    });
+  }, [isStreaming, smoothStreamingText, messages.length]);
 
   async function handleAttach(action: 'photos-and-files' | 'camera') {
     try {
@@ -236,7 +254,6 @@ export function ChatPanel({
     setStreamingText(null);
     cancelRecording();
     await onUpdateMessages(conversation.id, nextMessages);
-    scrollToEnd();
 
     try {
       const reply = await streamChatMessage(
@@ -277,7 +294,6 @@ export function ChatPanel({
       setError(message);
     } finally {
       setIsLoading(false);
-      scrollToEnd();
     }
   }
 
@@ -384,7 +400,7 @@ export function ChatPanel({
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         {isMobileChatLayout && showSidebarToggle && onOpenSidebar && onNewConversation ? (
           <MobileChatHeader onOpenSidebar={onOpenSidebar} onNewChat={onNewConversation} />
-        ) : showSidebarToggle ? (
+        ) : showSidebarToggle && onNewConversation ? (
         <View style={styles.header}>
           <Pressable style={styles.headerButton} onPress={onOpenSidebar}>
             <Ionicons
@@ -401,7 +417,11 @@ export function ChatPanel({
               Soulmate AI
             </ThemedText>
           </View>
-          <View style={styles.headerSpacer} />
+          <Pressable
+            style={({ pressed }) => [styles.headerNewChatButton, pressed && styles.pressed]}
+            onPress={onNewConversation}>
+            <ThemedText style={styles.headerNewChatLabel}>New Chat</ThemedText>
+          </Pressable>
         </View>
         ) : null}
 
@@ -592,6 +612,20 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 15,
+    fontWeight: '600',
+  },
+  headerNewChatButton: {
+    minWidth: 40,
+    height: 36,
+    borderRadius: 999,
+    backgroundColor: ChatTheme.chatGptBlue,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  headerNewChatLabel: {
+    color: '#FFFFFF',
+    fontSize: 13,
     fontWeight: '600',
   },
   keyboardView: {
