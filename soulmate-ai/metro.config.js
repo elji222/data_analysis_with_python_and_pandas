@@ -1,6 +1,6 @@
 const { getDefaultConfig } = require('expo/metro-config');
 
-const UI_BUILD = '2026-07-13';
+const UI_BUILD = '2026-07-14';
 
 const config = getDefaultConfig(__dirname);
 config.cacheVersion = UI_BUILD;
