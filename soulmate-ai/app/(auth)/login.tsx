@@ -6,7 +6,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { UI_VERSION } from '@/constants/chat-theme';
 import { useAuth } from '@/contexts/auth-context';
 import { getAuthRedirectUri, processAuthCallbackUrl, signInWithGoogle } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase';
@@ -95,10 +94,6 @@ export default function LoginScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.content}>
-        <View style={styles.buildBadge}>
-          <ThemedText style={styles.buildBadgeText}>EXPO GO BUILD {UI_VERSION}</ThemedText>
-        </View>
-
         <ThemedText type="title" style={styles.title}>
           Soulmate AI
         </ThemedText>
@@ -166,19 +161,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 32,
     gap: 16,
-  },
-  buildBadge: {
-    backgroundColor: '#7B61FF',
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginBottom: 4,
-  },
-  buildBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.4,
   },
   title: {
     textAlign: 'center',

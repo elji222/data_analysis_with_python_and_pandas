@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ChatTheme, UI_VERSION } from '@/constants/chat-theme';
+import { ChatTheme } from '@/constants/chat-theme';
 
 type MobileChatHeaderProps = {
   onOpenSidebar: () => void;
@@ -19,10 +19,7 @@ export function MobileChatHeader({ onOpenSidebar, onNewChat }: MobileChatHeaderP
         <Ionicons name="reorder-two" size={24} color={ChatTheme.sidebarText} />
       </Pressable>
 
-      <Pressable style={styles.modelPill}>
-        <ThemedText style={styles.modelPillText}>Soulmate AI</ThemedText>
-        <ThemedText style={styles.buildTag}>Build {UI_VERSION}</ThemedText>
-      </Pressable>
+      <ThemedText style={styles.title}>Soulmate AI</ThemedText>
 
       <View style={styles.rightActions}>
         <Pressable
@@ -60,25 +57,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  modelPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    gap: 2,
-  },
-  modelPillText: {
-    fontSize: 15,
+  title: {
+    fontSize: 17,
     fontWeight: '600',
     color: ChatTheme.sidebarText,
-  },
-  buildTag: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#00A86B',
-    letterSpacing: 0.2,
   },
 });
