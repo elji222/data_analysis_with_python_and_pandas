@@ -127,7 +127,7 @@ export function ConversationSidebar({
         style={({ pressed }) => [styles.newChatButton, pressed && styles.pressed]}
         onPress={onNewConversation}>
         <Ionicons name="create-outline" size={18} color={ChatTheme.sidebarText} />
-        <ThemedText style={styles.newChatLabel}>New chat</ThemedText>
+        <ThemedText style={styles.newChatLabel}>New Chat</ThemedText>
       </Pressable>
 
       <View style={styles.navSection}>

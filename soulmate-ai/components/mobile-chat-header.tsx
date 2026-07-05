@@ -29,8 +29,12 @@ export function MobileChatHeader({ onOpenSidebar, onNewChat }: MobileChatHeaderP
           <Ionicons name="bookmark-outline" size={22} color={ChatTheme.sidebarText} />
         </Pressable>
 
-        <Pressable style={styles.iconButton} onPress={onNewChat} accessibilityLabel="New chat">
-          <Ionicons name="chatbubble-ellipses-outline" size={22} color={ChatTheme.sidebarText} />
+        <Pressable
+          style={({ pressed }) => [styles.newChatButton, pressed && styles.pressed]}
+          onPress={onNewChat}
+          accessibilityLabel="New Chat">
+          <Ionicons name="create-outline" size={16} color="#FFFFFF" />
+          <ThemedText style={styles.newChatLabel}>New Chat</ThemedText>
         </Pressable>
       </View>
     </View>
@@ -45,6 +49,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 4,
     paddingBottom: 8,
+    gap: 8,
   },
   iconButton: {
     width: 40,
@@ -56,10 +61,30 @@ const styles = StyleSheet.create({
   rightActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
   title: {
+    flex: 1,
     fontSize: 17,
     fontWeight: '600',
     color: ChatTheme.sidebarText,
+    textAlign: 'center',
+  },
+  newChatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: ChatTheme.chatGptBlue,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  newChatLabel: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  pressed: {
+    opacity: 0.85,
   },
 });

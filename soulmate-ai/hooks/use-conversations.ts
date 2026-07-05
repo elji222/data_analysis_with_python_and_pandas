@@ -113,9 +113,7 @@ export function useConversations(userId: string | undefined) {
         setActiveConversationId(activeId);
         await persistSyncedActiveConversationId(userId, activeId);
 
-        if (synced.source === 'merged') {
-          setStorageWarning('Your chats from this device were merged into your cloud history.');
-        } else if (synced.source === 'local') {
+        if (synced.source === 'local') {
           setStorageWarning('Cloud sync is unavailable right now. Showing chats saved on this device.');
         } else {
           setStorageWarning(null);
