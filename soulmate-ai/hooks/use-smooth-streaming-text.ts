@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 
+const STREAMING_SPEED = 0.75;
 const MIN_CHARS_PER_FRAME = 1;
-const MAX_CHARS_PER_FRAME = 14;
+const MAX_CHARS_PER_FRAME = Math.max(1, Math.round(14 * STREAMING_SPEED));
+const CATCH_UP_DIVISOR = 6 / STREAMING_SPEED;
 
 export function useSmoothStreamingText(targetText: string | null, isActive: boolean) {
   const [displayText, setDisplayText] = useState('');
@@ -34,7 +36,7 @@ export function useSmoothStreamingText(targetText: string | null, isActive: bool
       if (behind > 0) {
         const stepSize = Math.max(
           MIN_CHARS_PER_FRAME,
-          Math.min(MAX_CHARS_PER_FRAME, Math.ceil(behind / 6))
+          Math.min(MAX_CHARS_PER_FRAME, Math.ceil(behind / CATCH_UP_DIVISOR))
         );
         indexRef.current = Math.min(target.length, indexRef.current + stepSize);
         setDisplayText(target.slice(0, indexRef.current));
