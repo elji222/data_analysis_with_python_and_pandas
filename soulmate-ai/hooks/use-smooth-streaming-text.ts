@@ -37,9 +37,15 @@ export function useSmoothStreamingText(targetText: string | null, isActive: bool
       const behind = target.length - indexRef.current;
 
       if (behind > 0) {
-        const elapsed = lastStepAtRef.current === 0 ? MIN_FRAME_INTERVAL_MS : timestamp - lastStepAtRef.current;
+        const isFirstReveal = indexRef.current === 0;
+        const elapsed =
+          lastStepAtRef.current === 0
+            ? isFirstReveal
+              ? 0
+              : MIN_FRAME_INTERVAL_MS
+            : timestamp - lastStepAtRef.current;
 
-        if (elapsed >= MIN_FRAME_INTERVAL_MS) {
+        if (isFirstReveal || elapsed >= MIN_FRAME_INTERVAL_MS) {
           const stepSize = Math.max(
             MIN_CHARS_PER_FRAME,
             Math.min(MAX_CHARS_PER_FRAME, Math.ceil(behind / CATCH_UP_DIVISOR))
