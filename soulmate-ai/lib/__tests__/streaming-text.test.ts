@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildChatListData, getVisibleStreamingText } from '@/lib/streaming-text';
+import {
+  buildChatListData,
+  getVisibleStreamingText,
+  THINKING_PLACEHOLDER_ID,
+} from '@/lib/streaming-text';
 import type { ChatMessage } from '@/types/chat';
 
 const baseMessages: ChatMessage[] = [
@@ -13,8 +17,8 @@ const baseMessages: ChatMessage[] = [
 ];
 
 describe('getVisibleStreamingText', () => {
-  it('shows live API text immediately while streaming', () => {
-    expect(getVisibleStreamingText('hello world', 'hello')).toBe('hello world');
+  it('uses the smooth animation while streaming', () => {
+    expect(getVisibleStreamingText('hello world', 'hel')).toBe('hel');
   });
 
   it('falls back to the smooth animation before live text arrives', () => {
@@ -23,8 +27,23 @@ describe('getVisibleStreamingText', () => {
 });
 
 describe('buildChatListData', () => {
+  it('appends thinking dots directly below the latest message', () => {
+    const list = buildChatListData(baseMessages, {
+      isStreaming: false,
+      visibleStreamingText: '',
+      showThinking: true,
+    });
+
+    expect(list).toHaveLength(2);
+    expect(list[1].id).toBe(THINKING_PLACEHOLDER_ID);
+  });
+
   it('appends a temporary streaming assistant bubble', () => {
-    const list = buildChatListData(baseMessages, true, 'Hi Elchanan');
+    const list = buildChatListData(baseMessages, {
+      isStreaming: true,
+      visibleStreamingText: 'Hi Elchanan',
+      showThinking: false,
+    });
 
     expect(list).toHaveLength(2);
     expect(list[1].id).toBe('streaming-assistant');
@@ -42,7 +61,11 @@ describe('buildChatListData', () => {
       },
     ];
 
-    const list = buildChatListData(messages, true, 'Hi Elchanan');
+    const list = buildChatListData(messages, {
+      isStreaming: true,
+      visibleStreamingText: 'Hi Elchanan',
+      showThinking: false,
+    });
 
     expect(list).toHaveLength(2);
     expect(list[1].id).toBe('assistant-1');

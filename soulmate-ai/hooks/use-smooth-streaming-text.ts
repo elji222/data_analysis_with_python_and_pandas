@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 
-const MIN_CHARS_PER_FRAME = 2;
-const MAX_CHARS_PER_FRAME = 24;
-const CATCH_UP_DIVISOR = 4;
+const MIN_CHARS_PER_FRAME = 1;
+const MAX_CHARS_PER_FRAME = 2;
+const MAX_CATCHUP_CHARS_PER_FRAME = 10;
+const CATCH_UP_DIVISOR = 10;
+const LETTER_BY_LETTER_BEHIND_CHARS = 4;
+const FAST_CATCH_UP_BEHIND_CHARS = 36;
 const BASE_FRAME_INTERVAL_MS = 1000 / 60;
-const SLOWDOWN_FACTOR = 1;
-const FAST_CATCH_UP_BEHIND_CHARS = 24;
+const SLOWDOWN_FACTOR = 1.15;
 
 function getFrameIntervalMs(behind: number) {
   if (behind > FAST_CATCH_UP_BEHIND_CHARS) {
@@ -13,6 +15,17 @@ function getFrameIntervalMs(behind: number) {
   }
 
   return BASE_FRAME_INTERVAL_MS * SLOWDOWN_FACTOR;
+}
+
+function getStepSize(behind: number) {
+  if (behind <= LETTER_BY_LETTER_BEHIND_CHARS) {
+    return MIN_CHARS_PER_FRAME;
+  }
+
+  const maxStep =
+    behind > FAST_CATCH_UP_BEHIND_CHARS ? MAX_CATCHUP_CHARS_PER_FRAME : MAX_CHARS_PER_FRAME;
+
+  return Math.max(MIN_CHARS_PER_FRAME, Math.min(maxStep, Math.ceil(behind / CATCH_UP_DIVISOR)));
 }
 
 export function useSmoothStreamingText(targetText: string | null, isActive: boolean) {
@@ -56,12 +69,7 @@ export function useSmoothStreamingText(targetText: string | null, isActive: bool
             : timestamp - lastStepAtRef.current;
 
         if (isFirstReveal || elapsed >= frameIntervalMs) {
-          const maxStep =
-            behind > FAST_CATCH_UP_BEHIND_CHARS ? MAX_CHARS_PER_FRAME * 2 : MAX_CHARS_PER_FRAME;
-          const stepSize = Math.max(
-            MIN_CHARS_PER_FRAME,
-            Math.min(maxStep, Math.ceil(behind / CATCH_UP_DIVISOR))
-          );
+          const stepSize = getStepSize(behind);
           indexRef.current = Math.min(target.length, indexRef.current + stepSize);
           setDisplayText(target.slice(0, indexRef.current));
           lastStepAtRef.current = timestamp;

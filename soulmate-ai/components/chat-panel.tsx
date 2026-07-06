@@ -24,7 +24,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ChatTheme, QUICK_ACTIONS } from '@/constants/chat-theme';
 import { useSmoothStreamingText } from '@/hooks/use-smooth-streaming-text';
-import { buildChatListData, getVisibleStreamingText } from '@/lib/streaming-text';
+import { buildChatListData, getVisibleStreamingText, STREAMING_ASSISTANT_ID, THINKING_PLACEHOLDER_ID } from '@/lib/streaming-text';
 import { useMobileChatLayout } from '@/hooks/use-mobile-chat-layout';
 import { useCompactWebLayout } from '@/hooks/use-wide-layout';
 import { useVoiceInput } from '@/hooks/use-voice-input';
@@ -297,8 +297,13 @@ export function ChatPanel({
   const visibleStreamingText = getVisibleStreamingText(streamingText, smoothStreamingText);
 
   const listData = useMemo(
-    () => buildChatListData(messages, isStreaming, visibleStreamingText),
-    [messages, isStreaming, visibleStreamingText]
+    () =>
+      buildChatListData(messages, {
+        isStreaming,
+        visibleStreamingText,
+        showThinking,
+      }),
+    [messages, isStreaming, visibleStreamingText, showThinking]
   );
 
   listDataRef.current = listData;
@@ -314,12 +319,9 @@ export function ChatPanel({
   const responseRoomHeight = Math.max(Math.floor(listViewportHeight * 0.55), 180);
   const showResponseRoom = (isLoading || isStreaming) && listViewportHeight > 0;
 
-  const listFooter = (
-    <>
-      {showResponseRoom ? <View style={{ minHeight: responseRoomHeight }} /> : null}
-      <StreamingPlaceholder visible={showThinking} />
-    </>
-  );
+  const listFooter = showResponseRoom ? (
+    <View style={{ minHeight: responseRoomHeight }} />
+  ) : null;
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 30 }).current;
 
@@ -514,12 +516,18 @@ export function ChatPanel({
                         showsVerticalScrollIndicator={!showScrollRail}
                         nestedScrollEnabled
                         ListFooterComponent={listFooter}
-                        renderItem={({ item }) => (
-                          <ChatBubble
-                            message={item}
-                            isStreaming={item.id === 'streaming-assistant' && isStreaming}
-                          />
-                        )}
+                        renderItem={({ item }) => {
+                          if (item.id === THINKING_PLACEHOLDER_ID) {
+                            return <StreamingPlaceholder visible />;
+                          }
+
+                          return (
+                            <ChatBubble
+                              message={item}
+                              isStreaming={item.id === STREAMING_ASSISTANT_ID && isStreaming}
+                            />
+                          );
+                        }}
                       />
 
                       <ScrollToBottomButton visible={showJumpToBottom} onPress={scrollToEnd} />
