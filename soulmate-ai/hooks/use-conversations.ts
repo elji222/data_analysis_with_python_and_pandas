@@ -98,6 +98,13 @@ export function useConversations(userId: string | undefined) {
           activeConversationIdRef.current = activeId;
           setActiveConversationId(activeId);
         }
+      } else if (
+        result.activeConversationId &&
+        result.activeConversationId !== activeConversationIdRef.current &&
+        conversationsRef.current.some((conversation) => conversation.id === result.activeConversationId)
+      ) {
+        activeConversationIdRef.current = result.activeConversationId;
+        setActiveConversationId(result.activeConversationId);
       }
 
       if (result.warning) {
@@ -210,7 +217,9 @@ export function useConversations(userId: string | undefined) {
   );
 
   const activeConversation =
-    conversations.find((conversation) => conversation.id === activeConversationId) ?? null;
+    conversations.find((conversation) => conversation.id === activeConversationId) ??
+    conversations[0] ??
+    null;
 
   const persistUpdater = useCallback(
     async (updater: (previous: Conversation[]) => Conversation[]) => {

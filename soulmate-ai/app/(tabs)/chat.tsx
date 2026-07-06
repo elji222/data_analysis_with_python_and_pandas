@@ -70,6 +70,15 @@ export default function ChatScreen() {
     );
   }
 
+  if (!activeConversation) {
+    return (
+      <ThemedView style={styles.loading}>
+        <ActivityIndicator color="#7B61FF" size="large" />
+        <ThemedText style={styles.loadingText}>Starting a new chat...</ThemedText>
+      </ThemedView>
+    );
+  }
+
   const sidebar = (
     <ConversationSidebar
       conversations={conversations}
