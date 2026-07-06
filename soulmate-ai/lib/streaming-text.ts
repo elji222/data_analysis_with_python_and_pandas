@@ -1,26 +1,43 @@
 import type { ChatMessage } from '@/types/chat';
 
+export const THINKING_PLACEHOLDER_ID = 'thinking-placeholder';
+export const STREAMING_ASSISTANT_ID = 'streaming-assistant';
+
+export type ChatListOptions = {
+  isStreaming: boolean;
+  visibleStreamingText: string;
+  showThinking: boolean;
+};
+
 export function getVisibleStreamingText(
   streamingText: string | null,
   smoothStreamingText: string
 ): string {
-  if (streamingText) {
-    return streamingText;
+  if (streamingText === null) {
+    return smoothStreamingText;
   }
 
   return smoothStreamingText;
 }
 
-export function buildChatListData(
-  messages: ChatMessage[],
-  isStreaming: boolean,
-  visibleStreamingText: string
-): ChatMessage[] {
-  if (!isStreaming) {
+export function buildChatListData(messages: ChatMessage[], options: ChatListOptions): ChatMessage[] {
+  if (options.showThinking) {
+    return [
+      ...messages,
+      {
+        id: THINKING_PLACEHOLDER_ID,
+        text: '',
+        role: 'assistant',
+        createdAt: Date.now(),
+      },
+    ];
+  }
+
+  if (!options.isStreaming) {
     return messages;
   }
 
-  const trimmedVisible = visibleStreamingText.trim();
+  const trimmedVisible = options.visibleStreamingText.trim();
   const lastMessage = messages[messages.length - 1];
 
   if (
@@ -38,8 +55,8 @@ export function buildChatListData(
   return [
     ...messages,
     {
-      id: 'streaming-assistant',
-      text: visibleStreamingText,
+      id: STREAMING_ASSISTANT_ID,
+      text: options.visibleStreamingText,
       role: 'assistant',
       createdAt: Date.now(),
     },
