@@ -104,14 +104,15 @@ type StreamingPlaceholderProps = {
 
 function ThinkingDot({ delayMs }: { delayMs: number }) {
   const offsetY = useSharedValue(0);
+  const bounceDurationMs = 360;
 
   useEffect(() => {
     offsetY.value = withDelay(
       delayMs,
       withRepeat(
         withSequence(
-          withTiming(-4, { duration: 220 }),
-          withTiming(0, { duration: 220 })
+          withTiming(-4, { duration: bounceDurationMs }),
+          withTiming(0, { duration: bounceDurationMs })
         ),
         -1,
         false
@@ -135,13 +136,10 @@ export function StreamingPlaceholder({ visible }: StreamingPlaceholderProps) {
 
   return (
     <View style={styles.assistantRow}>
-      <View style={styles.thinkingRow}>
-        <ThemedText style={styles.thinkingText}>Soulmate AI is thinking</ThemedText>
-        <View style={styles.dots}>
-          <ThinkingDot delayMs={0} />
-          <ThinkingDot delayMs={120} />
-          <ThinkingDot delayMs={240} />
-        </View>
+      <View style={styles.dots}>
+        <ThinkingDot delayMs={0} />
+        <ThinkingDot delayMs={180} />
+        <ThinkingDot delayMs={360} />
       </View>
     </View>
   );
@@ -204,27 +202,15 @@ const styles = StyleSheet.create({
   messageTextWithAttachment: {
     marginTop: 4,
   },
-  thinkingRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  thinkingText: {
-    fontSize: ChatTheme.messageFontSize,
-    lineHeight: ChatTheme.messageLineHeight,
-    opacity: 0.55,
-    fontStyle: 'italic',
-  },
   dots: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 4,
-    paddingBottom: 5,
-    marginLeft: 2,
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
   },
   dot: {
-    width: 5,
-    height: 5,
+    width: 7,
+    height: 7,
     borderRadius: 999,
     backgroundColor: ChatTheme.sidebarMuted,
     opacity: 0.7,

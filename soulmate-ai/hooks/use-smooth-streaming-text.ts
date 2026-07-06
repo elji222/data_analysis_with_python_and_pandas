@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 const MIN_CHARS_PER_FRAME = 1;
 const MAX_CHARS_PER_FRAME = 14;
 const CATCH_UP_DIVISOR = 6;
-const SLOWDOWN_FACTOR = 1.25;
+const SLOWDOWN_FACTOR = 1.5;
 const MIN_FRAME_INTERVAL_MS = (1000 / 60) * SLOWDOWN_FACTOR;
 
 export function useSmoothStreamingText(targetText: string | null, isActive: boolean) {
