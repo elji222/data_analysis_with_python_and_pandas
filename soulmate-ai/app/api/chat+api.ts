@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json();
+    const [body, userId] = await Promise.all([request.json(), getAuthenticatedUserId(request)]);
     const messages = body.messages as ChatApiMessage[] | undefined;
     const conversationId = typeof body.conversationId === 'string' ? body.conversationId : null;
     const messageId = typeof body.messageId === 'string' ? body.messageId : null;
@@ -54,9 +54,7 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Please send at least one message.' }, { status: 400 });
     }
 
-    const userId = await getAuthenticatedUserId(request);
     const accessToken = getBearerToken(request);
-
     let systemPrompt = SOULMATE_SYSTEM_PROMPT;
     let memoryEnabled = false;
 

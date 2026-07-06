@@ -1,4 +1,5 @@
-export const CLAUDE_MODEL = 'claude-opus-4-8';
+// Sonnet starts replying much faster than Opus while staying high quality.
+export const CLAUDE_MODEL = 'claude-sonnet-4-5';
 
 export const TITLE_MODEL = 'claude-haiku-4-5';
 

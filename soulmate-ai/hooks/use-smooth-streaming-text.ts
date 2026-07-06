@@ -3,8 +3,17 @@ import { useEffect, useRef, useState } from 'react';
 const MIN_CHARS_PER_FRAME = 1;
 const MAX_CHARS_PER_FRAME = 14;
 const CATCH_UP_DIVISOR = 6;
+const BASE_FRAME_INTERVAL_MS = 1000 / 60;
 const SLOWDOWN_FACTOR = 1.5;
-const MIN_FRAME_INTERVAL_MS = (1000 / 60) * SLOWDOWN_FACTOR;
+const FAST_CATCH_UP_BEHIND_CHARS = 48;
+
+function getFrameIntervalMs(behind: number) {
+  if (behind > FAST_CATCH_UP_BEHIND_CHARS) {
+    return BASE_FRAME_INTERVAL_MS;
+  }
+
+  return BASE_FRAME_INTERVAL_MS * SLOWDOWN_FACTOR;
+}
 
 export function useSmoothStreamingText(targetText: string | null, isActive: boolean) {
   const [displayText, setDisplayText] = useState('');
@@ -37,18 +46,21 @@ export function useSmoothStreamingText(targetText: string | null, isActive: bool
       const behind = target.length - indexRef.current;
 
       if (behind > 0) {
+        const frameIntervalMs = getFrameIntervalMs(behind);
         const isFirstReveal = indexRef.current === 0;
         const elapsed =
           lastStepAtRef.current === 0
             ? isFirstReveal
               ? 0
-              : MIN_FRAME_INTERVAL_MS
+              : frameIntervalMs
             : timestamp - lastStepAtRef.current;
 
-        if (isFirstReveal || elapsed >= MIN_FRAME_INTERVAL_MS) {
+        if (isFirstReveal || elapsed >= frameIntervalMs) {
+          const maxStep =
+            behind > FAST_CATCH_UP_BEHIND_CHARS ? MAX_CHARS_PER_FRAME * 2 : MAX_CHARS_PER_FRAME;
           const stepSize = Math.max(
             MIN_CHARS_PER_FRAME,
-            Math.min(MAX_CHARS_PER_FRAME, Math.ceil(behind / CATCH_UP_DIVISOR))
+            Math.min(maxStep, Math.ceil(behind / CATCH_UP_DIVISOR))
           );
           indexRef.current = Math.min(target.length, indexRef.current + stepSize);
           setDisplayText(target.slice(0, indexRef.current));
@@ -70,4 +82,12 @@ export function useSmoothStreamingText(targetText: string | null, isActive: bool
   }, [isActive, targetText === null]);
 
   return displayText;
+}
+
+export function getVisibleStreamingText(
+  streamingText: string | null,
+  smoothStreamingText: string
+): string {
+  const live = streamingText ?? '';
+  return live.length > smoothStreamingText.length ? live : smoothStreamingText;
 }
