@@ -23,7 +23,7 @@ import { ScrollToBottomButton } from '@/components/scroll-to-bottom-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ChatTheme, QUICK_ACTIONS } from '@/constants/chat-theme';
-import { useSmoothStreamingText } from '@/hooks/use-smooth-streaming-text';
+import { getVisibleStreamingText, useSmoothStreamingText } from '@/hooks/use-smooth-streaming-text';
 import { useMobileChatLayout } from '@/hooks/use-mobile-chat-layout';
 import { useCompactWebLayout } from '@/hooks/use-wide-layout';
 import { useVoiceInput } from '@/hooks/use-voice-input';
@@ -302,8 +302,7 @@ export function ChatPanel({
     void sendMessage(input, attachments);
   }
 
-  const visibleStreamingText =
-    smoothStreamingText.length > 0 ? smoothStreamingText : (streamingText ?? '');
+  const visibleStreamingText = getVisibleStreamingText(streamingText, smoothStreamingText);
 
   const listData: ChatMessage[] = isStreaming
     ? [
