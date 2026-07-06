@@ -19,6 +19,24 @@ export function shouldShowScrollToBottom(metrics: ScrollMetrics, threshold = 120
   return metrics.offsetY < metrics.contentHeight - metrics.viewportHeight - threshold;
 }
 
+export function scrollMessageToTop(
+  listRef: { current: { scrollToIndex: (options: {
+    index: number;
+    viewPosition?: number;
+    animated?: boolean;
+  }) => void } | null },
+  messageIndex: number,
+  animated = true
+) {
+  requestAnimationFrame(() => {
+    listRef.current?.scrollToIndex({
+      index: messageIndex,
+      viewPosition: 0,
+      animated,
+    });
+  });
+}
+
 export function buildUserScrollMarkers(messages: ChatMessage[]): Array<{
   id: string;
   listIndex: number;
