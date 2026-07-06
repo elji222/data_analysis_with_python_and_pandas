@@ -2,13 +2,20 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { StaleBundleGate } from '@/components/stale-bundle-gate';
+import { ThemedText } from '@/components/themed-text';
+import { UI_VERSION } from '@/constants/chat-theme';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { normalizeStaleBuildQuery } from '@/lib/build-version';
 import { enforceCurrentBuild } from '@/lib/enforce-build-version';
+
+if (Platform.OS === 'web') {
+  normalizeStaleBuildQuery(UI_VERSION);
+}
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -52,6 +59,18 @@ function RootNavigator() {
     }
   }, [session, isLoading, segments, router]);
 
+  if (isLoading) {
+    return (
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <View style={styles.bootstrap}>
+          <ActivityIndicator color="#7B61FF" size="large" />
+          <ThemedText style={styles.bootstrapText}>Loading Soulmate AI...</ThemedText>
+        </View>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <StaleBundleGate>
@@ -73,3 +92,16 @@ export default function RootLayout() {
     </AuthProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  bootstrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  bootstrapText: {
+    opacity: 0.7,
+  },
+});
