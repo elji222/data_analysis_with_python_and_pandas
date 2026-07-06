@@ -33,6 +33,61 @@ function getMessageText(content: string | ApiContentBlock[]): string {
     .trim();
 }
 
+const MEMORY_CONTEXT_TIMEOUT_MS = 350;
+
+async function resolveSystemPrompt(
+  userId: string | null,
+  accessToken: string | null,
+  messages: ChatApiMessage[],
+  skipMemory: boolean
+) {
+  let systemPrompt = SOULMATE_SYSTEM_PROMPT;
+  const memoryEnabled = Boolean(userId && accessToken && !skipMemory);
+
+  if (!memoryEnabled) {
+    return { systemPrompt, memoryEnabled: false };
+  }
+
+  const client = createSupabaseServerClient(accessToken!);
+  const latestUserMessage =
+    [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
+
+  const memoryContext = await Promise.race([
+    (async () => {
+      const [settings, memories] = await Promise.all([
+        ensureMemorySettings(client, userId!),
+        listActiveMemories(client, userId!),
+      ]);
+
+      if (!settings.enabled) {
+        return 'disabled' as const;
+      }
+
+      const filteredMemories = filterMemoriesForAiPrompt(memories);
+      const relevant = rankMemoriesForQuery(
+        filteredMemories,
+        getMessageText(latestUserMessage),
+        15
+      );
+
+      return buildChatSystemPrompt(settings, relevant);
+    })(),
+    new Promise<null>((resolve) => {
+      setTimeout(() => resolve(null), MEMORY_CONTEXT_TIMEOUT_MS);
+    }),
+  ]);
+
+  if (memoryContext === 'disabled') {
+    return { systemPrompt, memoryEnabled: false };
+  }
+
+  if (memoryContext) {
+    systemPrompt = memoryContext;
+  }
+
+  return { systemPrompt, memoryEnabled: true };
+}
+
 export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
@@ -55,29 +110,12 @@ export async function POST(request: Request) {
     }
 
     const accessToken = getBearerToken(request);
-    let systemPrompt = SOULMATE_SYSTEM_PROMPT;
-    let memoryEnabled = false;
-
-    if (userId && accessToken && !skipMemory) {
-      const client = createSupabaseServerClient(accessToken);
-      const [settings, memories] = await Promise.all([
-        ensureMemorySettings(client, userId),
-        listActiveMemories(client, userId),
-      ]);
-      memoryEnabled = settings.enabled;
-
-      if (settings.enabled) {
-        const filteredMemories = filterMemoriesForAiPrompt(memories);
-        const latestUserMessage =
-          [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
-        const relevant = rankMemoriesForQuery(
-          filteredMemories,
-          getMessageText(latestUserMessage),
-          15
-        );
-        systemPrompt = buildChatSystemPrompt(settings, relevant);
-      }
-    }
+    const { systemPrompt, memoryEnabled } = await resolveSystemPrompt(
+      userId,
+      accessToken,
+      messages,
+      skipMemory
+    );
 
     const anthropicResponse = await fetch(ANTHROPIC_ENDPOINT, {
       method: 'POST',

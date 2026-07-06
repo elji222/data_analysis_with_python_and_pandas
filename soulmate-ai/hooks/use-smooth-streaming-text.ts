@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 
-const MIN_CHARS_PER_FRAME = 1;
-const MAX_CHARS_PER_FRAME = 14;
-const CATCH_UP_DIVISOR = 6;
+const MIN_CHARS_PER_FRAME = 2;
+const MAX_CHARS_PER_FRAME = 24;
+const CATCH_UP_DIVISOR = 4;
 const BASE_FRAME_INTERVAL_MS = 1000 / 60;
-const SLOWDOWN_FACTOR = 1.5;
-const FAST_CATCH_UP_BEHIND_CHARS = 48;
+const SLOWDOWN_FACTOR = 1;
+const FAST_CATCH_UP_BEHIND_CHARS = 24;
 
 function getFrameIntervalMs(behind: number) {
   if (behind > FAST_CATCH_UP_BEHIND_CHARS) {

@@ -41,6 +41,7 @@ import {
   buildUserScrollMarkers,
   getActiveUserMarkerId,
   getScrollProgress,
+  scrollMessageToTop,
   shouldShowScrollToBottom,
   type ScrollMetrics,
 } from '@/lib/chat-scroll';
@@ -95,7 +96,7 @@ export function ChatPanel({
   const [listViewportHeight, setListViewportHeight] = useState(0);
   const inputBeforeRecordingRef = useRef('');
   const listDataRef = useRef<ChatMessage[]>([]);
-  const scrolledToResponseStartRef = useRef(false);
+  const pendingScrollUserIndexRef = useRef<number | null>(null);
 
   const {
     isRecording,
@@ -137,26 +138,14 @@ export function ChatPanel({
   }, [conversation?.id]);
 
   useEffect(() => {
-    if (!isStreaming) {
-      scrolledToResponseStartRef.current = false;
+    const targetIndex = pendingScrollUserIndexRef.current;
+    if (targetIndex === null || messages.length <= targetIndex) {
       return;
     }
 
-    if (scrolledToResponseStartRef.current || !smoothStreamingText) {
-      return;
-    }
-
-    scrolledToResponseStartRef.current = true;
-    const responseIndex = messages.length;
-
-    requestAnimationFrame(() => {
-      listRef.current?.scrollToIndex({
-        index: responseIndex,
-        viewPosition: 0,
-        animated: false,
-      });
-    });
-  }, [isStreaming, smoothStreamingText, messages.length]);
+    pendingScrollUserIndexRef.current = null;
+    scrollMessageToTop(listRef, targetIndex);
+  }, [messages.length]);
 
   async function handleAttach(action: 'photos-and-files' | 'camera') {
     try {
@@ -247,6 +236,7 @@ export function ChatPanel({
     };
 
     const nextMessages = [...messages, userMessage];
+    const userMessageIndex = nextMessages.length - 1;
 
     setInput('');
     setAttachments([]);
@@ -254,7 +244,8 @@ export function ChatPanel({
     setIsLoading(true);
     setStreamingText(null);
     cancelRecording();
-    await onUpdateMessages(conversation.id, nextMessages);
+    pendingScrollUserIndexRef.current = userMessageIndex;
+    void onUpdateMessages(conversation.id, nextMessages);
 
     try {
       const reply = await streamChatMessage(
@@ -327,6 +318,15 @@ export function ChatPanel({
   const showScrollRail =
     !isMobileChatLayout && scrollMarkers.length > 0 && isScrollable;
   const showJumpToBottom = shouldShowScrollToBottom(scrollMetrics);
+  const responseRoomHeight = Math.max(Math.floor(listViewportHeight * 0.55), 180);
+  const showResponseRoom = (isLoading || isStreaming) && listViewportHeight > 0;
+
+  const listFooter = (
+    <>
+      {showResponseRoom ? <View style={{ minHeight: responseRoomHeight }} /> : null}
+      <StreamingPlaceholder visible={showThinking} />
+    </>
+  );
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 30 }).current;
 
@@ -520,7 +520,7 @@ export function ChatPanel({
                         onScrollToIndexFailed={handleScrollToIndexFailed}
                         showsVerticalScrollIndicator={!showScrollRail}
                         nestedScrollEnabled
-                        ListFooterComponent={<StreamingPlaceholder visible={showThinking} />}
+                        ListFooterComponent={listFooter}
                         renderItem={({ item }) => (
                           <ChatBubble
                             message={item}
