@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -6,6 +6,7 @@ import {
   View,
 } from 'react-native';
 
+import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { ChatPanel } from '@/components/chat-panel';
 import { ConversationSidebar } from '@/components/conversation-sidebar';
 import { ThemedText } from '@/components/themed-text';
@@ -33,6 +34,11 @@ export default function ChatScreen() {
     updateConversationMessages,
     renameConversation,
   } = useConversations(user?.id);
+
+  useEffect(() => {
+    if (!user || !isReady || activeConversation) return;
+    void startNewConversation();
+  }, [activeConversation, isReady, startNewConversation, user]);
 
   async function handleSelectConversation(conversationId: string) {
     await selectConversation(conversationId);
@@ -93,45 +99,47 @@ export default function ChatScreen() {
   );
 
   return (
-    <ThemedView style={styles.container}>
-      {isWideLayout ? (
-        <View style={styles.desktopLayout}>
-          {sidebar}
-          <View style={styles.chatMain}>
+    <AppErrorBoundary title="Chat could not load">
+      <ThemedView style={styles.container}>
+        {isWideLayout ? (
+          <View style={styles.desktopLayout}>
+            {sidebar}
+            <View style={styles.chatMain}>
+              <ChatPanel
+                key={activeConversationId}
+                conversation={activeConversation}
+                onUpdateMessages={updateConversationMessages}
+                onRenameConversation={renameConversation}
+                storageWarning={storageWarning}
+                userEmail={user.email}
+              />
+            </View>
+          </View>
+        ) : (
+          <>
             <ChatPanel
               key={activeConversationId}
               conversation={activeConversation}
               onUpdateMessages={updateConversationMessages}
               onRenameConversation={renameConversation}
+              onOpenSidebar={() => setIsSidebarOpen(true)}
+              onNewConversation={handleNewConversation}
+              showSidebarToggle
               storageWarning={storageWarning}
               userEmail={user.email}
             />
-          </View>
-        </View>
-      ) : (
-        <>
-          <ChatPanel
-            key={activeConversationId}
-            conversation={activeConversation}
-            onUpdateMessages={updateConversationMessages}
-            onRenameConversation={renameConversation}
-            onOpenSidebar={() => setIsSidebarOpen(true)}
-            onNewConversation={handleNewConversation}
-            showSidebarToggle
-            storageWarning={storageWarning}
-            userEmail={user.email}
-          />
 
-          <Modal
-            visible={isSidebarOpen}
-            animationType="slide"
-            transparent={false}
-            onRequestClose={() => setIsSidebarOpen(false)}>
-            <ThemedView style={styles.mobileSidebar}>{sidebar}</ThemedView>
-          </Modal>
-        </>
-      )}
-    </ThemedView>
+            <Modal
+              visible={isSidebarOpen}
+              animationType="slide"
+              transparent={false}
+              onRequestClose={() => setIsSidebarOpen(false)}>
+              <ThemedView style={styles.mobileSidebar}>{sidebar}</ThemedView>
+            </Modal>
+          </>
+        )}
+      </ThemedView>
+    </AppErrorBoundary>
   );
 }
 

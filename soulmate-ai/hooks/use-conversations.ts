@@ -94,9 +94,16 @@ export function useConversations(userId: string | undefined) {
             : repaired[0]?.id ?? null;
 
         applyConversations(repaired);
-        if (activeId) {
-          activeConversationIdRef.current = activeId;
-          setActiveConversationId(activeId);
+        const nextActiveId =
+          activeId ??
+          (activeConversationIdRef.current &&
+          repaired.some((conversation) => conversation.id === activeConversationIdRef.current)
+            ? activeConversationIdRef.current
+            : repaired[0]?.id ?? null);
+
+        if (nextActiveId) {
+          activeConversationIdRef.current = nextActiveId;
+          setActiveConversationId(nextActiveId);
         }
       } else if (
         result.activeConversationId &&

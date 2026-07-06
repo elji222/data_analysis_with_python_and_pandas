@@ -1,7 +1,8 @@
 import { Session, User } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { Platform } from 'react-native';
 
-import { signOut as authSignOut } from '@/lib/auth';
+import { completeWebAuthCallbackIfPresent, signOut as authSignOut } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
 type AuthContextValue = {
@@ -23,14 +24,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
+    let cancelled = false;
+
+    async function bootstrapAuth() {
+      try {
+        if (Platform.OS === 'web') {
+          await completeWebAuthCallbackIfPresent();
+        }
+      } catch (error) {
+        console.error('Google sign-in callback failed:', error);
+      }
+
+      const { data } = await supabase.auth.getSession();
+      if (!cancelled) {
         setSession(data.session);
-      })
-      .finally(() => {
         setIsLoading(false);
-      });
+      }
+    }
+
+    void bootstrapAuth();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
@@ -38,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
+      cancelled = true;
       authListener.subscription.unsubscribe();
     };
   }, []);

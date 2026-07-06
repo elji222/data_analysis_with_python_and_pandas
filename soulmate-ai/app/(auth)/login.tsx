@@ -12,19 +12,22 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const isConfigured = isSupabaseConfigured();
 
   useEffect(() => {
-    if (session) {
-      router.replace('/chat');
-    }
-  }, [session, router]);
+    if (authLoading || !session) return;
+    router.replace('/chat');
+  }, [authLoading, session, router]);
 
   useEffect(() => {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
     async function handleCallbackUrl(url: string | null) {
       if (!url) return;
 
@@ -42,10 +45,7 @@ export default function LoginScreen() {
         setIsLoading(true);
         setError(null);
         setStatusMessage('Finishing sign-in...');
-        const handled = await processAuthCallbackUrl(url);
-        if (handled && Platform.OS === 'web' && typeof window !== 'undefined') {
-          window.history.replaceState({}, document.title, '/login');
-        }
+        await processAuthCallbackUrl(url);
       } catch (callbackError) {
         const message =
           callbackError instanceof Error
@@ -56,11 +56,6 @@ export default function LoginScreen() {
         setIsLoading(false);
         setStatusMessage(null);
       }
-    }
-
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      void handleCallbackUrl(window.location.href);
-      return;
     }
 
     void Linking.getInitialURL().then(handleCallbackUrl);

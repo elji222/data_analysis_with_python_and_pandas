@@ -10,6 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { UI_VERSION } from '@/constants/chat-theme';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { hasAuthCallbackInUrl } from '@/lib/auth';
 import { normalizeStaleBuildQuery } from '@/lib/build-version';
 import { enforceCurrentBuild } from '@/lib/enforce-build-version';
 
@@ -40,7 +41,7 @@ function RootNavigator() {
   }, []);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || hasAuthCallbackInUrl()) return;
 
     const inAuthGroup = segments[0] === '(auth)';
 
@@ -59,26 +60,25 @@ function RootNavigator() {
     }
   }, [session, isLoading, segments, router]);
 
-  if (isLoading) {
-    return (
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <View style={styles.bootstrap}>
-          <ActivityIndicator color="#7B61FF" size="large" />
-          <ThemedText style={styles.bootstrapText}>Loading Soulmate AI...</ThemedText>
-        </View>
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    );
-  }
-
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <StaleBundleGate>
-        <Stack>
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        </Stack>
+        <View style={styles.shell}>
+          <Stack>
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          </Stack>
+
+          {isLoading ? (
+            <View style={styles.bootstrapOverlay}>
+              <ActivityIndicator color="#7B61FF" size="large" />
+              <ThemedText style={styles.bootstrapText}>
+                {hasAuthCallbackInUrl() ? 'Finishing sign-in...' : 'Loading Soulmate AI...'}
+              </ThemedText>
+            </View>
+          ) : null}
+        </View>
         <StatusBar style="auto" />
       </StaleBundleGate>
     </ThemeProvider>
@@ -94,12 +94,16 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  bootstrap: {
+  shell: {
     flex: 1,
+  },
+  bootstrapOverlay: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
     backgroundColor: '#FFFFFF',
+    zIndex: 10000,
   },
   bootstrapText: {
     opacity: 0.7,
