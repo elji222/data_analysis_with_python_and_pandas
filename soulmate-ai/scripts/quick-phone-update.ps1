@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-07-26a"
+$CacheBust = "2026-07-27a"
 
 $Files = @(
     "app/_layout.tsx",
@@ -225,7 +225,7 @@ if ($TabLayoutText -notmatch "brain.head.profile") {
 
 $ConversationsHookFile = Join-Path $Root "hooks\use-conversations.ts"
 $ConversationsHookText = Get-Content $ConversationsHookFile -Raw
-if ($ConversationsHookText -notmatch "loadSyncedConversations") {
+if ($ConversationsHookText -notmatch "syncConversationsFromCloud") {
     throw "Download failed. Cloud chat sync is missing from hooks/use-conversations.ts."
 }
 
