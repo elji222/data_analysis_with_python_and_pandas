@@ -302,12 +302,15 @@ export function ChatPanel({
     void sendMessage(input, attachments);
   }
 
+  const visibleStreamingText =
+    smoothStreamingText.length > 0 ? smoothStreamingText : (streamingText ?? '');
+
   const listData: ChatMessage[] = isStreaming
     ? [
         ...messages,
         {
           id: 'streaming-assistant',
-          text: smoothStreamingText,
+          text: visibleStreamingText,
           role: 'assistant',
           createdAt: Date.now(),
         },

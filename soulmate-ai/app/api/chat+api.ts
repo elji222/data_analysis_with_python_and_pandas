@@ -62,15 +62,18 @@ export async function POST(request: Request) {
 
     if (userId && accessToken && !skipMemory) {
       const client = createSupabaseServerClient(accessToken);
-      const settings = await ensureMemorySettings(client, userId);
+      const [settings, memories] = await Promise.all([
+        ensureMemorySettings(client, userId),
+        listActiveMemories(client, userId),
+      ]);
       memoryEnabled = settings.enabled;
 
       if (settings.enabled) {
-        const memories = filterMemoriesForAiPrompt(await listActiveMemories(client, userId));
+        const filteredMemories = filterMemoriesForAiPrompt(memories);
         const latestUserMessage =
           [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
         const relevant = rankMemoriesForQuery(
-          memories,
+          filteredMemories,
           getMessageText(latestUserMessage),
           15
         );
