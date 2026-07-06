@@ -24,7 +24,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ChatTheme, QUICK_ACTIONS } from '@/constants/chat-theme';
 import { useSmoothStreamingText } from '@/hooks/use-smooth-streaming-text';
-import { getVisibleStreamingText } from '@/lib/streaming-text';
+import { buildChatListData, getVisibleStreamingText } from '@/lib/streaming-text';
 import { useMobileChatLayout } from '@/hooks/use-mobile-chat-layout';
 import { useCompactWebLayout } from '@/hooks/use-wide-layout';
 import { useVoiceInput } from '@/hooks/use-voice-input';
@@ -272,9 +272,9 @@ export function ChatPanel({
         createdAt: Date.now(),
       };
 
-      await onUpdateMessages(conversation.id, [...nextMessages, assistantMessage]);
       setStreamingText(null);
       setIsLoading(false);
+      await onUpdateMessages(conversation.id, [...nextMessages, assistantMessage]);
 
       if (isFirstExchange && onRenameConversation) {
         void fetchConversationTitle(getMessagePreviewText(userMessage)).then((title) => {
@@ -296,17 +296,10 @@ export function ChatPanel({
 
   const visibleStreamingText = getVisibleStreamingText(streamingText, smoothStreamingText);
 
-  const listData: ChatMessage[] = isStreaming
-    ? [
-        ...messages,
-        {
-          id: 'streaming-assistant',
-          text: visibleStreamingText,
-          role: 'assistant',
-          createdAt: Date.now(),
-        },
-      ]
-    : messages;
+  const listData = useMemo(
+    () => buildChatListData(messages, isStreaming, visibleStreamingText),
+    [messages, isStreaming, visibleStreamingText]
+  );
 
   listDataRef.current = listData;
 
