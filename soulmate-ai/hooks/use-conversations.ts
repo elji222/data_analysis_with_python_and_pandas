@@ -10,20 +10,45 @@ import { conversationSignature, repairStoredConversations, sortConversations } f
 import { isStorageQuotaError } from '@/lib/strip-attachments-for-storage';
 import {
   ConversationCloudError,
-  loadSyncedConversations,
   persistSyncedActiveConversationId,
   persistSyncedConversation,
   persistSyncedConversations,
   refreshCloudConversations,
   removeSyncedConversation,
+  syncConversationsFromCloud,
 } from '@/services/conversation-cloud';
 import {
   clearConversationsStorage,
   ConversationStorageError,
   createEmptyConversation,
+  loadActiveConversationId,
+  loadConversations,
 } from '@/services/conversation-storage';
 import type { ChatMessage } from '@/types/chat';
 import type { Conversation } from '@/types/conversation';
+
+function buildInitialConversations(
+  conversations: Conversation[],
+  preferredActiveConversationId?: string | null
+) {
+  let nextConversations = repairStoredConversations(
+    conversations,
+    preferredActiveConversationId,
+    createEmptyConversation
+  );
+
+  if (nextConversations.length === 0) {
+    nextConversations = [createEmptyConversation()];
+  }
+
+  const activeId =
+    preferredActiveConversationId &&
+    nextConversations.some((conversation) => conversation.id === preferredActiveConversationId)
+      ? preferredActiveConversationId
+      : nextConversations[0].id;
+
+  return { nextConversations, activeId };
+}
 
 export function useConversations(userId: string | undefined) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -49,6 +74,39 @@ export function useConversations(userId: string | undefined) {
     setConversations(sorted);
   }, []);
 
+  const applyCloudSyncResult = useCallback(
+    (result: {
+      conversations: Conversation[];
+      activeConversationId: string | null;
+      warning?: string | null;
+    }) => {
+      const repaired = repairStoredConversations(
+        result.conversations,
+        result.activeConversationId ?? activeConversationIdRef.current,
+        createEmptyConversation
+      );
+
+      if (conversationSignature(repaired) !== signatureRef.current) {
+        const activeId =
+          result.activeConversationId &&
+          repaired.some((conversation) => conversation.id === result.activeConversationId)
+            ? result.activeConversationId
+            : repaired[0]?.id ?? null;
+
+        applyConversations(repaired);
+        if (activeId) {
+          activeConversationIdRef.current = activeId;
+          setActiveConversationId(activeId);
+        }
+      }
+
+      if (result.warning) {
+        setStorageWarning(result.warning);
+      }
+    },
+    [applyConversations]
+  );
+
   const hydrateFromSource = useCallback(
     async (showLoading = true) => {
       if (!userId) return;
@@ -58,62 +116,48 @@ export function useConversations(userId: string | undefined) {
       }
 
       try {
-        const synced = await loadSyncedConversations(userId);
-        const preferredActiveId =
-          synced.activeConversationId &&
-          synced.conversations.some((conversation) => conversation.id === synced.activeConversationId)
-            ? synced.activeConversationId
-            : null;
-
-        let nextConversations = repairStoredConversations(
-          synced.conversations,
-          preferredActiveId,
-          createEmptyConversation
+        const [localConversations, localActiveId] = await Promise.all([
+          loadConversations(userId),
+          loadActiveConversationId(userId),
+        ]);
+        const { nextConversations, activeId } = buildInitialConversations(
+          localConversations,
+          localActiveId
         );
 
-        if (nextConversations.length === 0) {
-          nextConversations = [createEmptyConversation()];
-          await persistSyncedConversations(userId, nextConversations);
-        } else if (conversationSignature(nextConversations) !== conversationSignature(synced.conversations)) {
-          await persistSyncedConversations(userId, nextConversations);
-        }
-
-        const activeId =
-          preferredActiveId &&
-          nextConversations.some((conversation) => conversation.id === preferredActiveId)
-            ? preferredActiveId
-            : nextConversations[0].id;
-
         applyConversations(nextConversations);
+        activeConversationIdRef.current = activeId;
         setActiveConversationId(activeId);
-        await persistSyncedActiveConversationId(userId, activeId);
-
-        if (synced.source === 'local') {
-          setStorageWarning('Cloud sync is unavailable right now. Showing chats saved on this device.');
-        } else {
-          setStorageWarning(null);
-        }
       } catch (error) {
-        if (error instanceof ConversationCloudError) {
-          setStorageWarning(error.message);
-          applyConversations([createEmptyConversation()]);
-          setActiveConversationId(conversationsRef.current[0]?.id ?? null);
-        } else if (isStorageQuotaError(error) || error instanceof ConversationStorageError) {
+        if (isStorageQuotaError(error) || error instanceof ConversationStorageError) {
           await clearConversationsStorage(userId);
           const freshConversation = createEmptyConversation();
           applyConversations([freshConversation]);
+          activeConversationIdRef.current = freshConversation.id;
           setActiveConversationId(freshConversation.id);
           setStorageWarning(
             'Your browser storage was full, so old local chats were cleared. Cloud sync will keep new chats.'
           );
         } else {
-          throw error;
+          const freshConversation = createEmptyConversation();
+          applyConversations([freshConversation]);
+          activeConversationIdRef.current = freshConversation.id;
+          setActiveConversationId(freshConversation.id);
+          setStorageWarning('Could not load chat history on this device.');
         }
       } finally {
         setIsReady(true);
       }
+
+      void syncConversationsFromCloud(userId)
+        .then((result) => {
+          applyCloudSyncResult(result);
+        })
+        .catch(() => {
+          setStorageWarning('Cloud sync is unavailable right now. Showing chats saved on this device.');
+        });
     },
-    [applyConversations, userId]
+    [applyCloudSyncResult, applyConversations, userId]
   );
 
   useEffect(() => {

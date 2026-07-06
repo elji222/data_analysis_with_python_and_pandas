@@ -37,6 +37,21 @@ export async function listCloudConversations(
   return mapRowsToConversations(rows, (messageRows ?? []) as MessageRow[]);
 }
 
+export async function fetchCloudConversationBundle(
+  client: SupabaseClient,
+  userId: string
+): Promise<{
+  conversations: Conversation[];
+  activeConversationId: string | null;
+}> {
+  const [conversations, activeConversationId] = await Promise.all([
+    listCloudConversations(client, userId),
+    getCloudActiveConversationId(client, userId),
+  ]);
+
+  return { conversations, activeConversationId };
+}
+
 export async function upsertCloudConversation(
   client: SupabaseClient,
   userId: string,

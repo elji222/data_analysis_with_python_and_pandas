@@ -1,8 +1,7 @@
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import {
   deleteCloudConversation,
-  getCloudActiveConversationId,
-  listCloudConversations,
+  fetchCloudConversationBundle,
   setCloudActiveConversationId,
   upsertCloudConversation,
   upsertCloudConversations,
@@ -17,6 +16,8 @@ import {
 } from '@/services/conversation-storage';
 import type { Conversation } from '@/types/conversation';
 
+const CLOUD_REQUEST_TIMEOUT_MS = 8000;
+
 export class ConversationCloudError extends Error {
   constructor(message: string, readonly cause?: unknown) {
     super(message);
@@ -24,10 +25,52 @@ export class ConversationCloudError extends Error {
   }
 }
 
-export async function loadSyncedConversations(userId: string): Promise<{
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new ConversationCloudError(message));
+    }, ms);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
+
+async function fetchCloudState(userId: string): Promise<{
   conversations: Conversation[];
   activeConversationId: string | null;
-  source: 'cloud' | 'local' | 'merged';
+}> {
+  if (!isSupabaseConfigured()) {
+    return { conversations: [], activeConversationId: null };
+  }
+
+  return withTimeout(
+    fetchCloudConversationBundle(supabase, userId),
+    CLOUD_REQUEST_TIMEOUT_MS,
+    'Cloud chat sync timed out.'
+  );
+}
+
+function scheduleCloudUpload(userId: string, conversations: Conversation[]) {
+  if (!isSupabaseConfigured() || conversations.length === 0) return;
+
+  void upsertCloudConversations(supabase, userId, conversations).catch(() => {
+    // Background upload failures are handled on the next explicit save.
+  });
+}
+
+export async function syncConversationsFromCloud(userId: string): Promise<{
+  conversations: Conversation[];
+  activeConversationId: string | null;
+  warning?: string | null;
 }> {
   const [localConversations, localActiveId] = await Promise.all([
     loadConversations(userId),
@@ -38,25 +81,29 @@ export async function loadSyncedConversations(userId: string): Promise<{
     return {
       conversations: localConversations,
       activeConversationId: localActiveId,
-      source: 'local',
+      warning:
+        localConversations.length > 0
+          ? 'Cloud sync is unavailable right now. Showing chats saved on this device.'
+          : null,
     };
   }
 
   try {
-    const cloudConversations = await listCloudConversations(supabase, userId);
-    const cloudActiveId = await getCloudActiveConversationId(supabase, userId);
+    const { conversations: cloudConversations, activeConversationId: cloudActiveId } =
+      await fetchCloudState(userId);
 
     if (cloudConversations.length === 0 && localConversations.length > 0) {
       const migrated = stripConversationsForStorage(localConversations);
-      await upsertCloudConversations(supabase, userId, migrated);
-      if (localActiveId) {
-        await setCloudActiveConversationId(supabase, userId, localActiveId);
-      }
       await saveConversations(userId, migrated);
+      scheduleCloudUpload(userId, migrated);
+
+      if (localActiveId) {
+        void setCloudActiveConversationId(supabase, userId, localActiveId).catch(() => {});
+      }
+
       return {
         conversations: migrated,
         activeConversationId: localActiveId,
-        source: 'merged',
       };
     }
 
@@ -64,39 +111,50 @@ export async function loadSyncedConversations(userId: string): Promise<{
       return {
         conversations: [],
         activeConversationId: cloudActiveId,
-        source: 'cloud',
       };
     }
 
-    const merged = mergeConversations(cloudConversations, localConversations);
-    const stripped = stripConversationsForStorage(merged);
+    const merged = stripConversationsForStorage(mergeConversations(cloudConversations, localConversations));
     const activeConversationId = cloudActiveId ?? localActiveId;
 
-    if (conversationsNeedCloudUpload(cloudConversations, stripped)) {
-      await upsertCloudConversations(supabase, userId, stripped);
-    }
-
-    await saveConversations(userId, stripped);
+    await saveConversations(userId, merged);
     if (activeConversationId) {
       await saveActiveConversationId(userId, activeConversationId);
     }
 
+    if (conversationsNeedCloudUpload(cloudConversations, merged)) {
+      scheduleCloudUpload(userId, merged);
+    }
+
     return {
-      conversations: stripped,
+      conversations: merged,
       activeConversationId,
-      source: merged.length !== cloudConversations.length ? 'merged' : 'cloud',
     };
   } catch (error) {
     if (localConversations.length > 0) {
       return {
         conversations: localConversations,
         activeConversationId: localActiveId,
-        source: 'local',
+        warning: 'Cloud sync is unavailable right now. Showing chats saved on this device.',
       };
     }
 
     throw new ConversationCloudError('Could not load your cloud chat history.', error);
   }
+}
+
+export async function loadSyncedConversations(userId: string): Promise<{
+  conversations: Conversation[];
+  activeConversationId: string | null;
+  source: 'cloud' | 'local' | 'merged';
+}> {
+  const result = await syncConversationsFromCloud(userId);
+
+  return {
+    conversations: result.conversations,
+    activeConversationId: result.activeConversationId,
+    source: result.warning ? 'local' : 'cloud',
+  };
 }
 
 export async function persistSyncedConversations(
@@ -150,18 +208,6 @@ export async function persistSyncedActiveConversationId(
 }
 
 export async function refreshCloudConversations(userId: string): Promise<Conversation[]> {
-  if (!isSupabaseConfigured()) {
-    return loadConversations(userId);
-  }
-
-  const cloudConversations = await listCloudConversations(supabase, userId);
-  const localConversations = await loadConversations(userId);
-  const merged = stripConversationsForStorage(mergeConversations(cloudConversations, localConversations));
-
-  if (conversationsNeedCloudUpload(cloudConversations, merged)) {
-    await upsertCloudConversations(supabase, userId, merged);
-  }
-
-  await saveConversations(userId, merged);
-  return merged;
+  const result = await syncConversationsFromCloud(userId);
+  return result.conversations;
 }
