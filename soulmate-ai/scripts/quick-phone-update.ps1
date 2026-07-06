@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-07-30"
+$CacheBust = "2026-07-31"
 
 $Files = @(
     "app/_layout.tsx",
@@ -35,6 +35,7 @@ $Files = @(
     "contexts/auth-context.tsx",
     "hooks/use-mobile-chat-layout.ts",
     "hooks/use-conversations.ts",
+    "hooks/use-smooth-streaming-text.ts",
     "hooks/use-user-memories.ts",
     "hooks/use-voice-input.ts",
     "hooks/use-wide-layout.ts",
@@ -56,6 +57,7 @@ $Files = @(
     "lib/memory/search.ts",
     "lib/memory/trivial.ts",
     "lib/recover-stale-web-bundle.ts",
+    "lib/streaming-text.ts",
     "lib/supabase-server.ts",
     "services/chat-api.ts",
     "services/conversation-cloud.ts",
@@ -229,6 +231,17 @@ $ConversationsHookFile = Join-Path $Root "hooks\use-conversations.ts"
 $ConversationsHookText = Get-Content $ConversationsHookFile -Raw
 if ($ConversationsHookText -notmatch "syncConversationsFromCloud") {
     throw "Download failed. Cloud chat sync is missing from hooks/use-conversations.ts."
+}
+
+$StreamingTextFile = Join-Path $Root "lib\streaming-text.ts"
+if (-not (Test-Path $StreamingTextFile)) {
+    throw "Download failed. lib/streaming-text.ts is missing."
+}
+
+$ChatPanelFile = Join-Path $Root "components\chat-panel.tsx"
+$ChatPanelText = Get-Content $ChatPanelFile -Raw
+if ($ChatPanelText -notmatch "lib/streaming-text") {
+    throw "Download failed. chat-panel.tsx is missing the streaming-text helper import."
 }
 
 if ($uiVersion -eq "unknown") {
