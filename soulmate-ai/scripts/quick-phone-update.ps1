@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-07-29"
+$CacheBust = "2026-07-30"
 
 $Files = @(
     "app/_layout.tsx",
@@ -17,6 +17,7 @@ $Files = @(
     "app/api/memories+api.ts",
     "app.json",
     "components/attach-popover.tsx",
+    "components/app-error-boundary.tsx",
     "components/chat-bubble.tsx",
     "components/chat-composer.tsx",
     "components/chat-panel.tsx",

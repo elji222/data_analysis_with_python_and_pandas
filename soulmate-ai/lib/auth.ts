@@ -25,6 +25,37 @@ export function getAuthRedirectUri() {
   });
 }
 
+export function hasAuthCallbackInUrl(url = getCurrentUrl()) {
+  if (!url) return false;
+
+  return url.includes('code=') || url.includes('access_token=') || url.includes('error=');
+}
+
+function getCurrentUrl() {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return window.location.href;
+  }
+
+  return null;
+}
+
+export function clearAuthCallbackFromUrl() {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete('code');
+  url.searchParams.delete('access_token');
+  url.searchParams.delete('refresh_token');
+  url.searchParams.delete('error');
+  url.searchParams.delete('error_description');
+  url.searchParams.delete('error_code');
+
+  const nextPath = `${url.pathname}${url.search}${url.hash}`;
+  window.history.replaceState({}, document.title, nextPath);
+}
+
 function assertSupabaseConfigured() {
   if (!isSupabaseConfigured()) {
     throw new Error(
@@ -65,17 +96,32 @@ export async function createSessionFromUrl(url: string) {
 }
 
 export async function processAuthCallbackUrl(url: string) {
-  if (!url.includes('code=') && !url.includes('access_token=')) {
+  if (!hasAuthCallbackInUrl(url)) {
     return false;
   }
 
   await createSessionFromUrl(url);
 
-  if (Platform.OS !== 'web') {
+  if (Platform.OS === 'web') {
+    clearAuthCallbackFromUrl();
+  } else {
     await WebBrowser.dismissBrowser();
   }
 
   return true;
+}
+
+export async function completeWebAuthCallbackIfPresent() {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    return false;
+  }
+
+  const url = window.location.href;
+  if (!hasAuthCallbackInUrl(url)) {
+    return false;
+  }
+
+  return processAuthCallbackUrl(url);
 }
 
 async function waitForSession(timeoutMs: number) {
