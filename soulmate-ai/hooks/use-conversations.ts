@@ -76,37 +76,51 @@ export function useConversations(userId: string | undefined) {
   }, []);
 
   const applyCloudSyncResult = useCallback(
-    (result: {
-      conversations: Conversation[];
-      activeConversationId: string | null;
-      warning?: string | null;
-    }) => {
+    (
+      result: {
+        conversations: Conversation[];
+        activeConversationId: string | null;
+        warning?: string | null;
+      },
+      options?: { preserveActiveId?: boolean }
+    ) => {
       const repaired = repairStoredConversations(
         result.conversations,
         result.activeConversationId ?? activeConversationIdRef.current,
         createEmptyConversation
       );
 
+      const preservedActiveId = options?.preserveActiveId
+        ? activeConversationIdRef.current
+        : null;
+
       if (conversationSignature(repaired) !== signatureRef.current) {
-        const activeId =
-          result.activeConversationId &&
-          repaired.some((conversation) => conversation.id === result.activeConversationId)
-            ? result.activeConversationId
-            : repaired[0]?.id ?? null;
-
         applyConversations(repaired);
-        const nextActiveId =
-          activeId ??
-          (activeConversationIdRef.current &&
-          repaired.some((conversation) => conversation.id === activeConversationIdRef.current)
-            ? activeConversationIdRef.current
-            : repaired[0]?.id ?? null);
 
-        if (nextActiveId) {
-          activeConversationIdRef.current = nextActiveId;
-          setActiveConversationId(nextActiveId);
+        if (preservedActiveId && repaired.some((conversation) => conversation.id === preservedActiveId)) {
+          activeConversationIdRef.current = preservedActiveId;
+          setActiveConversationId(preservedActiveId);
+        } else {
+          const activeId =
+            result.activeConversationId &&
+            repaired.some((conversation) => conversation.id === result.activeConversationId)
+              ? result.activeConversationId
+              : repaired[0]?.id ?? null;
+
+          const nextActiveId =
+            activeId ??
+            (activeConversationIdRef.current &&
+            repaired.some((conversation) => conversation.id === activeConversationIdRef.current)
+              ? activeConversationIdRef.current
+              : repaired[0]?.id ?? null);
+
+          if (nextActiveId) {
+            activeConversationIdRef.current = nextActiveId;
+            setActiveConversationId(nextActiveId);
+          }
         }
       } else if (
+        !options?.preserveActiveId &&
         result.activeConversationId &&
         result.activeConversationId !== activeConversationIdRef.current &&
         conversationsRef.current.some((conversation) => conversation.id === result.activeConversationId)
@@ -156,6 +170,20 @@ export function useConversations(userId: string | undefined) {
     return conversation.id;
   }, [applyConversations, userId]);
 
+  const startFreshConversationLocally = useCallback(() => {
+    if (!userId) return null;
+
+    const conversation = createEmptyConversation();
+    const pruned = conversationsRef.current.filter((item) => item.messages.length > 0);
+    const nextConversations = sortConversations([conversation, ...pruned]);
+
+    activeConversationIdRef.current = conversation.id;
+    setActiveConversationId(conversation.id);
+    applyConversations(nextConversations);
+
+    return conversation;
+  }, [applyConversations, userId]);
+
   const hydrateFromSource = useCallback(
     async (showLoading = true, startFreshChat = false) => {
       if (!userId) return;
@@ -194,29 +222,34 @@ export function useConversations(userId: string | undefined) {
           setActiveConversationId(freshConversation.id);
           setStorageWarning('Could not load chat history on this device.');
         }
-      } finally {
-        if (!startFreshChat) {
-          setIsReady(true);
-        }
       }
 
-      void syncConversationsFromCloud(userId)
-        .then((result) => {
-          applyCloudSyncResult(result);
-        })
-        .catch(() => {
+      if (startFreshChat) {
+        startFreshConversationLocally();
+      }
+
+      setIsReady(true);
+
+      void (async () => {
+        try {
+          const result = await syncConversationsFromCloud(userId);
+          applyCloudSyncResult(result, { preserveActiveId: startFreshChat });
+        } catch {
           setStorageWarning('Cloud sync is unavailable right now. Showing chats saved on this device.');
-        })
-        .finally(() => {
-          void (async () => {
-            if (startFreshChat) {
-              await startNewConversation();
-            }
-            setIsReady(true);
-          })();
-        });
+        }
+
+        if (startFreshChat) {
+          void startNewConversation();
+        }
+      })();
     },
-    [applyCloudSyncResult, applyConversations, startNewConversation, userId]
+    [
+      applyCloudSyncResult,
+      applyConversations,
+      startFreshConversationLocally,
+      startNewConversation,
+      userId,
+    ]
   );
 
   useEffect(() => {

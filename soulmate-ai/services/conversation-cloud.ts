@@ -166,7 +166,11 @@ export async function persistSyncedConversations(
 
   if (!isSupabaseConfigured()) return;
 
-  await upsertCloudConversations(supabase, userId, stripped);
+  await withTimeout(
+    upsertCloudConversations(supabase, userId, stripped),
+    CLOUD_REQUEST_TIMEOUT_MS,
+    'Cloud chat sync timed out.'
+  );
 }
 
 export async function persistSyncedConversation(
@@ -204,7 +208,11 @@ export async function persistSyncedActiveConversationId(
 
   if (!isSupabaseConfigured()) return;
 
-  await setCloudActiveConversationId(supabase, userId, conversationId);
+  await withTimeout(
+    setCloudActiveConversationId(supabase, userId, conversationId),
+    CLOUD_REQUEST_TIMEOUT_MS,
+    'Cloud chat sync timed out.'
+  );
 }
 
 export async function refreshCloudConversations(userId: string): Promise<Conversation[]> {

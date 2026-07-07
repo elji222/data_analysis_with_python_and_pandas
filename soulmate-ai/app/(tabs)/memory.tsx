@@ -20,6 +20,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ChatTheme } from '@/constants/chat-theme';
 import { useAuth } from '@/contexts/auth-context';
+import { useMobileChatLayout } from '@/hooks/use-mobile-chat-layout';
 import { useUserMemories } from '@/hooks/use-user-memories';
 import {
   formatMemoryCategory,
@@ -40,23 +41,39 @@ type FilterChipProps = {
   label: string;
   active: boolean;
   onPress: () => void;
+  compact?: boolean;
 };
 
-function FilterChip({ label, active, onPress }: FilterChipProps) {
+function FilterChip({ label, active, onPress, compact = false }: FilterChipProps) {
   return (
     <Pressable
-      style={[styles.filterChip, active && styles.filterChipActive]}
+      style={[styles.filterChip, compact && styles.filterChipCompact, active && styles.filterChipActive]}
       onPress={onPress}>
       <ThemedText
         numberOfLines={1}
-        style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+        style={[
+          styles.filterChipText,
+          compact && styles.filterChipTextCompact,
+          active && styles.filterChipTextActive,
+        ]}>
         {label}
       </ThemedText>
     </Pressable>
   );
 }
 
-function FilterChipRow({ children }: { children: ReactNode }) {
+function FilterChipRow({ children, compact = false }: { children: ReactNode; compact?: boolean }) {
+  if (compact) {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterRowHorizontal}>
+        {children}
+      </ScrollView>
+    );
+  }
+
   return <View style={styles.filterRow}>{children}</View>;
 }
 
@@ -93,6 +110,7 @@ export default function MemoryScreen() {
   const [draftCategory, setDraftCategory] = useState<MemoryCategory>('everything_else');
   const [draftVisibility, setDraftVisibility] = useState<MemoryVisibility>('personal');
   const [isSaving, setIsSaving] = useState(false);
+  const compactFilters = useMobileChatLayout();
 
   function openCreate() {
     setEditingId(null);
@@ -204,12 +222,15 @@ export default function MemoryScreen() {
           style={styles.searchInput}
         />
 
-        <View style={styles.filterSection}>
-          <ThemedText style={styles.filterLabel}>Category</ThemedText>
-          <FilterChipRow>
+        <View style={[styles.filterSection, compactFilters && styles.filterSectionCompact]}>
+          <ThemedText style={[styles.filterLabel, compactFilters && styles.filterLabelCompact]}>
+            Category
+          </ThemedText>
+          <FilterChipRow compact={compactFilters}>
             <FilterChip
               label="All"
               active={categoryFilter === 'all'}
+              compact={compactFilters}
               onPress={() => setCategoryFilter('all')}
             />
             {categories.map((category) => (
@@ -217,18 +238,22 @@ export default function MemoryScreen() {
                 key={category}
                 label={formatMemoryCategory(category)}
                 active={categoryFilter === category}
+                compact={compactFilters}
                 onPress={() => setCategoryFilter(category)}
               />
             ))}
           </FilterChipRow>
         </View>
 
-        <View style={styles.filterSection}>
-          <ThemedText style={styles.filterLabel}>Visibility</ThemedText>
-          <FilterChipRow>
+        <View style={[styles.filterSection, compactFilters && styles.filterSectionCompact]}>
+          <ThemedText style={[styles.filterLabel, compactFilters && styles.filterLabelCompact]}>
+            Visibility
+          </ThemedText>
+          <FilterChipRow compact={compactFilters}>
             <FilterChip
               label="All"
               active={visibilityFilter === 'all'}
+              compact={compactFilters}
               onPress={() => setVisibilityFilter('all')}
             />
             {visibilities.map((visibility) => (
@@ -236,6 +261,7 @@ export default function MemoryScreen() {
                 key={visibility}
                 label={formatMemoryVisibility(visibility)}
                 active={visibilityFilter === visibility}
+                compact={compactFilters}
                 onPress={() => setVisibilityFilter(visibility)}
               />
             ))}
@@ -446,11 +472,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   filterSection: { marginBottom: 10 },
+  filterSectionCompact: { marginBottom: 6 },
   filterLabel: {
     fontSize: 13,
     fontWeight: '600',
     color: '#6B6B6B',
     marginBottom: 8,
+  },
+  filterLabelCompact: {
+    fontSize: 12,
+    marginBottom: 4,
   },
   filterRow: {
     flexDirection: 'row',
@@ -458,6 +489,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingBottom: 4,
+  },
+  filterRowHorizontal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingBottom: 2,
+    paddingRight: 8,
   },
   filterChip: {
     borderWidth: 1,
@@ -470,11 +508,16 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     maxWidth: '100%',
   },
+  filterChipCompact: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
   filterChipActive: {
     backgroundColor: '#F4F4F4',
     borderColor: ChatTheme.sidebarText,
   },
   filterChipText: { fontSize: 13, color: ChatTheme.sidebarText },
+  filterChipTextCompact: { fontSize: 12 },
   filterChipTextActive: { fontWeight: '600' },
   listContent: { gap: 10, paddingBottom: 32 },
   sectionTitle: {
