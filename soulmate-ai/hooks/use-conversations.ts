@@ -7,6 +7,10 @@ import {
   isDefaultConversationTitle,
 } from '@/lib/conversation-title';
 import { conversationSignature, repairStoredConversations, sortConversations } from '@/lib/conversations/sync';
+import {
+  clearCloudSyncRetry,
+  scheduleCloudSyncRetry,
+} from '@/lib/conversations/cloud-sync-retry';
 import { isStorageQuotaError } from '@/lib/strip-attachments-for-storage';
 import {
   ConversationCloudError,
@@ -74,6 +78,26 @@ export function useConversations(userId: string | undefined) {
     signatureRef.current = conversationSignature(sorted);
     setConversations(sorted);
   }, []);
+
+  const pushLocalChatsToCloud = useCallback(async () => {
+    if (!userId) return;
+
+    await persistSyncedConversations(userId, conversationsRef.current);
+    const activeId = activeConversationIdRef.current;
+    if (activeId) {
+      await persistSyncedActiveConversationId(userId, activeId);
+    }
+  }, [userId]);
+
+  const queueCloudSyncRetry = useCallback(() => {
+    if (!userId) return;
+    scheduleCloudSyncRetry(userId, pushLocalChatsToCloud);
+  }, [pushLocalChatsToCloud, userId]);
+
+  const completeCloudSync = useCallback(() => {
+    if (!userId) return;
+    clearCloudSyncRetry(userId);
+  }, [userId]);
 
   const applyCloudSyncResult = useCallback(
     (
@@ -151,8 +175,10 @@ export function useConversations(userId: string | undefined) {
       await persistSyncedConversations(userId, nextConversations);
       await persistSyncedActiveConversationId(userId, conversation.id);
       setStorageWarning(null);
+      completeCloudSync();
     } catch (error) {
       if (error instanceof ConversationCloudError) {
+        queueCloudSyncRetry();
         return conversation.id;
       }
 
@@ -168,7 +194,7 @@ export function useConversations(userId: string | undefined) {
     }
 
     return conversation.id;
-  }, [applyConversations, userId]);
+  }, [applyConversations, completeCloudSync, queueCloudSyncRetry, userId]);
 
   const startFreshConversationLocally = useCallback(() => {
     if (!userId) return null;
@@ -234,8 +260,9 @@ export function useConversations(userId: string | undefined) {
         try {
           const result = await syncConversationsFromCloud(userId);
           applyCloudSyncResult(result, { preserveActiveId: startFreshChat });
+          completeCloudSync();
         } catch {
-          // Cloud sync is optional; local chat still works.
+          queueCloudSyncRetry();
         }
 
         if (startFreshChat) {
@@ -246,6 +273,8 @@ export function useConversations(userId: string | undefined) {
     [
       applyCloudSyncResult,
       applyConversations,
+      completeCloudSync,
+      queueCloudSyncRetry,
       startFreshConversationLocally,
       startNewConversation,
       userId,
@@ -266,6 +295,10 @@ export function useConversations(userId: string | undefined) {
     const startFreshChat = shouldStartFreshChatRef.current;
     shouldStartFreshChatRef.current = false;
     void hydrateFromSource(true, startFreshChat);
+
+    return () => {
+      clearCloudSyncRetry(userId);
+    };
   }, [hydrateFromSource, userId]);
 
   useFocusEffect(
@@ -293,15 +326,16 @@ export function useConversations(userId: string | undefined) {
               void persistSyncedActiveConversationId(userId, nextActiveId);
             }
           }
+          completeCloudSync();
         })
         .catch(() => {
-          // Keep the current session if a background refresh fails.
+          queueCloudSyncRetry();
         });
 
       return () => {
         cancelled = true;
       };
-    }, [applyConversations, isReady, userId])
+    }, [applyConversations, completeCloudSync, isReady, queueCloudSyncRetry, userId])
   );
 
   const activeConversation =
@@ -319,8 +353,10 @@ export function useConversations(userId: string | undefined) {
       try {
         await persistSyncedConversations(userId, nextConversations);
         setStorageWarning(null);
+        completeCloudSync();
       } catch (error) {
         if (error instanceof ConversationCloudError) {
+          queueCloudSyncRetry();
           return;
         }
 
@@ -336,7 +372,7 @@ export function useConversations(userId: string | undefined) {
         throw error;
       }
     },
-    [applyConversations, userId]
+    [applyConversations, completeCloudSync, queueCloudSyncRetry, userId]
   );
 
   const selectConversation = useCallback(
@@ -348,11 +384,12 @@ export function useConversations(userId: string | undefined) {
 
       try {
         await persistSyncedActiveConversationId(userId, conversationId);
+        completeCloudSync();
       } catch {
-        // Cloud sync is optional; local selection still works.
+        queueCloudSyncRetry();
       }
     },
-    [userId]
+    [completeCloudSync, queueCloudSyncRetry, userId]
   );
 
   const deleteConversation = useCallback(
@@ -375,8 +412,10 @@ export function useConversations(userId: string | undefined) {
       try {
         await removeSyncedConversation(userId, conversationId, remaining);
         setStorageWarning(null);
+        completeCloudSync();
       } catch (error) {
         if (error instanceof ConversationCloudError) {
+          queueCloudSyncRetry();
           return;
         }
 
@@ -387,7 +426,7 @@ export function useConversations(userId: string | undefined) {
         await selectConversation(remaining[0].id);
       }
     },
-    [activeConversationId, applyConversations, selectConversation, userId]
+    [activeConversationId, applyConversations, completeCloudSync, queueCloudSyncRetry, selectConversation, userId]
   );
 
   const updateConversationMessages = useCallback(
@@ -423,8 +462,10 @@ export function useConversations(userId: string | undefined) {
       try {
         await persistSyncedConversation(userId, updatedConversation, nextConversations);
         setStorageWarning(null);
+        completeCloudSync();
       } catch (error) {
         if (error instanceof ConversationCloudError) {
+          queueCloudSyncRetry();
           return;
         }
 
@@ -440,7 +481,7 @@ export function useConversations(userId: string | undefined) {
         throw error;
       }
     },
-    [applyConversations, userId]
+    [applyConversations, completeCloudSync, queueCloudSyncRetry, userId]
   );
 
   const renameConversation = useCallback(
