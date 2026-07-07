@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-08-03"
+$CacheBust = "2026-08-04"
 
 $Files = @(
     "app/_layout.tsx",
@@ -18,6 +18,7 @@ $Files = @(
     "app.json",
     "components/attach-popover.tsx",
     "components/app-error-boundary.tsx",
+    "components/internet-status-banner.tsx",
     "components/chat-bubble.tsx",
     "components/chat-composer.tsx",
     "components/chat-panel.tsx",
@@ -30,15 +31,18 @@ $Files = @(
     "components/stale-bundle-gate.tsx",
     "components/ui/icon-symbol.tsx",
     "components/voice-waveform.tsx",
+    "constants/app-urls.ts",
     "constants/chat-theme.ts",
     "constants/ai.ts",
     "contexts/auth-context.tsx",
     "hooks/use-mobile-chat-layout.ts",
     "hooks/use-conversations.ts",
     "hooks/use-smooth-streaming-text.ts",
+    "hooks/use-online-status.ts",
     "hooks/use-user-memories.ts",
     "hooks/use-voice-input.ts",
     "hooks/use-wide-layout.ts",
+    "lib/api-origin.ts",
     "lib/anthropic.ts",
     "lib/attachments.ts",
     "lib/auth.ts",
@@ -57,6 +61,7 @@ $Files = @(
     "lib/memory/repository.ts",
     "lib/memory/search.ts",
     "lib/memory/trivial.ts",
+    "lib/network-host.ts",
     "lib/recover-stale-web-bundle.ts",
     "lib/streaming-text.ts",
     "lib/supabase-server.ts",

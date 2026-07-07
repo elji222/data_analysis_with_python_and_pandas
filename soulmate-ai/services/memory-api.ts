@@ -1,3 +1,4 @@
+import { getApiUrl } from '@/lib/api-origin';
 import type {
   MemoryCategory,
   MemoryVisibility,
@@ -24,7 +25,7 @@ async function authHeaders(accessToken: string) {
 }
 
 export async function fetchMemories(accessToken: string): Promise<MemoriesResponse> {
-  const response = await fetch('/api/memories', {
+  const response = await fetch(getApiUrl('/api/memories'), {
     headers: await authHeaders(accessToken),
   });
   const data = await response.json();
@@ -43,7 +44,7 @@ export async function createMemory(
     is_pinned?: boolean;
   }
 ): Promise<UserMemory> {
-  const response = await fetch('/api/memories', {
+  const response = await fetch(getApiUrl('/api/memories'), {
     method: 'POST',
     headers: await authHeaders(accessToken),
     body: JSON.stringify(input),
@@ -66,7 +67,7 @@ export async function updateMemory(
     importance?: number;
   }
 ): Promise<UserMemory> {
-  const response = await fetch('/api/memories', {
+  const response = await fetch(getApiUrl('/api/memories'), {
     method: 'PATCH',
     headers: await authHeaders(accessToken),
     body: JSON.stringify(input),
@@ -79,7 +80,7 @@ export async function updateMemory(
 }
 
 export async function deleteMemory(accessToken: string, id: string): Promise<void> {
-  const response = await fetch(`/api/memories?id=${encodeURIComponent(id)}`, {
+  const response = await fetch(getApiUrl(`/api/memories?id=${encodeURIComponent(id)}`), {
     method: 'DELETE',
     headers: await authHeaders(accessToken),
   });
@@ -90,7 +91,7 @@ export async function deleteMemory(accessToken: string, id: string): Promise<voi
 }
 
 export async function clearAllMemories(accessToken: string): Promise<void> {
-  const response = await fetch('/api/memories', {
+  const response = await fetch(getApiUrl('/api/memories'), {
     method: 'POST',
     headers: await authHeaders(accessToken),
     body: JSON.stringify({ action: 'clear' }),
@@ -105,7 +106,7 @@ export async function updateMemorySettings(
   accessToken: string,
   patch: Partial<Pick<UserMemorySettings, 'enabled' | 'preferred_language' | 'answer_style'>>
 ): Promise<UserMemorySettings> {
-  const response = await fetch('/api/memories', {
+  const response = await fetch(getApiUrl('/api/memories'), {
     method: 'POST',
     headers: await authHeaders(accessToken),
     body: JSON.stringify({ action: 'settings', ...patch }),
@@ -128,7 +129,7 @@ export async function sendChatMessageWithMemory(
   messages: { role: 'user' | 'assistant'; content: string }[],
   options: SendChatOptions
 ): Promise<{ reply: string; savedMemories: string[] }> {
-  const response = await fetch('/api/chat', {
+  const response = await fetch(getApiUrl('/api/chat'), {
     method: 'POST',
     headers: await authHeaders(options.accessToken),
     body: JSON.stringify({

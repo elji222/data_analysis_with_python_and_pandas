@@ -9,6 +9,7 @@ import {
 import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { ChatPanel } from '@/components/chat-panel';
 import { ConversationSidebar } from '@/components/conversation-sidebar';
+import { InternetStatusBanner } from '@/components/internet-status-banner';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ChatTheme } from '@/constants/chat-theme';
@@ -101,6 +102,7 @@ export default function ChatScreen() {
   return (
     <AppErrorBoundary title="Chat could not load">
       <ThemedView style={styles.container}>
+        <InternetStatusBanner />
         {isWideLayout ? (
           <View style={styles.desktopLayout}>
             {sidebar}
