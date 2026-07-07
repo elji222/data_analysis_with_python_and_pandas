@@ -1,8 +1,6 @@
-import {
-  CLAUDE_MODEL,
-  MAX_OUTPUT_TOKENS,
-  SOULMATE_SYSTEM_PROMPT,
-} from '@/constants/ai';
+import { SOULMATE_SYSTEM_PROMPT } from '@/constants/ai';
+import { runChatAgent } from '@/lib/agent/run-chat-agent';
+import type { AnthropicAgentMessage } from '@/lib/agent/types';
 import { appendCurrentDateContext } from '@/lib/current-date';
 import { buildChatSystemPrompt } from '@/lib/memory/prompt';
 import { processMessageMemory } from '@/lib/memory/process';
@@ -17,8 +15,6 @@ import {
   getBearerToken,
 } from '@/lib/supabase-server';
 import type { ApiContentBlock, ApiTextBlock, ChatApiMessage } from '@/types/chat';
-
-const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com/v1/messages';
 
 function sseLine(payload: string) {
   return `data: ${payload}\n\n`;
@@ -118,87 +114,43 @@ export async function POST(request: Request) {
       skipMemory
     );
     const finalSystemPrompt = appendCurrentDateContext(systemPrompt);
-
-    const anthropicResponse = await fetch(ANTHROPIC_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        max_tokens: MAX_OUTPUT_TOKENS,
-        system: finalSystemPrompt,
-        messages,
-        stream: true,
-      }),
-    });
-
-    if (!anthropicResponse.ok) {
-      const json = await anthropicResponse.json();
-      const errorMessage =
-        json.error?.message ?? 'Unable to reach Soulmate AI right now. Please try again.';
-      return Response.json({ error: errorMessage }, { status: anthropicResponse.status });
-    }
-
-    if (!anthropicResponse.body) {
-      return Response.json({ error: 'No response stream received.' }, { status: 500 });
-    }
+    const agentMessages = messages as AnthropicAgentMessage[];
 
     const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
-    const reader = anthropicResponse.body.getReader();
-
     const stream = new ReadableStream({
       async start(controller) {
-        let buffer = '';
         let fullReply = '';
 
         try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() ?? '';
-
-            for (const line of lines) {
-              if (!line.startsWith('data: ')) continue;
-
-              const data = line.slice(6).trim();
-              if (!data || data === '[DONE]') continue;
-
-              try {
-                const event = JSON.parse(data) as {
-                  type?: string;
-                  delta?: { type?: string; text?: string };
-                  error?: { message?: string };
-                };
-
-                if (event.type === 'error') {
-                  controller.enqueue(
-                    encoder.encode(sseLine(JSON.stringify({ error: event.error?.message })))
-                  );
-                  continue;
-                }
-
-                if (
-                  event.type === 'content_block_delta' &&
-                  event.delta?.type === 'text_delta' &&
-                  event.delta.text
-                ) {
-                  fullReply += event.delta.text;
-                  controller.enqueue(
-                    encoder.encode(sseLine(JSON.stringify({ text: event.delta.text })))
-                  );
-                }
-              } catch {
-                // Skip malformed SSE chunks
+          fullReply = await runChatAgent({
+            apiKey,
+            systemPrompt: finalSystemPrompt,
+            messages: agentMessages,
+            toolContext: {
+              tavilyApiKey: process.env.TAVILY_API_KEY ?? null,
+            },
+            onEvent: (event) => {
+              if (event.type === 'status' && event.status === 'searching') {
+                controller.enqueue(
+                  encoder.encode(sseLine(JSON.stringify({ status: 'searching' })))
+                );
+                return;
               }
-            }
-          }
+
+              if (event.type === 'text' && event.text) {
+                controller.enqueue(
+                  encoder.encode(sseLine(JSON.stringify({ text: event.text })))
+                );
+                return;
+              }
+
+              if (event.type === 'error') {
+                controller.enqueue(
+                  encoder.encode(sseLine(JSON.stringify({ error: event.error })))
+                );
+              }
+            },
+          });
 
           if (userId && accessToken && memoryEnabled && !skipMemory) {
             try {
