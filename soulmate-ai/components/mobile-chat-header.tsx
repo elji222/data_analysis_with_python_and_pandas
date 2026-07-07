@@ -7,10 +7,9 @@ import { ChatTheme } from '@/constants/chat-theme';
 
 type MobileChatHeaderProps = {
   onOpenSidebar: () => void;
-  onNewChat: () => void;
 };
 
-export function MobileChatHeader({ onOpenSidebar, onNewChat }: MobileChatHeaderProps) {
+export function MobileChatHeader({ onOpenSidebar }: MobileChatHeaderProps) {
   const router = useRouter();
 
   return (
@@ -21,22 +20,12 @@ export function MobileChatHeader({ onOpenSidebar, onNewChat }: MobileChatHeaderP
 
       <ThemedText style={styles.title}>Soulmate AI</ThemedText>
 
-      <View style={styles.rightActions}>
-        <Pressable
-          style={styles.iconButton}
-          onPress={() => router.push('/memory')}
-          accessibilityLabel="Open memory">
-          <Ionicons name="bookmark-outline" size={22} color={ChatTheme.sidebarText} />
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [styles.newChatButton, pressed && styles.pressed]}
-          onPress={onNewChat}
-          accessibilityLabel="New Chat">
-          <Ionicons name="create-outline" size={16} color="#FFFFFF" />
-          <ThemedText style={styles.newChatLabel}>New Chat</ThemedText>
-        </Pressable>
-      </View>
+      <Pressable
+        style={styles.iconButton}
+        onPress={() => router.push('/memory')}
+        accessibilityLabel="Open memory">
+        <Ionicons name="bookmark-outline" size={22} color={ChatTheme.sidebarText} />
+      </Pressable>
     </View>
   );
 }
@@ -58,33 +47,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 20,
   },
-  rightActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
   title: {
     flex: 1,
     fontSize: 17,
     fontWeight: '600',
     color: ChatTheme.sidebarText,
     textAlign: 'center',
-  },
-  newChatButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: ChatTheme.chatGptBlue,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  newChatLabel: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  pressed: {
-    opacity: 0.85,
   },
 });

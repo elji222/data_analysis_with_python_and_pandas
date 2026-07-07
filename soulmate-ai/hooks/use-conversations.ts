@@ -58,6 +58,7 @@ export function useConversations(userId: string | undefined) {
   const conversationsRef = useRef<Conversation[]>([]);
   const signatureRef = useRef<string>('');
   const activeConversationIdRef = useRef<string | null>(null);
+  const shouldStartFreshChatRef = useRef(true);
 
   useEffect(() => {
     conversationsRef.current = conversations;
@@ -121,8 +122,42 @@ export function useConversations(userId: string | undefined) {
     [applyConversations]
   );
 
+  const startNewConversation = useCallback(async () => {
+    if (!userId) return null;
+
+    const conversation = createEmptyConversation();
+    const pruned = conversationsRef.current.filter((item) => item.messages.length > 0);
+    const nextConversations = sortConversations([conversation, ...pruned]);
+
+    activeConversationIdRef.current = conversation.id;
+    setActiveConversationId(conversation.id);
+    applyConversations(nextConversations);
+
+    try {
+      await persistSyncedConversations(userId, nextConversations);
+      await persistSyncedActiveConversationId(userId, conversation.id);
+      setStorageWarning(null);
+    } catch (error) {
+      if (error instanceof ConversationCloudError) {
+        setStorageWarning(
+          'Could not sync chats to the cloud. Your messages are saved on this device for now.'
+        );
+      } else if (error instanceof ConversationStorageError || isStorageQuotaError(error)) {
+        setStorageWarning(
+          error instanceof Error
+            ? error.message
+            : 'Could not save chat history on this device. Your messages will stay in this session.'
+        );
+      } else {
+        throw error;
+      }
+    }
+
+    return conversation.id;
+  }, [applyConversations, userId]);
+
   const hydrateFromSource = useCallback(
-    async (showLoading = true) => {
+    async (showLoading = true, startFreshChat = false) => {
       if (!userId) return;
 
       if (showLoading) {
@@ -160,7 +195,9 @@ export function useConversations(userId: string | undefined) {
           setStorageWarning('Could not load chat history on this device.');
         }
       } finally {
-        setIsReady(true);
+        if (!startFreshChat) {
+          setIsReady(true);
+        }
       }
 
       void syncConversationsFromCloud(userId)
@@ -169,13 +206,22 @@ export function useConversations(userId: string | undefined) {
         })
         .catch(() => {
           setStorageWarning('Cloud sync is unavailable right now. Showing chats saved on this device.');
+        })
+        .finally(() => {
+          void (async () => {
+            if (startFreshChat) {
+              await startNewConversation();
+            }
+            setIsReady(true);
+          })();
         });
     },
-    [applyCloudSyncResult, applyConversations, userId]
+    [applyCloudSyncResult, applyConversations, startNewConversation, userId]
   );
 
   useEffect(() => {
     if (!userId) {
+      shouldStartFreshChatRef.current = true;
       setConversations([]);
       setActiveConversationId(null);
       setIsReady(false);
@@ -184,7 +230,9 @@ export function useConversations(userId: string | undefined) {
       return;
     }
 
-    void hydrateFromSource();
+    const startFreshChat = shouldStartFreshChatRef.current;
+    shouldStartFreshChatRef.current = false;
+    void hydrateFromSource(true, startFreshChat);
   }, [hydrateFromSource, userId]);
 
   useFocusEffect(
@@ -276,40 +324,6 @@ export function useConversations(userId: string | undefined) {
     },
     [userId]
   );
-
-  const startNewConversation = useCallback(async () => {
-    if (!userId) return null;
-
-    const conversation = createEmptyConversation();
-    const pruned = conversationsRef.current.filter((item) => item.messages.length > 0);
-    const nextConversations = sortConversations([conversation, ...pruned]);
-
-    activeConversationIdRef.current = conversation.id;
-    setActiveConversationId(conversation.id);
-    applyConversations(nextConversations);
-
-    try {
-      await persistSyncedConversations(userId, nextConversations);
-      await persistSyncedActiveConversationId(userId, conversation.id);
-      setStorageWarning(null);
-    } catch (error) {
-      if (error instanceof ConversationCloudError) {
-        setStorageWarning(
-          'Could not sync chats to the cloud. Your messages are saved on this device for now.'
-        );
-      } else if (error instanceof ConversationStorageError || isStorageQuotaError(error)) {
-        setStorageWarning(
-          error instanceof Error
-            ? error.message
-            : 'Could not save chat history on this device. Your messages will stay in this session.'
-        );
-      } else {
-        throw error;
-      }
-    }
-
-    return conversation.id;
-  }, [applyConversations, userId]);
 
   const deleteConversation = useCallback(
     async (conversationId: string) => {

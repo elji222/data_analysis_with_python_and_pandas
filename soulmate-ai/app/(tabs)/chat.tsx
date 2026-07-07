@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -35,11 +35,6 @@ export default function ChatScreen() {
     updateConversationMessages,
     renameConversation,
   } = useConversations(user?.id);
-
-  useEffect(() => {
-    if (!user || !isReady || activeConversation) return;
-    void startNewConversation();
-  }, [activeConversation, isReady, startNewConversation, user]);
 
   async function handleSelectConversation(conversationId: string) {
     await selectConversation(conversationId);
@@ -125,7 +120,6 @@ export default function ChatScreen() {
               onUpdateMessages={updateConversationMessages}
               onRenameConversation={renameConversation}
               onOpenSidebar={() => setIsSidebarOpen(true)}
-              onNewConversation={handleNewConversation}
               showSidebarToggle
               storageWarning={storageWarning}
               userEmail={user.email}

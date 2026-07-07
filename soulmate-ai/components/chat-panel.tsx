@@ -64,7 +64,6 @@ type ChatPanelProps = {
   onUpdateMessages: (conversationId: string, messages: ChatMessage[]) => Promise<void>;
   onRenameConversation?: (conversationId: string, title: string) => Promise<void>;
   onOpenSidebar?: () => void;
-  onNewConversation?: () => void;
   showSidebarToggle?: boolean;
   storageWarning?: string | null;
   userEmail?: string | null;
@@ -75,7 +74,6 @@ export function ChatPanel({
   onUpdateMessages,
   onRenameConversation,
   onOpenSidebar,
-  onNewConversation,
   showSidebarToggle = false,
   storageWarning = null,
   userEmail,
@@ -419,9 +417,9 @@ export function ChatPanel({
       darkColor={ChatTheme.pageBgDark}
       style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        {isMobileChatLayout && showSidebarToggle && onOpenSidebar && onNewConversation ? (
-          <MobileChatHeader onOpenSidebar={onOpenSidebar} onNewChat={onNewConversation} />
-        ) : showSidebarToggle && onNewConversation ? (
+        {isMobileChatLayout && showSidebarToggle && onOpenSidebar ? (
+          <MobileChatHeader onOpenSidebar={onOpenSidebar} />
+        ) : showSidebarToggle && onOpenSidebar ? (
         <View style={styles.header}>
           <Pressable style={styles.headerButton} onPress={onOpenSidebar}>
             <Ionicons
@@ -438,11 +436,7 @@ export function ChatPanel({
               Soulmate AI
             </ThemedText>
           </View>
-          <Pressable
-            style={({ pressed }) => [styles.headerNewChatButton, pressed && styles.pressed]}
-            onPress={onNewConversation}>
-            <ThemedText style={styles.headerNewChatLabel}>New Chat</ThemedText>
-          </Pressable>
+          <View style={styles.headerButton} />
         </View>
         ) : null}
 
@@ -643,20 +637,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 15,
-    fontWeight: '600',
-  },
-  headerNewChatButton: {
-    minWidth: 40,
-    height: 36,
-    borderRadius: 999,
-    backgroundColor: ChatTheme.chatGptBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  headerNewChatLabel: {
-    color: '#FFFFFF',
-    fontSize: 13,
     fontWeight: '600',
   },
   keyboardView: {
