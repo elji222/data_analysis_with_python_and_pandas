@@ -3,6 +3,7 @@ import {
   MAX_OUTPUT_TOKENS,
   SOULMATE_SYSTEM_PROMPT,
 } from '@/constants/ai';
+import { appendCurrentDateContext } from '@/lib/current-date';
 import { buildChatSystemPrompt } from '@/lib/memory/prompt';
 import { processMessageMemory } from '@/lib/memory/process';
 import {
@@ -116,6 +117,7 @@ export async function POST(request: Request) {
       messages,
       skipMemory
     );
+    const finalSystemPrompt = appendCurrentDateContext(systemPrompt);
 
     const anthropicResponse = await fetch(ANTHROPIC_ENDPOINT, {
       method: 'POST',
@@ -127,7 +129,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         model: CLAUDE_MODEL,
         max_tokens: MAX_OUTPUT_TOKENS,
-        system: systemPrompt,
+        system: finalSystemPrompt,
         messages,
         stream: true,
       }),
