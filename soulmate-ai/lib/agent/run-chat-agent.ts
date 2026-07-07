@@ -76,6 +76,48 @@ function buildAssistantContent(state: StreamState): AnthropicContentBlock[] {
   return blocks;
 }
 
+type AnthropicStreamEvent = {
+  type?: string;
+  content_block?: { type?: string; id?: string; name?: string };
+  delta?: { type?: string; text?: string; partial_json?: string; stop_reason?: string };
+};
+
+export function applyAnthropicStreamEvent(state: StreamState, event: AnthropicStreamEvent) {
+  if (event.type === 'content_block_start') {
+    if (event.content_block?.type === 'tool_use') {
+      finalizeCurrentToolUse(state);
+      state.currentToolUseId = event.content_block.id ?? null;
+      state.currentToolName = event.content_block.name ?? null;
+      state.currentToolInputJson = '';
+    }
+    return null;
+  }
+
+  if (event.type === 'content_block_delta') {
+    if (event.delta?.type === 'text_delta' && event.delta.text) {
+      state.text += event.delta.text;
+      return event.delta.text;
+    }
+
+    if (event.delta?.type === 'input_json_delta' && event.delta.partial_json) {
+      state.currentToolInputJson += event.delta.partial_json;
+    }
+
+    return null;
+  }
+
+  if (event.type === 'content_block_stop') {
+    finalizeCurrentToolUse(state);
+    return null;
+  }
+
+  if (event.type === 'message_delta' && event.delta?.stop_reason) {
+    state.stopReason = event.delta.stop_reason;
+  }
+
+  return null;
+}
+
 async function* parseAnthropicStream(
   body: ReadableStream<Uint8Array>
 ): AsyncGenerator<{
@@ -101,13 +143,7 @@ async function* parseAnthropicStream(
       const data = line.slice(6).trim();
       if (!data || data === '[DONE]') continue;
 
-      let event: {
-        type?: string;
-        index?: number;
-        content_block?: { type?: string; id?: string; name?: string };
-        delta?: { type?: string; text?: string; partial_json?: string };
-        message?: { stop_reason?: string };
-      };
+      let event: AnthropicStreamEvent;
 
       try {
         event = JSON.parse(data);
@@ -115,35 +151,9 @@ async function* parseAnthropicStream(
         continue;
       }
 
-      if (event.type === 'content_block_start') {
-        if (event.content_block?.type === 'tool_use') {
-          finalizeCurrentToolUse(state);
-          state.currentToolUseId = event.content_block.id ?? null;
-          state.currentToolName = event.content_block.name ?? null;
-          state.currentToolInputJson = '';
-        }
-        continue;
-      }
-
-      if (event.type === 'content_block_delta') {
-        if (event.delta?.type === 'text_delta' && event.delta.text) {
-          state.text += event.delta.text;
-          yield { state, textDelta: event.delta.text };
-        }
-
-        if (event.delta?.type === 'input_json_delta' && event.delta.partial_json) {
-          state.currentToolInputJson += event.delta.partial_json;
-        }
-        continue;
-      }
-
-      if (event.type === 'content_block_stop') {
-        finalizeCurrentToolUse(state);
-        continue;
-      }
-
-      if (event.type === 'message_delta' && event.message?.stop_reason) {
-        state.stopReason = event.message.stop_reason;
+      const textDelta = applyAnthropicStreamEvent(state, event);
+      if (textDelta) {
+        yield { state, textDelta };
       }
     }
   }
@@ -215,17 +225,22 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<string
       }
     }
 
-    const stopReason = roundState.stopReason ?? 'end_turn';
     const toolUses = roundState.toolUses;
+    const shouldRunTools = toolUses.length > 0 && !isFinalAllowedRound;
 
-    if (stopReason !== 'tool_use' || toolUses.length === 0 || isFinalAllowedRound) {
+    if (!shouldRunTools) {
       if (!streamLive && roundText.trim()) {
+        fullReply = roundText;
+        options.onEvent({ type: 'text', text: roundText });
+      } else if (!fullReply.trim() && roundText.trim()) {
         fullReply = roundText;
         options.onEvent({ type: 'text', text: roundText });
       }
 
-      if (!fullReply.trim() && roundText.trim()) {
-        fullReply = roundText;
+      if (!fullReply.trim()) {
+        const message = 'Soulmate AI sent an empty reply.';
+        options.onEvent({ type: 'error', error: message });
+        throw new Error(message);
       }
 
       options.onEvent({ type: 'done', fullReply });
@@ -260,6 +275,7 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<string
     conversation = [...conversation, { role: 'user', content: toolResults }];
   }
 
-  options.onEvent({ type: 'done', fullReply });
-  return fullReply;
+  const message = 'Soulmate AI could not finish the reply.';
+  options.onEvent({ type: 'error', error: message });
+  throw new Error(message);
 }

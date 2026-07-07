@@ -112,7 +112,7 @@ export function ChatPanel({
   const messages = conversation?.messages ?? [];
   const isStreaming = streamingText !== null;
   const smoothStreamingText = useSmoothStreamingText(streamingText, isStreaming);
-  const showThinking = isLoading && streamingText === null && !isSearching;
+  const showThinking = isLoading && streamingText === null;
   const isNewChat = isDefaultConversationTitle(conversation?.title ?? 'New chat');
   const showHeroEmpty =
     messages.length === 0 && !showThinking && !isStreaming && isNewChat;
