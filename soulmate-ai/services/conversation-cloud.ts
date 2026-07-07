@@ -16,7 +16,7 @@ import {
 } from '@/services/conversation-storage';
 import type { Conversation } from '@/types/conversation';
 
-const CLOUD_REQUEST_TIMEOUT_MS = 8000;
+const CLOUD_REQUEST_TIMEOUT_MS = 4000;
 
 export class ConversationCloudError extends Error {
   constructor(message: string, readonly cause?: unknown) {
