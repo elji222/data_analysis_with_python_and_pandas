@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { InternetStatusBanner } from '@/components/internet-status-banner';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/contexts/auth-context';
+import { PRODUCTION_CHAT_URL } from '@/constants/app-urls';
 import { getAuthRedirectUri, processAuthCallbackUrl, signInWithGoogle } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
@@ -99,10 +101,11 @@ export default function LoginScreen() {
           Create your account with Google to sync chats and memories across your phone and laptop.
         </ThemedText>
 
+        <InternetStatusBanner variant="login" />
+
         {Platform.OS !== 'web' ? (
           <ThemedText style={styles.phoneHint}>
-            Expo Go is unreliable on this project. On your phone, use Safari or Chrome and open the
-            http://YOUR-PC-IP:8081/chat link from scripts\start-phone-web.cmd
+            For internet access anywhere, open {PRODUCTION_CHAT_URL} in Safari or Chrome.
           </ThemedText>
         ) : null}
 

@@ -1,10 +1,11 @@
 import { createConversationTitle, normalizeConversationTitle } from '@/lib/conversation-title';
+import { getApiUrl } from '@/lib/api-origin';
 
 export async function fetchConversationTitle(message: string): Promise<string> {
   const fallback = createConversationTitle(message);
 
   try {
-    const response = await fetch('/api/title', {
+    const response = await fetch(getApiUrl('/api/title'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message }),

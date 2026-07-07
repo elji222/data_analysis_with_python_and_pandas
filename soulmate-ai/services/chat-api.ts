@@ -1,4 +1,5 @@
 import { buildChatApiMessages } from '@/lib/build-chat-api-messages';
+import { getApiUrl } from '@/lib/api-origin';
 import type { ChatApiMessage, ChatMessage } from '@/types/chat';
 
 type StreamEvent = {
@@ -31,7 +32,7 @@ export async function streamChatMessage(
     headers.Authorization = `Bearer ${options.accessToken}`;
   }
 
-  const response = await fetch('/api/chat', {
+  const response = await fetch(getApiUrl('/api/chat'), {
     method: 'POST',
     headers,
     body: JSON.stringify({
