@@ -1,12 +1,14 @@
 import type { ChatMessage } from '@/types/chat';
 
 export const THINKING_PLACEHOLDER_ID = 'thinking-placeholder';
+export const SEARCHING_PLACEHOLDER_ID = 'searching-placeholder';
 export const STREAMING_ASSISTANT_ID = 'streaming-assistant';
 
 export type ChatListOptions = {
   isStreaming: boolean;
   visibleStreamingText: string;
   showThinking: boolean;
+  showSearching?: boolean;
 };
 
 export function getVisibleStreamingText(
@@ -21,6 +23,18 @@ export function getVisibleStreamingText(
 }
 
 export function buildChatListData(messages: ChatMessage[], options: ChatListOptions): ChatMessage[] {
+  if (options.showSearching) {
+    return [
+      ...messages,
+      {
+        id: SEARCHING_PLACEHOLDER_ID,
+        text: '',
+        role: 'assistant',
+        createdAt: Date.now(),
+      },
+    ];
+  }
+
   if (options.showThinking) {
     return [
       ...messages,

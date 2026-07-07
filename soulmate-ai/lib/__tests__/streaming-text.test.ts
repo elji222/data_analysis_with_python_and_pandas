@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildChatListData,
   getVisibleStreamingText,
+  SEARCHING_PLACEHOLDER_ID,
   THINKING_PLACEHOLDER_ID,
 } from '@/lib/streaming-text';
 import type { ChatMessage } from '@/types/chat';
@@ -36,6 +37,18 @@ describe('buildChatListData', () => {
 
     expect(list).toHaveLength(2);
     expect(list[1].id).toBe(THINKING_PLACEHOLDER_ID);
+  });
+
+  it('shows inline web search status instead of thinking dots', () => {
+    const list = buildChatListData(baseMessages, {
+      isStreaming: false,
+      visibleStreamingText: '',
+      showThinking: true,
+      showSearching: true,
+    });
+
+    expect(list).toHaveLength(2);
+    expect(list[1].id).toBe(SEARCHING_PLACEHOLDER_ID);
   });
 
   it('appends a temporary streaming assistant bubble', () => {

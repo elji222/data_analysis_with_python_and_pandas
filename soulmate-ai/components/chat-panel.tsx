@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ChatBubble, StreamingPlaceholder } from '@/components/chat-bubble';
+import { ChatBubble, SearchingPlaceholder, StreamingPlaceholder } from '@/components/chat-bubble';
 import { ChatComposer } from '@/components/chat-composer';
 import { ChatScrollRail } from '@/components/chat-scroll-rail';
 import { MobileChatHeader } from '@/components/mobile-chat-header';
@@ -24,7 +24,13 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ChatTheme, QUICK_ACTIONS } from '@/constants/chat-theme';
 import { useSmoothStreamingText } from '@/hooks/use-smooth-streaming-text';
-import { buildChatListData, getVisibleStreamingText, STREAMING_ASSISTANT_ID, THINKING_PLACEHOLDER_ID } from '@/lib/streaming-text';
+import {
+  buildChatListData,
+  getVisibleStreamingText,
+  SEARCHING_PLACEHOLDER_ID,
+  STREAMING_ASSISTANT_ID,
+  THINKING_PLACEHOLDER_ID,
+} from '@/lib/streaming-text';
 import { useMobileChatLayout } from '@/hooks/use-mobile-chat-layout';
 import { useCompactWebLayout } from '@/hooks/use-wide-layout';
 import { useVoiceInput } from '@/hooks/use-voice-input';
@@ -112,7 +118,8 @@ export function ChatPanel({
   const messages = conversation?.messages ?? [];
   const isStreaming = streamingText !== null;
   const smoothStreamingText = useSmoothStreamingText(streamingText, isStreaming);
-  const showThinking = isLoading && streamingText === null;
+  const showSearching = isSearching && streamingText === null;
+  const showThinking = isLoading && streamingText === null && !showSearching;
   const isNewChat = isDefaultConversationTitle(conversation?.title ?? 'New chat');
   const showHeroEmpty =
     messages.length === 0 && !showThinking && !isStreaming && isNewChat;
@@ -256,9 +263,6 @@ export function ChatPanel({
           setStreamingText(partialText);
           if (partialText) {
             setIsSearching(false);
-            setStatusMessage((current) =>
-              current === 'Searching the web…' ? null : current
-            );
           }
         },
         {
@@ -273,7 +277,6 @@ export function ChatPanel({
           onStatus: (status) => {
             if (status === 'searching') {
               setIsSearching(true);
-              setStatusMessage('Searching the web…');
             }
           },
         }
@@ -320,8 +323,9 @@ export function ChatPanel({
         isStreaming,
         visibleStreamingText,
         showThinking,
+        showSearching,
       }),
-    [messages, isStreaming, visibleStreamingText, showThinking]
+    [messages, isStreaming, visibleStreamingText, showThinking, showSearching]
   );
 
   listDataRef.current = listData;
@@ -537,6 +541,10 @@ export function ChatPanel({
                         renderItem={({ item }) => {
                           if (item.id === THINKING_PLACEHOLDER_ID) {
                             return <StreamingPlaceholder visible />;
+                          }
+
+                          if (item.id === SEARCHING_PLACEHOLDER_ID) {
+                            return <SearchingPlaceholder visible />;
                           }
 
                           return (
