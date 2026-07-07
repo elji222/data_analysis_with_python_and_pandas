@@ -4,8 +4,6 @@ import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
-  Easing,
-  type SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -15,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { FormattedMessageText } from '@/components/formatted-message-text';
+import { ShimmerText } from '@/components/shimmer-text';
 import { StreamingCursor } from '@/components/streaming-cursor';
 import { ThemedText } from '@/components/themed-text';
 import { ChatTheme } from '@/constants/chat-theme';
@@ -151,74 +150,15 @@ type SearchingPlaceholderProps = {
   visible: boolean;
 };
 
-const SEARCHING_TEXT = 'Searching the web…';
-const FLAG_WAVE_CYCLE_MS = 2600;
-const FLAG_WAVE_PHASE_STEP = 0.62;
-const FLAG_WAVE_HEIGHT = 4.5;
-const FLAG_WAVE_ROTATION = 6;
-
-type FlagWaveLetterProps = {
-  letter: string;
-  index: number;
-  progress: SharedValue<number>;
-  lightColor: string;
-  darkColor: string;
-};
-
-function FlagWaveLetter({ letter, index, progress, lightColor, darkColor }: FlagWaveLetterProps) {
-  const animatedStyle = useAnimatedStyle(() => {
-    const theta = progress.value * Math.PI * 2 + index * FLAG_WAVE_PHASE_STEP;
-
-    return {
-      transform: [
-        { translateY: Math.sin(theta) * FLAG_WAVE_HEIGHT },
-        { rotateZ: `${Math.sin(theta + 0.75) * FLAG_WAVE_ROTATION}deg` },
-        { translateX: Math.sin(theta * 0.55 + 0.4) * 1.2 },
-      ],
-    };
-  });
-
-  return (
-    <Animated.View style={animatedStyle}>
-      <ThemedText lightColor={lightColor} darkColor={darkColor} style={styles.searchingLetter}>
-        {letter === ' ' ? '\u00A0' : letter}
-      </ThemedText>
-    </Animated.View>
-  );
-}
+const SEARCHING_TEXT = 'Searching the web';
 
 export function SearchingPlaceholder({ visible }: SearchingPlaceholderProps) {
-  const progress = useSharedValue(0);
-  const lightColor = ChatTheme.sidebarMuted;
-  const darkColor = ChatTheme.sidebarMutedDark;
-
-  useEffect(() => {
-    progress.value = withRepeat(
-      withTiming(1, { duration: FLAG_WAVE_CYCLE_MS, easing: Easing.linear }),
-      -1,
-      false
-    );
-
-    return () => {
-      cancelAnimation(progress);
-    };
-  }, [progress]);
-
   if (!visible) return null;
 
   return (
     <View style={styles.assistantRow}>
-      <View style={styles.searchingWaveRow}>
-        {SEARCHING_TEXT.split('').map((letter, index) => (
-          <FlagWaveLetter
-            key={`${letter}-${index}`}
-            letter={letter}
-            index={index}
-            progress={progress}
-            lightColor={lightColor}
-            darkColor={darkColor}
-          />
-        ))}
+      <View style={styles.searchingRow}>
+        <ShimmerText style={styles.searchingText}>{SEARCHING_TEXT}</ShimmerText>
       </View>
     </View>
   );
@@ -294,14 +234,10 @@ const styles = StyleSheet.create({
     backgroundColor: ChatTheme.sidebarMuted,
     opacity: 0.7,
   },
-  searchingWaveRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    flexWrap: 'wrap',
+  searchingRow: {
     paddingVertical: 8,
   },
-  searchingLetter: {
-    fontSize: ChatTheme.messageFontSize,
-    lineHeight: ChatTheme.messageLineHeight,
+  searchingText: {
+    fontWeight: '400',
   },
 });
