@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -47,11 +47,17 @@ function FilterChip({ label, active, onPress }: FilterChipProps) {
     <Pressable
       style={[styles.filterChip, active && styles.filterChipActive]}
       onPress={onPress}>
-      <ThemedText style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+      <ThemedText
+        numberOfLines={1}
+        style={[styles.filterChipText, active && styles.filterChipTextActive]}>
         {label}
       </ThemedText>
     </Pressable>
   );
+}
+
+function FilterChipRow({ children }: { children: ReactNode }) {
+  return <View style={styles.filterRow}>{children}</View>;
 }
 
 export default function MemoryScreen() {
@@ -200,7 +206,7 @@ export default function MemoryScreen() {
 
         <View style={styles.filterSection}>
           <ThemedText style={styles.filterLabel}>Category</ThemedText>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          <FilterChipRow>
             <FilterChip
               label="All"
               active={categoryFilter === 'all'}
@@ -214,12 +220,12 @@ export default function MemoryScreen() {
                 onPress={() => setCategoryFilter(category)}
               />
             ))}
-          </ScrollView>
+          </FilterChipRow>
         </View>
 
         <View style={styles.filterSection}>
           <ThemedText style={styles.filterLabel}>Visibility</ThemedText>
-          <View style={styles.filterRow}>
+          <FilterChipRow>
             <FilterChip
               label="All"
               active={visibilityFilter === 'all'}
@@ -233,7 +239,7 @@ export default function MemoryScreen() {
                 onPress={() => setVisibilityFilter(visibility)}
               />
             ))}
-          </View>
+          </FilterChipRow>
         </View>
 
         {isLoading ? (
@@ -344,7 +350,10 @@ export default function MemoryScreen() {
             />
 
             <ThemedText style={styles.fieldLabel}>Category</ThemedText>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.editorFilterRow}>
               {categories.map((category) => (
                 <FilterChip
                   key={category}
@@ -443,7 +452,13 @@ const styles = StyleSheet.create({
     color: '#6B6B6B',
     marginBottom: 8,
   },
-  filterRow: { gap: 8, paddingBottom: 4 },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    paddingBottom: 4,
+  },
   filterChip: {
     borderWidth: 1,
     borderColor: '#E4E4E4',
@@ -451,6 +466,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: '#FFFFFF',
+    flexShrink: 0,
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
   },
   filterChipActive: {
     backgroundColor: '#F4F4F4',
@@ -592,6 +610,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#6B6B6B',
   },
+  editorFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingBottom: 4,
+  },
   visibilityRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -604,6 +628,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     backgroundColor: '#FFFFFF',
+    flexShrink: 0,
+    alignSelf: 'flex-start',
   },
   visibilityOptionActive: {
     backgroundColor: '#F4F4F4',
