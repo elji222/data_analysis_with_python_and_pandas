@@ -129,7 +129,7 @@ export function useConversations(userId: string | undefined) {
         setActiveConversationId(result.activeConversationId);
       }
 
-      if (result.warning) {
+      if (result.warning && !result.warning.toLowerCase().includes('cloud sync')) {
         setStorageWarning(result.warning);
       }
     },
@@ -153,10 +153,10 @@ export function useConversations(userId: string | undefined) {
       setStorageWarning(null);
     } catch (error) {
       if (error instanceof ConversationCloudError) {
-        setStorageWarning(
-          'Could not sync chats to the cloud. Your messages are saved on this device for now.'
-        );
-      } else if (error instanceof ConversationStorageError || isStorageQuotaError(error)) {
+        return conversation.id;
+      }
+
+      if (error instanceof ConversationStorageError || isStorageQuotaError(error)) {
         setStorageWarning(
           error instanceof Error
             ? error.message
@@ -235,7 +235,7 @@ export function useConversations(userId: string | undefined) {
           const result = await syncConversationsFromCloud(userId);
           applyCloudSyncResult(result, { preserveActiveId: startFreshChat });
         } catch {
-          setStorageWarning('Cloud sync is unavailable right now. Showing chats saved on this device.');
+          // Cloud sync is optional; local chat still works.
         }
 
         if (startFreshChat) {
@@ -321,9 +321,6 @@ export function useConversations(userId: string | undefined) {
         setStorageWarning(null);
       } catch (error) {
         if (error instanceof ConversationCloudError) {
-          setStorageWarning(
-            'Could not sync chats to the cloud. Your messages are saved on this device for now.'
-          );
           return;
         }
 
@@ -352,7 +349,7 @@ export function useConversations(userId: string | undefined) {
       try {
         await persistSyncedActiveConversationId(userId, conversationId);
       } catch {
-        setStorageWarning('Could not sync your active chat selection to the cloud.');
+        // Cloud sync is optional; local selection still works.
       }
     },
     [userId]
@@ -380,10 +377,10 @@ export function useConversations(userId: string | undefined) {
         setStorageWarning(null);
       } catch (error) {
         if (error instanceof ConversationCloudError) {
-          setStorageWarning('Could not delete that chat from the cloud. It was removed on this device.');
-        } else {
-          throw error;
+          return;
         }
+
+        throw error;
       }
 
       if (activeConversationId === conversationId) {
@@ -428,9 +425,6 @@ export function useConversations(userId: string | undefined) {
         setStorageWarning(null);
       } catch (error) {
         if (error instanceof ConversationCloudError) {
-          setStorageWarning(
-            'Could not sync this chat to the cloud. It is still saved on this device.'
-          );
           return;
         }
 
