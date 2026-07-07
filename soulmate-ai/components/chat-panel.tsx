@@ -84,6 +84,7 @@ export function ChatPanel({
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -111,7 +112,7 @@ export function ChatPanel({
   const messages = conversation?.messages ?? [];
   const isStreaming = streamingText !== null;
   const smoothStreamingText = useSmoothStreamingText(streamingText, isStreaming);
-  const showThinking = isLoading && streamingText === null;
+  const showThinking = isLoading && streamingText === null && !isSearching;
   const isNewChat = isDefaultConversationTitle(conversation?.title ?? 'New chat');
   const showHeroEmpty =
     messages.length === 0 && !showThinking && !isStreaming && isNewChat;
@@ -242,6 +243,7 @@ export function ChatPanel({
     setAttachments([]);
     setError(null);
     setIsLoading(true);
+    setIsSearching(false);
     setStreamingText(null);
     cancelRecording();
     pendingScrollUserIndexRef.current = userMessageIndex;
@@ -252,6 +254,12 @@ export function ChatPanel({
         nextMessages,
         (partialText) => {
           setStreamingText(partialText);
+          if (partialText) {
+            setIsSearching(false);
+            setStatusMessage((current) =>
+              current === 'Searching the web…' ? null : current
+            );
+          }
         },
         {
           accessToken: session?.access_token,
@@ -260,6 +268,12 @@ export function ChatPanel({
           onSavedMemories: (savedMemories) => {
             if (savedMemories.length > 0) {
               setStatusMessage('Saved to Memory.');
+            }
+          },
+          onStatus: (status) => {
+            if (status === 'searching') {
+              setIsSearching(true);
+              setStatusMessage('Searching the web…');
             }
           },
         }
@@ -273,6 +287,8 @@ export function ChatPanel({
       };
 
       setStreamingText(null);
+      setIsSearching(false);
+      setStatusMessage(null);
       setIsLoading(false);
       await onUpdateMessages(conversation.id, [...nextMessages, assistantMessage]);
 
@@ -283,6 +299,8 @@ export function ChatPanel({
       }
     } catch (sendError) {
       setStreamingText(null);
+      setIsSearching(false);
+      setStatusMessage(null);
       setIsLoading(false);
       const message =
         sendError instanceof Error ? sendError.message : 'Something went wrong. Please try again.';

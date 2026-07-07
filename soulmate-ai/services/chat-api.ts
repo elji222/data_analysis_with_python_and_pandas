@@ -6,6 +6,7 @@ type StreamEvent = {
   text?: string;
   error?: string;
   savedMemories?: string[];
+  status?: 'searching';
 };
 
 export type StreamChatOptions = {
@@ -13,6 +14,7 @@ export type StreamChatOptions = {
   conversationId?: string;
   messageId?: string;
   onSavedMemories?: (savedMemories: string[]) => void;
+  onStatus?: (status: 'searching') => void;
 };
 
 export async function streamChatMessage(
@@ -94,6 +96,9 @@ export async function streamChatMessage(
         if (parsed.error) throw new Error(parsed.error);
         if (parsed.savedMemories?.length) {
           options.onSavedMemories?.(parsed.savedMemories);
+        }
+        if (parsed.status === 'searching') {
+          options.onStatus?.('searching');
         }
         if (parsed.text) {
           fullText += parsed.text;
