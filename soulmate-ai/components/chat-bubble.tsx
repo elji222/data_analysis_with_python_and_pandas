@@ -145,6 +145,51 @@ export function StreamingPlaceholder({ visible }: StreamingPlaceholderProps) {
   );
 }
 
+type SearchingPlaceholderProps = {
+  visible: boolean;
+};
+
+export function SearchingPlaceholder({ visible }: SearchingPlaceholderProps) {
+  const colorScheme = useColorScheme() ?? 'light';
+  const isDark = colorScheme === 'dark';
+  const drift = useSharedValue(0);
+
+  useEffect(() => {
+    drift.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2200 }),
+        withTiming(0, { duration: 2200 })
+      ),
+      -1,
+      false
+    );
+
+    return () => {
+      cancelAnimation(drift);
+    };
+  }, [drift]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: 0.42 + drift.value * 0.58,
+    transform: [{ translateX: -5 + drift.value * 10 }],
+  }));
+
+  if (!visible) return null;
+
+  return (
+    <View style={styles.assistantRow}>
+      <Animated.View style={animatedStyle}>
+        <ThemedText
+          lightColor={ChatTheme.sidebarMuted}
+          darkColor={ChatTheme.sidebarMutedDark}
+          style={styles.searchingText}>
+          Searching the web…
+        </ThemedText>
+      </Animated.View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   userRow: {
     width: '100%',
@@ -214,5 +259,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: ChatTheme.sidebarMuted,
     opacity: 0.7,
+  },
+  searchingText: {
+    fontSize: ChatTheme.messageFontSize,
+    lineHeight: ChatTheme.messageLineHeight,
+    paddingVertical: 8,
   },
 });
