@@ -50,6 +50,16 @@ export function ConversationSidebar({
           </View>
         </View>
 
+        <Pressable
+          style={({ pressed }) => [styles.newChatButton, pressed && styles.pressed]}
+          onPress={() => {
+            onNewConversation();
+            onClose?.();
+          }}>
+          <Ionicons name="create-outline" size={18} color={ChatTheme.sidebarText} />
+          <ThemedText style={styles.newChatLabel}>New Chat</ThemedText>
+        </Pressable>
+
         <View style={styles.navSection}>
           {SIDEBAR_NAV_ITEMS.map((item) => (
             <Pressable
