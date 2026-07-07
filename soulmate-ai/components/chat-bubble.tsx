@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
+  Easing,
+  type SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -149,43 +151,75 @@ type SearchingPlaceholderProps = {
   visible: boolean;
 };
 
+const SEARCHING_TEXT = 'Searching the web…';
+const FLAG_WAVE_CYCLE_MS = 2600;
+const FLAG_WAVE_PHASE_STEP = 0.62;
+const FLAG_WAVE_HEIGHT = 4.5;
+const FLAG_WAVE_ROTATION = 6;
+
+type FlagWaveLetterProps = {
+  letter: string;
+  index: number;
+  progress: SharedValue<number>;
+  lightColor: string;
+  darkColor: string;
+};
+
+function FlagWaveLetter({ letter, index, progress, lightColor, darkColor }: FlagWaveLetterProps) {
+  const animatedStyle = useAnimatedStyle(() => {
+    const theta = progress.value * Math.PI * 2 + index * FLAG_WAVE_PHASE_STEP;
+
+    return {
+      transform: [
+        { translateY: Math.sin(theta) * FLAG_WAVE_HEIGHT },
+        { rotateZ: `${Math.sin(theta + 0.75) * FLAG_WAVE_ROTATION}deg` },
+        { translateX: Math.sin(theta * 0.55 + 0.4) * 1.2 },
+      ],
+    };
+  });
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <ThemedText lightColor={lightColor} darkColor={darkColor} style={styles.searchingLetter}>
+        {letter === ' ' ? '\u00A0' : letter}
+      </ThemedText>
+    </Animated.View>
+  );
+}
+
 export function SearchingPlaceholder({ visible }: SearchingPlaceholderProps) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const isDark = colorScheme === 'dark';
-  const drift = useSharedValue(0);
+  const progress = useSharedValue(0);
+  const lightColor = ChatTheme.sidebarMuted;
+  const darkColor = ChatTheme.sidebarMutedDark;
 
   useEffect(() => {
-    drift.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 2200 }),
-        withTiming(0, { duration: 2200 })
-      ),
+    progress.value = withRepeat(
+      withTiming(1, { duration: FLAG_WAVE_CYCLE_MS, easing: Easing.linear }),
       -1,
       false
     );
 
     return () => {
-      cancelAnimation(drift);
+      cancelAnimation(progress);
     };
-  }, [drift]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: 0.42 + drift.value * 0.58,
-    transform: [{ translateX: -5 + drift.value * 10 }],
-  }));
+  }, [progress]);
 
   if (!visible) return null;
 
   return (
     <View style={styles.assistantRow}>
-      <Animated.View style={animatedStyle}>
-        <ThemedText
-          lightColor={ChatTheme.sidebarMuted}
-          darkColor={ChatTheme.sidebarMutedDark}
-          style={styles.searchingText}>
-          Searching the web…
-        </ThemedText>
-      </Animated.View>
+      <View style={styles.searchingWaveRow}>
+        {SEARCHING_TEXT.split('').map((letter, index) => (
+          <FlagWaveLetter
+            key={`${letter}-${index}`}
+            letter={letter}
+            index={index}
+            progress={progress}
+            lightColor={lightColor}
+            darkColor={darkColor}
+          />
+        ))}
+      </View>
     </View>
   );
 }
@@ -260,9 +294,14 @@ const styles = StyleSheet.create({
     backgroundColor: ChatTheme.sidebarMuted,
     opacity: 0.7,
   },
-  searchingText: {
+  searchingWaveRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    flexWrap: 'wrap',
+    paddingVertical: 8,
+  },
+  searchingLetter: {
     fontSize: ChatTheme.messageFontSize,
     lineHeight: ChatTheme.messageLineHeight,
-    paddingVertical: 8,
   },
 });
