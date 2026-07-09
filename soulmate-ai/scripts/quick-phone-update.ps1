@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-08-19"
+$CacheBust = "2026-08-20"
 
 $Files = @(
     "app/_layout.tsx",
@@ -13,6 +13,7 @@ $Files = @(
     "app/(tabs)/_layout.tsx",
     "app/(tabs)/chat.tsx",
     "app/(tabs)/memory.tsx",
+    "app/(tabs)/matches.tsx",
     "app/api/chat+api.ts",
     "app/api/memories+api.ts",
     "app.json",
@@ -28,6 +29,8 @@ $Files = @(
     "components/logout-button.tsx",
     "components/mobile-chat-header.tsx",
     "components/mobile-quick-suggestions.tsx",
+    "components/match-card.tsx",
+    "components/match-profile-modal.tsx",
     "components/production-site-warning.tsx",
     "components/stale-bundle-gate.tsx",
     "components/ui/icon-symbol.tsx",
@@ -36,8 +39,10 @@ $Files = @(
     "constants/chat-theme.ts",
     "constants/ai.ts",
     "contexts/auth-context.tsx",
+    "contexts/chat-intent-context.tsx",
     "hooks/use-mobile-chat-layout.ts",
     "hooks/use-conversations.ts",
+    "hooks/use-matches.ts",
     "hooks/use-smooth-streaming-text.ts",
     "hooks/use-online-status.ts",
     "hooks/use-user-memories.ts",
@@ -61,6 +66,9 @@ $Files = @(
     "lib/confirm.ts",
     "lib/conversations/repository.ts",
     "lib/conversations/sync.ts",
+    "lib/matches/match-labels.ts",
+    "lib/matches/match-prompts.ts",
+    "lib/matches/mock-matches.ts",
     "lib/memory/categories.ts",
     "lib/memory/extract.ts",
     "lib/memory/intent.ts",
@@ -78,6 +86,7 @@ $Files = @(
     "services/memory-api.ts",
     "supabase/migrations/20260706143000_memory_categories_visibility.sql",
     "types/memory.ts",
+    "types/match.ts",
     "eas.json",
     ".npmrc",
     "metro.config.js",
