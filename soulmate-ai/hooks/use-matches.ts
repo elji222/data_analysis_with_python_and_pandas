@@ -1,72 +1,101 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { fetchMatches } from '@/services/matches-api';
 import type { MatchRecommendation, MatchStatus } from '@/types/match';
 import { MATCH_SECTIONS } from '@/types/match';
 
-const STORAGE_PREFIX = 'soulmate-matches:v2:';
+const STATUS_STORAGE_PREFIX = 'soulmate-match-status:v1:';
 const LEGACY_STORAGE_PREFIX = 'soulmate-matches:';
+const LEGACY_V2_STORAGE_PREFIX = 'soulmate-matches:v2:';
 
-function storageKey(userId: string) {
-  return `${STORAGE_PREFIX}${userId}`;
+function statusStorageKey(userId: string) {
+  return `${STATUS_STORAGE_PREFIX}${userId}`;
 }
 
 function legacyStorageKey(userId: string) {
   return `${LEGACY_STORAGE_PREFIX}${userId}`;
 }
 
-function isMatchRecommendation(value: unknown): value is MatchRecommendation {
-  if (!value || typeof value !== 'object') return false;
-  const record = value as Record<string, unknown>;
-  return (
-    typeof record.id === 'string' &&
-    typeof record.name === 'string' &&
-    typeof record.compatibilitySummary === 'string' &&
-    Array.isArray(record.reasons) &&
-    typeof record.matchStrength === 'string' &&
-    typeof record.status === 'string'
-  );
+function legacyV2StorageKey(userId: string) {
+  return `${LEGACY_V2_STORAGE_PREFIX}${userId}`;
 }
 
-function parseStoredMatches(raw: string | null): MatchRecommendation[] {
-  if (!raw) return [];
+type StoredMatchStatuses = Record<string, MatchStatus>;
+
+function parseStoredStatuses(raw: string | null): StoredMatchStatuses {
+  if (!raw) return {};
 
   try {
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
 
-    return parsed.filter(isMatchRecommendation);
+    const statuses: StoredMatchStatuses = {};
+    for (const [matchId, status] of Object.entries(parsed)) {
+      if (
+        status === 'new' ||
+        status === 'saved' ||
+        status === 'waiting' ||
+        status === 'active' ||
+        status === 'passed'
+      ) {
+        statuses[matchId] = status;
+      }
+    }
+
+    return statuses;
   } catch {
-    return [];
+    return {};
   }
 }
 
-export function useMatches(userId: string | undefined) {
+function applyStoredStatuses(
+  matches: MatchRecommendation[],
+  stored: StoredMatchStatuses
+): MatchRecommendation[] {
+  return matches.map((match) => ({
+    ...match,
+    status: stored[match.id] ?? match.status,
+  }));
+}
+
+export function useMatches(userId: string | undefined, accessToken: string | undefined) {
   const [matches, setMatches] = useState<MatchRecommendation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      if (!userId) {
+      if (!userId || !accessToken) {
         setMatches([]);
+        setError(null);
         setIsLoading(false);
         return;
       }
 
       setIsLoading(true);
+      setError(null);
 
       try {
-        await AsyncStorage.removeItem(legacyStorageKey(userId));
+        await AsyncStorage.multiRemove([legacyStorageKey(userId), legacyV2StorageKey(userId)]);
 
-        const raw = await AsyncStorage.getItem(storageKey(userId));
+        const [remoteMatches, statusRaw] = await Promise.all([
+          fetchMatches(accessToken),
+          AsyncStorage.getItem(statusStorageKey(userId)),
+        ]);
+
+        const statuses = parseStoredStatuses(statusRaw);
         if (!cancelled) {
-          setMatches(parseStoredMatches(raw));
+          setMatches(applyStoredStatuses(remoteMatches, statuses));
         }
-      } catch {
+      } catch (loadError) {
         if (!cancelled) {
           setMatches([]);
+          setError(
+            loadError instanceof Error ? loadError.message : 'Could not load matches.'
+          );
         }
       } finally {
         if (!cancelled) {
@@ -80,12 +109,18 @@ export function useMatches(userId: string | undefined) {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [accessToken, userId]);
 
-  const persistMatches = useCallback(
+  const persistStatuses = useCallback(
     async (nextMatches: MatchRecommendation[]) => {
       if (!userId) return;
-      await AsyncStorage.setItem(storageKey(userId), JSON.stringify(nextMatches));
+
+      const statuses: StoredMatchStatuses = {};
+      for (const match of nextMatches) {
+        statuses[match.id] = match.status;
+      }
+
+      await AsyncStorage.setItem(statusStorageKey(userId), JSON.stringify(statuses));
     },
     [userId]
   );
@@ -96,11 +131,11 @@ export function useMatches(userId: string | undefined) {
         const next = previous.map((match) =>
           match.id === matchId ? { ...match, status } : match
         );
-        void persistMatches(next);
+        void persistStatuses(next);
         return next;
       });
     },
-    [persistMatches]
+    [persistStatuses]
   );
 
   const visibleMatches = useMemo(
@@ -124,6 +159,7 @@ export function useMatches(userId: string | undefined) {
     sections,
     hasMatches,
     isLoading,
+    error,
     saveMatch: (matchId: string) => updateMatchStatus(matchId, 'saved'),
     passMatch: (matchId: string) => updateMatchStatus(matchId, 'passed'),
     requestIntro: (matchId: string) => updateMatchStatus(matchId, 'waiting'),

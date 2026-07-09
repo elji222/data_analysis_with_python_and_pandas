@@ -24,10 +24,12 @@ import type { MatchRecommendation } from '@/types/match';
 
 export default function MatchesScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { session, user } = useAuth();
+  const accessToken = session?.access_token;
   const { setChatIntent } = useChatIntent();
-  const { sections, hasMatches, isLoading, saveMatch, passMatch, requestIntro } = useMatches(
-    user?.id
+  const { sections, hasMatches, isLoading, error, saveMatch, passMatch, requestIntro } = useMatches(
+    user?.id,
+    accessToken
   );
   const [profileMatch, setProfileMatch] = useState<MatchRecommendation | null>(null);
 
@@ -95,14 +97,19 @@ export default function MatchesScreen() {
         <View style={styles.introBlock}>
           <Ionicons name="heart-outline" size={18} color={ChatTheme.accent} />
           <ThemedText style={styles.introText}>
-            Real introductions from people on Soulmate AI will appear here when your AI finds a
-            thoughtful fit. No fake profiles and no endless scrolling.
+            Every member who has signed in to Soulmate AI can appear here. These are real people,
+            not placeholders — your AI will add deeper recommendations over time.
           </ThemedText>
         </View>
 
         {isLoading ? (
           <View style={styles.centered}>
             <ActivityIndicator color={ChatTheme.accent} size="large" />
+          </View>
+        ) : error ? (
+          <View style={styles.emptyState}>
+            <ThemedText style={styles.emptyTitle}>Could not load matches</ThemedText>
+            <ThemedText style={styles.emptyBody}>{error}</ThemedText>
           </View>
         ) : !hasMatches ? (
           <View style={styles.emptyState}>
@@ -111,8 +118,8 @@ export default function MatchesScreen() {
             </View>
             <ThemedText style={styles.emptyTitle}>No introductions yet</ThemedText>
             <ThemedText style={styles.emptyBody}>
-              Your AI is still learning about you. When real members are a good fit, thoughtful
-              introductions will appear here. There are no placeholder people in this list.
+              No other members have signed in yet. When someone else joins Soulmate AI, they will
+              show up here automatically.
             </ThemedText>
           </View>
         ) : (
