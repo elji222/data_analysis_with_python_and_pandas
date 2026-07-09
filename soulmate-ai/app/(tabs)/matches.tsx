@@ -95,8 +95,8 @@ export default function MatchesScreen() {
         <View style={styles.introBlock}>
           <Ionicons name="heart-outline" size={18} color={ChatTheme.accent} />
           <ThemedText style={styles.introText}>
-            Thoughtful introductions curated by your AI — no endless scrolling, just people worth
-            meeting.
+            Real introductions from people on Soulmate AI will appear here when your AI finds a
+            thoughtful fit. No fake profiles and no endless scrolling.
           </ThemedText>
         </View>
 
@@ -111,8 +111,8 @@ export default function MatchesScreen() {
             </View>
             <ThemedText style={styles.emptyTitle}>No introductions yet</ThemedText>
             <ThemedText style={styles.emptyBody}>
-              Your AI is still learning about you. As your profile becomes richer, thoughtful
-              introductions will appear here.
+              Your AI is still learning about you. When real members are a good fit, thoughtful
+              introductions will appear here. There are no placeholder people in this list.
             </ThemedText>
           </View>
         ) : (

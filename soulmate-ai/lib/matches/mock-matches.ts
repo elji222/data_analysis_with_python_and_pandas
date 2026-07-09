@@ -1,5 +1,6 @@
 import type { MatchRecommendation } from '@/types/match';
 
+// Dev-only sample data for UI previews and future tests. Never shown in production UI.
 export const MOCK_MATCHES: MatchRecommendation[] = [
   {
     id: 'match-1',
