@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$DeployScriptVersion = "2026-07-11i"
+$DeployScriptVersion = "2026-07-11j"
 
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
@@ -247,16 +247,24 @@ function Sync-LatestSource {
 }
 
 function Invoke-ExpoWebExport {
-    param([string]$OutputDir)
+    param(
+        [string]$OutputDir,
+        [string]$WorkingDir
+    )
 
     $previousPreference = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
 
     try {
-        $lines = & npx expo export --platform web --output-dir $OutputDir --clear 2>&1 | ForEach-Object { "$_" }
-        return @{
-            ExitCode = $LASTEXITCODE
-            Output = ($lines -join "`n").Trim()
+        Push-Location $WorkingDir
+        try {
+            $lines = & npx expo export --platform web --output-dir $OutputDir --clear 2>&1 | ForEach-Object { "$_" }
+            return @{
+                ExitCode = $LASTEXITCODE
+                Output = ($lines -join "`n").Trim()
+            }
+        } finally {
+            Pop-Location
         }
     } finally {
         $ErrorActionPreference = $previousPreference
@@ -671,7 +679,7 @@ try {
 
     Clear-DistFolder -DistPath $exportDir
 
-    $exportResult = Invoke-ExpoWebExport -OutputDir $exportDir
+    $exportResult = Invoke-ExpoWebExport -OutputDir $exportDir -WorkingDir $shortDrive
     if ($exportResult.Output) {
         Write-Host $exportResult.Output
         Write-Host ""
@@ -680,11 +688,19 @@ try {
     $bundle = Get-ChildItem -Path $exportDir -Recurse -Filter "entry*.js" -ErrorAction SilentlyContinue |
         Select-Object -First 1
     if (-not $bundle) {
-        throw @"
-Web export failed. No bundle was created.
+        $exportDetails = if ($exportResult.Output) {
+            "`n`nExport output:`n$($exportResult.Output)"
+        } else {
+            ""
+        }
 
-Move the project to a shorter folder and try again, for example:
-  C:\soulmate-ai
+        throw @"
+Web export failed. No bundle was created.$exportDetails
+
+Your project folder is very deep inside Downloads. Either:
+  1. Run GET-LATEST.cmd and DEPLOY.cmd again (this script now exports from drive S:)
+  2. Or move the whole soulmate-ai folder to a short path, for example:
+       C:\soulmate-ai
 "@
     }
 
