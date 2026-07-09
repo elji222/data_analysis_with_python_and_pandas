@@ -9,6 +9,7 @@ export type MatchProfile = {
   interests?: string[];
   visibility?: MatchVisibility;
   lookingFor?: string;
+  avatarUrl?: string;
 };
 
 export type MatchRecommendation = {

@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-08-21"
+$CacheBust = "2026-08-22"
 
 $Files = @(
     "app/_layout.tsx",
@@ -16,6 +16,7 @@ $Files = @(
     "app/(tabs)/matches.tsx",
     "app/api/chat+api.ts",
     "app/api/memories+api.ts",
+    "app/api/matches+api.ts",
     "app.json",
     "components/attach-popover.tsx",
     "components/app-error-boundary.tsx",
@@ -69,6 +70,8 @@ $Files = @(
     "lib/matches/match-labels.ts",
     "lib/matches/match-prompts.ts",
     "lib/matches/mock-matches.ts",
+    "lib/matches/profile-repository.ts",
+    "lib/matches/build-match-card.ts",
     "lib/memory/categories.ts",
     "lib/memory/extract.ts",
     "lib/memory/intent.ts",
@@ -84,9 +87,12 @@ $Files = @(
     "services/chat-api.ts",
     "services/conversation-cloud.ts",
     "services/memory-api.ts",
+    "services/matches-api.ts",
     "supabase/migrations/20260706143000_memory_categories_visibility.sql",
+    "supabase/migrations/20260709120000_user_profiles.sql",
     "types/memory.ts",
     "types/match.ts",
+    "types/user-profile.ts",
     "eas.json",
     ".npmrc",
     "metro.config.js",
