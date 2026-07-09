@@ -9,6 +9,7 @@ import { StaleBundleGate } from '@/components/stale-bundle-gate';
 import { ThemedText } from '@/components/themed-text';
 import { UI_VERSION } from '@/constants/chat-theme';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
+import { ChatIntentProvider } from '@/contexts/chat-intent-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { hasAuthCallbackInUrl } from '@/lib/auth';
 import { normalizeStaleBuildQuery } from '@/lib/build-version';
@@ -88,7 +89,9 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RootNavigator />
+      <ChatIntentProvider>
+        <RootNavigator />
+      </ChatIntentProvider>
     </AuthProvider>
   );
 }

@@ -37,6 +37,14 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="brain.head.profile" color={color} />
           ),
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="matches"
+        options={{
+          title: 'Matches',
+          href: null,
         }}
       />
       <Tabs.Screen
