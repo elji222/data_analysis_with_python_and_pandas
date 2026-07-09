@@ -67,6 +67,8 @@ type ChatPanelProps = {
   showSidebarToggle?: boolean;
   storageWarning?: string | null;
   userEmail?: string | null;
+  initialPrompt?: string | null;
+  onInitialPromptConsumed?: () => void;
 };
 
 export function ChatPanel({
@@ -77,6 +79,8 @@ export function ChatPanel({
   showSidebarToggle = false,
   storageWarning = null,
   userEmail,
+  initialPrompt = null,
+  onInitialPromptConsumed,
 }: ChatPanelProps) {
   const { session } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
@@ -312,6 +316,20 @@ export function ChatPanel({
   function handleSend() {
     void sendMessage(input, attachments);
   }
+
+  const consumedPromptKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const prompt = initialPrompt?.trim();
+    if (!prompt || !conversation || messages.length > 0 || isLoading) return;
+
+    const key = `${conversation.id}:${prompt}`;
+    if (consumedPromptKeyRef.current === key) return;
+
+    consumedPromptKeyRef.current = key;
+    void sendMessage(prompt, []);
+    onInitialPromptConsumed?.();
+  }, [conversation, initialPrompt, isLoading, messages.length, onInitialPromptConsumed]);
 
   const visibleStreamingText = getVisibleStreamingText(streamingText, smoothStreamingText);
 
