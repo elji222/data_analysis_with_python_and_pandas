@@ -52,6 +52,8 @@ $Files = @(
     "lib/api-origin.ts",
     "lib/anthropic.ts",
     "lib/attachments.ts",
+    "lib/compress-image.ts",
+    "lib/upload-errors.ts",
     "lib/auth.ts",
     "lib/current-date.ts",
     "lib/agent/run-chat-agent.ts",

@@ -1,5 +1,6 @@
 import { buildChatApiMessages } from '@/lib/build-chat-api-messages';
 import { getApiUrl } from '@/lib/api-origin';
+import { formatChatError } from '@/lib/upload-errors';
 import type { ChatApiMessage, ChatMessage } from '@/types/chat';
 
 type StreamEvent = {
@@ -42,6 +43,8 @@ export async function streamChatMessage(
       conversationId: options.conversationId,
       messageId: latestUserMessage?.id ?? options.messageId,
     }),
+  }).catch((error) => {
+    throw new Error(formatChatError(error));
   });
 
   const contentType = response.headers.get('content-type') ?? '';
