@@ -37,6 +37,7 @@ import { useVoiceInput } from '@/hooks/use-voice-input';
 import {
   getWebVoiceUnsupportedReason,
 } from '@/lib/browser-capabilities';
+import { formatChatError, formatUploadError } from '@/lib/upload-errors';
 import {
   canAddImageAttachment,
   pickPhotosAndFiles,
@@ -177,9 +178,7 @@ export function ChatPanel({
       setAttachments((previous) => [...previous, attachment!]);
       setStatusMessage(null);
     } catch (attachError) {
-      const message =
-        attachError instanceof Error ? attachError.message : 'Could not attach that file.';
-      setError(message);
+      setError(formatUploadError(attachError));
     }
   }
 
@@ -307,9 +306,7 @@ export function ChatPanel({
       setIsSearching(false);
       setStatusMessage(null);
       setIsLoading(false);
-      const message =
-        sendError instanceof Error ? sendError.message : 'Something went wrong. Please try again.';
-      setError(message);
+      setError(formatChatError(sendError));
     }
   }
 

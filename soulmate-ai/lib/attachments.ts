@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';
 
 import { isMobileWebBrowser } from '@/lib/browser-capabilities';
+import { compressImageForUpload } from '@/lib/compress-image';
 import type { ChatAttachment } from '@/types/chat';
 
 const MAX_TEXT_FILE_CHARS = 8000;
@@ -50,19 +51,24 @@ async function readTextFromUri(uri: string): Promise<string> {
   return text.slice(0, MAX_TEXT_FILE_CHARS);
 }
 
-function buildImageAttachment(params: {
+async function buildImageAttachment(params: {
   uri: string;
   name: string;
   mimeType: string;
   base64?: string | null;
-}): ChatAttachment {
+}): Promise<ChatAttachment> {
+  const compressed = await compressImageForUpload(params.uri, {
+    mimeType: params.mimeType,
+    existingBase64: params.base64 ?? undefined,
+  });
+
   return {
     id: createAttachmentId(),
     name: params.name,
-    mimeType: params.mimeType,
+    mimeType: compressed.mimeType,
     kind: 'image',
-    uri: params.uri,
-    base64: params.base64 ?? undefined,
+    uri: compressed.uri,
+    base64: compressed.base64,
   };
 }
 
@@ -180,7 +186,7 @@ function pickFileViaWebInput(): Promise<ChatAttachment | null> {
       if (isImage) {
         const base64 = await readWebFileBase64(file);
         resolve(
-          buildImageAttachment({
+          await buildImageAttachment({
             uri: objectUrl,
             name: file.name,
             mimeType,
