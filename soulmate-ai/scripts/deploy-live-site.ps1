@@ -624,6 +624,28 @@ Your EXPO_PUBLIC_SUPABASE_URL line should already be there.
 
     Write-Host "Syncing production env: EXPO_PUBLIC_SUPABASE_ANON_KEY"
     Set-EasProductionVariable -Name "EXPO_PUBLIC_SUPABASE_ANON_KEY" -Value $supabaseKey -Visibility "sensitive"
+
+    $serviceRoleKey = $EnvVars['SUPABASE_SERVICE_ROLE_KEY']
+    if ($serviceRoleKey -and $serviceRoleKey -notmatch 'your-service-role-key-here') {
+        Write-Host "Syncing production env: SUPABASE_SERVICE_ROLE_KEY"
+        Set-EasProductionVariable -Name "SUPABASE_SERVICE_ROLE_KEY" -Value $serviceRoleKey -Visibility "secret"
+    } else {
+        Write-Host ""
+        Write-Host "Skipping SUPABASE_SERVICE_ROLE_KEY (missing or placeholder in .env)."
+        Write-Host "Invite-only login requires this key on the server."
+        Write-Host ""
+    }
+
+    $adminEmails = $EnvVars['ADMIN_EMAILS']
+    if ($adminEmails -and $adminEmails -notmatch 'you@example.com') {
+        Write-Host "Syncing production env: ADMIN_EMAILS"
+        Set-EasProductionVariable -Name "ADMIN_EMAILS" -Value $adminEmails -Visibility "plaintext"
+    } else {
+        Write-Host ""
+        Write-Host "Skipping ADMIN_EMAILS (missing or placeholder in .env)."
+        Write-Host "Set ADMIN_EMAILS to your Google account email for unlimited admin invites."
+        Write-Host ""
+    }
 }
 
 Write-Host ""
