@@ -11,8 +11,7 @@ import {
 import { filterMemoriesForAiPrompt, rankMemoriesForQuery } from '@/lib/memory/search';
 import {
   createSupabaseServerClient,
-  getAuthenticatedUserId,
-  getBearerToken,
+  requireUserAccess,
 } from '@/lib/supabase-server';
 import type { ApiContentBlock, ApiTextBlock, ChatApiMessage } from '@/types/chat';
 
@@ -96,7 +95,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const [body, userId] = await Promise.all([request.json(), getAuthenticatedUserId(request)]);
+    const auth = await requireUserAccess(request);
+    if ('error' in auth) return auth.error;
+
+    const body = await request.json();
+    const userId = auth.userId;
+    const accessToken = auth.token;
     const messages = body.messages as ChatApiMessage[] | undefined;
     const conversationId = typeof body.conversationId === 'string' ? body.conversationId : null;
     const messageId = typeof body.messageId === 'string' ? body.messageId : null;
@@ -106,7 +110,6 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Please send at least one message.' }, { status: 400 });
     }
 
-    const accessToken = getBearerToken(request);
     const { systemPrompt, memoryEnabled } = await resolveSystemPrompt(
       userId,
       accessToken,

@@ -13,20 +13,18 @@ import {
 } from '@/lib/memory/repository';
 import {
   createSupabaseServerClient,
-  getAuthenticatedUserId,
-  getBearerToken,
+  requireUserAccess,
 } from '@/lib/supabase-server';
 
 async function getClient(request: Request) {
-  const userId = await getAuthenticatedUserId(request);
-  const token = getBearerToken(request);
-  if (!userId || !token) {
-    return { error: Response.json({ error: 'Unauthorized' }, { status: 401 }) };
+  const auth = await requireUserAccess(request);
+  if ('error' in auth) {
+    return { error: auth.error };
   }
 
   return {
-    userId,
-    client: createSupabaseServerClient(token),
+    userId: auth.userId,
+    client: auth.client,
   };
 }
 

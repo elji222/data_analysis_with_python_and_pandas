@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-08-22"
+$CacheBust = "2026-07-24"
 
 $Files = @(
     "app/_layout.tsx",
@@ -14,6 +14,8 @@ $Files = @(
     "app/(tabs)/chat.tsx",
     "app/(tabs)/memory.tsx",
     "app/(tabs)/matches.tsx",
+    "app/(tabs)/invites.tsx",
+    "app/api/access+api.ts",
     "app/api/chat+api.ts",
     "app/api/memories+api.ts",
     "app/api/matches+api.ts",
@@ -43,12 +45,17 @@ $Files = @(
     "contexts/chat-intent-context.tsx",
     "hooks/use-mobile-chat-layout.ts",
     "hooks/use-conversations.ts",
+    "hooks/use-invites.ts",
     "hooks/use-matches.ts",
     "hooks/use-smooth-streaming-text.ts",
     "hooks/use-online-status.ts",
     "hooks/use-user-memories.ts",
     "hooks/use-voice-input.ts",
     "hooks/use-wide-layout.ts",
+    "lib/access/admin.ts",
+    "lib/access/invite-code.ts",
+    "lib/access/pending-invite.ts",
+    "lib/access/repository.ts",
     "lib/api-origin.ts",
     "lib/anthropic.ts",
     "lib/attachments.ts",
@@ -84,12 +91,15 @@ $Files = @(
     "lib/recover-stale-web-bundle.ts",
     "lib/streaming-text.ts",
     "lib/supabase-server.ts",
+    "services/access-api.ts",
     "services/chat-api.ts",
     "services/conversation-cloud.ts",
     "services/memory-api.ts",
     "services/matches-api.ts",
     "supabase/migrations/20260706143000_memory_categories_visibility.sql",
+    "supabase/migrations/20260710120000_invite_access.sql",
     "supabase/migrations/20260709120000_user_profiles.sql",
+    "types/access.ts",
     "types/memory.ts",
     "types/match.ts",
     "types/user-profile.ts",

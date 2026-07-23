@@ -25,7 +25,7 @@ export const unstable_settings = {
 
 function RootNavigator() {
   const colorScheme = useColorScheme();
-  const { session, isLoading } = useAuth();
+  const { session, isLoading, isAccessLoading, hasAccess, accessError } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -42,7 +42,7 @@ function RootNavigator() {
   }, []);
 
   useEffect(() => {
-    if (isLoading || hasAuthCallbackInUrl()) return;
+    if (isLoading || isAccessLoading || hasAuthCallbackInUrl()) return;
 
     const inAuthGroup = segments[0] === '(auth)';
 
@@ -51,15 +51,20 @@ function RootNavigator() {
       return;
     }
 
-    if (session && inAuthGroup) {
+    if (session && hasAccess && inAuthGroup) {
       router.replace('/chat');
       return;
     }
 
-    if (session && segments[0] === '(tabs)' && segments[1] === 'index') {
+    if (session && !hasAccess && !inAuthGroup) {
+      router.replace(accessError ? '/login' : '/login');
+      return;
+    }
+
+    if (session && hasAccess && segments[0] === '(tabs)' && segments[1] === 'index') {
       router.replace('/chat');
     }
-  }, [session, isLoading, segments, router]);
+  }, [session, isLoading, isAccessLoading, hasAccess, accessError, segments, router]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -71,11 +76,15 @@ function RootNavigator() {
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           </Stack>
 
-          {isLoading ? (
+          {isLoading || isAccessLoading ? (
             <View style={styles.bootstrapOverlay}>
               <ActivityIndicator color="#7B61FF" size="large" />
               <ThemedText style={styles.bootstrapText}>
-                {hasAuthCallbackInUrl() ? 'Finishing sign-in...' : 'Loading Soulmate AI...'}
+                {hasAuthCallbackInUrl()
+                  ? 'Finishing sign-in...'
+                  : isAccessLoading
+                    ? 'Checking your invite...'
+                    : 'Loading Soulmate AI...'}
               </ThemedText>
             </View>
           ) : null}

@@ -1,7 +1,7 @@
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { InternetStatusBanner } from '@/components/internet-status-banner';
@@ -9,21 +9,31 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/contexts/auth-context';
 import { PRODUCTION_CHAT_URL } from '@/constants/app-urls';
+import { readInviteCodeFromUrl, savePendingInviteCode } from '@/lib/access/pending-invite';
+import { normalizeInviteCode } from '@/lib/access/invite-code';
 import { getAuthRedirectUri, processAuthCallbackUrl, signInWithGoogle } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { session, isLoading: authLoading } = useAuth();
+  const { session, isLoading: authLoading, hasAccess, accessError } = useAuth();
+  const [inviteCode, setInviteCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const isConfigured = isSupabaseConfigured();
 
   useEffect(() => {
-    if (authLoading || !session) return;
+    const urlInvite = readInviteCodeFromUrl();
+    if (urlInvite) {
+      setInviteCode(urlInvite);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (authLoading || !session || !hasAccess) return;
     router.replace('/chat');
-  }, [authLoading, session, router]);
+  }, [authLoading, session, hasAccess, router]);
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -74,6 +84,7 @@ export default function LoginScreen() {
       setIsLoading(true);
       setError(null);
       setStatusMessage('Opening Google sign-in in your browser...');
+      await savePendingInviteCode(normalizeInviteCode(inviteCode));
       await signInWithGoogle();
       setStatusMessage(null);
     } catch (signInError) {
@@ -98,8 +109,24 @@ export default function LoginScreen() {
           Your AI companion
         </ThemedText>
         <ThemedText style={styles.description}>
-          Create your account with Google to sync chats and memories across your phone and laptop.
+          Soulmate AI is invite-only. Enter your invite code, then continue with Google.
         </ThemedText>
+
+        <View style={styles.inviteFieldWrap}>
+          <ThemedText style={styles.inviteLabel}>Invite code</ThemedText>
+          <TextInput
+            value={inviteCode}
+            onChangeText={setInviteCode}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            placeholder="ABCD-1234"
+            placeholderTextColor="#9A9A9A"
+            style={styles.inviteInput}
+          />
+          <ThemedText style={styles.inviteHint}>
+            Already a member? You can leave this blank and sign in.
+          </ThemedText>
+        </View>
 
         <InternetStatusBanner variant="login" />
 
@@ -143,7 +170,9 @@ export default function LoginScreen() {
           </ThemedText>
         ) : null}
 
-        {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+        {error || accessError ? (
+          <ThemedText style={styles.errorText}>{error ?? accessError}</ThemedText>
+        ) : null}
       </SafeAreaView>
     </ThemedView>
   );
@@ -172,6 +201,32 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     maxWidth: 320,
     marginBottom: 8,
+  },
+  inviteFieldWrap: {
+    width: '100%',
+    maxWidth: 320,
+    gap: 8,
+  },
+  inviteLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1028',
+  },
+  inviteInput: {
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#1A1028',
+    backgroundColor: '#FFFFFF',
+    letterSpacing: 1,
+  },
+  inviteHint: {
+    fontSize: 12,
+    opacity: 0.6,
+    textAlign: 'center',
   },
   phoneHint: {
     textAlign: 'center',
