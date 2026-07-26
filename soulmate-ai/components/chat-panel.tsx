@@ -121,6 +121,8 @@ export function ChatPanel({
     confirmRecording,
   } = useVoiceInput();
 
+  const messages = conversation?.messages ?? [];
+
   const showSubscriptionBanner =
     billingStatus && !billingStatus.hasActiveSubscription && !billingStatus.isComplimentary;
 
