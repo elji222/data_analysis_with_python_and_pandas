@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$DeployScriptVersion = "2026-07-26m"
+$DeployScriptVersion = "2026-07-26n"
 
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
@@ -494,6 +494,24 @@ function Test-AnthropicKey {
     return $Value.StartsWith('sk-ant-')
 }
 
+function Test-StripeSecretKey {
+    param([string]$Value)
+
+    if (-not $Value) {
+        return $false
+    }
+
+    if ($Value -match 'your-key-here') {
+        return $false
+    }
+
+    if ($Value.StartsWith('sk-ant-')) {
+        return $false
+    }
+
+    return $Value -match '^(sk|rk)_(test|live)_'
+}
+
 function Get-EasProjectId {
     $appJsonPath = Join-Path $Root "app.json"
     $content = Get-Content $appJsonPath -Raw
@@ -661,9 +679,19 @@ Your EXPO_PUBLIC_SUPABASE_URL line should already be there.
     }
 
     $stripeSecretKey = $EnvVars['STRIPE_SECRET_KEY']
-    if ($stripeSecretKey -and $stripeSecretKey -notmatch 'your-key-here') {
+    if (Test-StripeSecretKey $stripeSecretKey) {
         Write-Host "Syncing production env: STRIPE_SECRET_KEY"
         Set-EasProductionVariable -Name "STRIPE_SECRET_KEY" -Value $stripeSecretKey -Visibility "sensitive"
+    } elseif ($stripeSecretKey -and $stripeSecretKey.StartsWith('sk-ant-')) {
+        throw @"
+STRIPE_SECRET_KEY in .env is set to your Anthropic key (sk-ant-...).
+
+Open .env and set STRIPE_SECRET_KEY to your Stripe secret key instead:
+  STRIPE_SECRET_KEY=sk_test_...
+Get it from https://dashboard.stripe.com/apikeys
+
+Keep ANTHROPIC_API_KEY on its own line for chat AI.
+"@
     } else {
         Write-Host ""
         Write-Host "Skipping STRIPE_SECRET_KEY (missing or placeholder in .env)."

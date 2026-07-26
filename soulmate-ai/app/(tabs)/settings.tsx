@@ -144,8 +144,9 @@ export default function SettingsScreen() {
                   </ThemedText>
                 ) : !status?.stripeConfigured ? (
                   <ThemedText style={styles.helperText}>
-                    Stripe is not configured on the live server yet. Run DEPLOY.cmd after saving your
-                    Stripe keys in .env.
+                    Stripe is not configured on the live server yet. Check that STRIPE_SECRET_KEY in .env
+                    is your Stripe key (sk_test_... or sk_live_...), not your Anthropic key, then run
+                    DEPLOY.cmd again.
                   </ThemedText>
                 ) : isActive ? (
                   <Pressable
