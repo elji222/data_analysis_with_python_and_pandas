@@ -63,7 +63,8 @@ function Clear-NpmCaches {
 function Test-DependenciesInstalled {
     return (
         (Test-Path (Join-Path $Root "node_modules\expo")) -and
-        (Test-Path (Join-Path $Root "node_modules\expo-router"))
+        (Test-Path (Join-Path $Root "node_modules\expo-router")) -and
+        (Test-Path (Join-Path $Root "node_modules\stripe"))
     )
 }
 
@@ -111,7 +112,7 @@ function Install-ProjectDependencies {
         return
     }
 
-    Write-Host "Installing npm packages (first time only, may take a few minutes)..."
+    Write-Host "Installing npm packages (first time or missing Stripe, may take a few minutes)..."
 
     $attempts = @(
         { npm install --no-fund --no-audit --legacy-peer-deps },
