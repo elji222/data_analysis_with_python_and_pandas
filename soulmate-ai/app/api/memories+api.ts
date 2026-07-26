@@ -13,11 +13,11 @@ import {
 } from '@/lib/memory/repository';
 import {
   createSupabaseServerClient,
-  requireUserAccess,
+  requirePaidAccess,
 } from '@/lib/supabase-server';
 
 async function getClient(request: Request) {
-  const auth = await requireUserAccess(request);
+  const auth = await requirePaidAccess(request);
   if ('error' in auth) {
     return { error: auth.error };
   }

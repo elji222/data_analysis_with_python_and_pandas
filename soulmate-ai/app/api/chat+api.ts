@@ -11,7 +11,7 @@ import {
 import { filterMemoriesForAiPrompt, rankMemoriesForQuery } from '@/lib/memory/search';
 import {
   createSupabaseServerClient,
-  requireUserAccess,
+  requirePaidAccess,
 } from '@/lib/supabase-server';
 import type { ApiContentBlock, ApiTextBlock, ChatApiMessage } from '@/types/chat';
 
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const auth = await requireUserAccess(request);
+    const auth = await requirePaidAccess(request);
     if ('error' in auth) return auth.error;
 
     const body = await request.json();

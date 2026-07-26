@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 
 import { getUserAccess } from '@/lib/access/repository';
+import { buildBillingStatus } from '@/lib/billing/repository';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey =
@@ -126,5 +127,27 @@ export async function requireUserAccess(
     ...auth,
     serviceClient,
   };
+}
+
+export async function requirePaidAccess(
+  request: Request
+): Promise<AuthedAccessContext | { error: Response }> {
+  const auth = await requireUserAccess(request);
+  if ('error' in auth) return auth;
+
+  const billing = await buildBillingStatus(auth.client, auth.userId, auth.user.email);
+  if (!billing.hasActiveSubscription) {
+    return {
+      error: Response.json(
+        {
+          error: 'Subscription required. Open Settings to subscribe and unlock Soulmate AI.',
+          code: 'subscription_required',
+        },
+        { status: 402 }
+      ),
+    };
+  }
+
+  return auth;
 }
 
