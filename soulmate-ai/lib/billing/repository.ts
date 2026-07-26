@@ -94,7 +94,6 @@ export function mapStripeSubscriptionStatus(status: Stripe.Subscription.Status):
 }
 
 export function getSubscriptionPeriodEnd(subscription: Stripe.Subscription): string | null {
-  const periodEnd = subscription.items.data[0]?.current_period_end ?? subscription.current_period_end;
-  if (!periodEnd) return null;
-  return new Date(periodEnd * 1000).toISOString();
+  if (!subscription.current_period_end) return null;
+  return new Date(subscription.current_period_end * 1000).toISOString();
 }
