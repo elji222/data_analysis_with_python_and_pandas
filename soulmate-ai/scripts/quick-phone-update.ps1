@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-07-26h"
+$CacheBust = "2026-07-26i"
 
 $Files = @(
     "app/_layout.tsx",
@@ -300,6 +300,12 @@ if ($ChatPanelText -notmatch "lib/streaming-text") {
 
 if ($uiVersion -eq "unknown") {
     throw "Download failed. Could not read UI_VERSION from constants/chat-theme.ts."
+}
+
+$DeployScriptFile = Join-Path $Root "scripts\deploy-live-site.ps1"
+$DeployScriptText = Get-Content $DeployScriptFile -Raw
+if ($DeployScriptText -notmatch 'Remove-EasProductionVariable') {
+    throw "Download failed. deploy-live-site.ps1 is missing the Expo env migration fix. Run GET-LATEST.cmd again."
 }
 
 Write-Host ""

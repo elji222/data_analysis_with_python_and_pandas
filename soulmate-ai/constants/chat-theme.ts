@@ -1,4 +1,4 @@
-export const UI_VERSION = '2026-07-26h';
+export const UI_VERSION = '2026-07-26i';
 export const MOBILE_UI_MARKER = 'chatgpt-mobile-v3';
 
 export const ChatTheme = {

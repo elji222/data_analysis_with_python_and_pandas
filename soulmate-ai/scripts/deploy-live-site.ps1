@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$DeployScriptVersion = "2026-07-26l"
+$DeployScriptVersion = "2026-07-26m"
 
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
@@ -526,15 +526,9 @@ function Ensure-EasProject {
 function Remove-EasProductionVariable {
     param([string]$Name)
 
-    $result = Invoke-EasWithOutput env:delete `
+    Invoke-EasWithOutput env:delete production `
         --variable-name $Name `
-        --variable-environment production `
-        --non-interactive
-
-    if ($result.ExitCode -ne 0) {
-        $details = if ($result.Output) { $result.Output } else { "No details returned." }
-        throw "Failed to delete $Name on Expo.`n$details"
-    }
+        --non-interactive | Out-Null
 }
 
 function Set-EasProductionVariable {
@@ -544,38 +538,22 @@ function Set-EasProductionVariable {
         [string]$Visibility
     )
 
+    # Expo cannot change secret -> sensitive/plaintext in place. Delete first, then create.
+    Write-Host "Updating production env: $Name ($Visibility)"
+    Remove-EasProductionVariable -Name $Name
+
     $result = Invoke-EasWithOutput env:create `
         --name $Name `
         --value $Value `
         --visibility $Visibility `
         --environment production `
-        --non-interactive `
-        --force
+        --non-interactive
 
     if ($result.ExitCode -eq 0) {
         return
     }
 
     $details = if ($result.Output) { $result.Output } else { "No details returned." }
-    if ($details -match 'cannot change a secret variable to a non-secret variable') {
-        Write-Host "Recreating $Name as $Visibility (Expo cannot change secret -> $Visibility in place)..."
-        Remove-EasProductionVariable -Name $Name
-
-        $retry = Invoke-EasWithOutput env:create `
-            --name $Name `
-            --value $Value `
-            --visibility $Visibility `
-            --environment production `
-            --non-interactive `
-            --force
-
-        if ($retry.ExitCode -eq 0) {
-            return
-        }
-
-        $details = if ($retry.Output) { $retry.Output } else { "No details returned." }
-    }
-
     throw "Failed to set $Name on Expo.`n$details"
 }
 
