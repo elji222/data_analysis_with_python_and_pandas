@@ -1,8 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type Stripe from 'stripe';
 
 import { isAdminEmail } from '@/lib/access/admin';
 import { getDefaultPriceLabel, isActiveSubscriptionStatus } from '@/lib/billing/status';
+import { isStripeConfigured } from '@/lib/billing/stripe';
+import type { StripeSubscription, StripeSubscriptionStatus } from '@/types/stripe-api';
 import { getUserAccess } from '@/lib/access/repository';
 import type { BillingStatus, SubscriptionStatus, UserSubscription } from '@/types/billing';
 
@@ -17,7 +18,11 @@ export async function getUserSubscription(
     .maybeSingle();
 
   if (error) {
-    if (error.code === '42P01' || /user_subscriptions/i.test(error.message ?? '')) {
+    if (
+      error.code === '42P01' ||
+      error.code === 'PGRST205' ||
+      /user_subscriptions/i.test(error.message ?? '')
+    ) {
       return null;
     }
     throw error;
@@ -44,6 +49,7 @@ export async function buildBillingStatus(
     isComplimentary,
     subscription,
     priceLabel: getDefaultPriceLabel(),
+    stripeConfigured: isStripeConfigured(),
   };
 }
 
@@ -94,11 +100,11 @@ export async function findUserIdByStripeCustomerId(
   return data?.user_id ?? null;
 }
 
-export function mapStripeSubscriptionStatus(status: Stripe.Subscription.Status): SubscriptionStatus {
+export function mapStripeSubscriptionStatus(status: StripeSubscriptionStatus): SubscriptionStatus {
   return status as SubscriptionStatus;
 }
 
-export function getSubscriptionPeriodEnd(subscription: Stripe.Subscription): string | null {
+export function getSubscriptionPeriodEnd(subscription: StripeSubscription): string | null {
   if (!subscription.current_period_end) return null;
   return new Date(subscription.current_period_end * 1000).toISOString();
 }

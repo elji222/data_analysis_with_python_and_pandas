@@ -1,8 +1,8 @@
 import { getUserSubscription } from '@/lib/billing/repository';
 import {
   assertStripeConfigured,
+  createBillingPortalSession,
   getPublicSiteUrl,
-  getStripeClient,
 } from '@/lib/billing/stripe';
 import { requireUserAccess } from '@/lib/supabase-server';
 
@@ -20,11 +20,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const stripe = getStripeClient();
     const siteUrl = getPublicSiteUrl(request);
-    const portalSession = await stripe.billingPortal.sessions.create({
-      customer: subscription.stripe_customer_id,
-      return_url: `${siteUrl}/settings`,
+    const portalSession = await createBillingPortalSession({
+      customerId: subscription.stripe_customer_id,
+      returnUrl: `${siteUrl}/settings`,
     });
 
     return Response.json({ url: portalSession.url });

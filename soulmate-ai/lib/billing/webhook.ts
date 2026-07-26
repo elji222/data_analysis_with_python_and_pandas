@@ -1,12 +1,16 @@
-import type Stripe from 'stripe';
-
 import {
   findUserIdByStripeCustomerId,
   mapStripeSubscriptionStatus,
   getSubscriptionPeriodEnd,
   upsertSubscriptionRecord,
 } from '@/lib/billing/repository';
+import type { StripeCheckoutSession, StripeSubscription, StripeWebhookEvent } from '@/lib/billing/stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+function getStripeId(value: string | { id: string } | null | undefined) {
+  if (!value) return null;
+  return typeof value === 'string' ? value : value.id;
+}
 
 async function resolveUserId(
   serviceClient: SupabaseClient,
@@ -22,20 +26,19 @@ async function resolveUserId(
 
 export async function syncSubscriptionFromStripe(
   serviceClient: SupabaseClient,
-  subscription: Stripe.Subscription,
+  subscription: StripeSubscription,
   fallbackUserId?: string | null
 ) {
   const userId = await resolveUserId(serviceClient, {
     userId: subscription.metadata.user_id ?? fallbackUserId,
-    customerId: typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id,
+    customerId: getStripeId(subscription.customer),
   });
 
   if (!userId) return;
 
   await upsertSubscriptionRecord(serviceClient, {
     userId,
-    stripeCustomerId:
-      typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id ?? null,
+    stripeCustomerId: getStripeId(subscription.customer),
     stripeSubscriptionId: subscription.id,
     status: mapStripeSubscriptionStatus(subscription.status),
     priceId: subscription.items.data[0]?.price.id ?? null,
@@ -46,24 +49,23 @@ export async function syncSubscriptionFromStripe(
 
 export async function handleStripeWebhookEvent(
   serviceClient: SupabaseClient,
-  event: Stripe.Event
+  event: StripeWebhookEvent
 ) {
   switch (event.type) {
     case 'checkout.session.completed': {
-      const session = event.data.object as Stripe.Checkout.Session;
+      const session = event.data.object as StripeCheckoutSession;
       if (session.mode !== 'subscription') return;
 
       const userId = session.client_reference_id ?? session.metadata?.user_id ?? null;
-      const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
-      const subscriptionId =
-        typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
+      const customerId = getStripeId(session.customer);
+      const subscriptionId = getStripeId(session.subscription);
 
       if (!userId) return;
 
       await upsertSubscriptionRecord(serviceClient, {
         userId,
-        stripeCustomerId: customerId ?? null,
-        stripeSubscriptionId: subscriptionId ?? null,
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: subscriptionId,
         status: 'active',
       });
       return;
@@ -72,7 +74,7 @@ export async function handleStripeWebhookEvent(
     case 'customer.subscription.created':
     case 'customer.subscription.updated':
     case 'customer.subscription.deleted': {
-      const subscription = event.data.object as Stripe.Subscription;
+      const subscription = event.data.object as StripeSubscription;
       await syncSubscriptionFromStripe(
         serviceClient,
         subscription,

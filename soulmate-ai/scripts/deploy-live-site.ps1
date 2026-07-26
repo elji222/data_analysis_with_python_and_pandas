@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$DeployScriptVersion = "2026-07-11j"
+$DeployScriptVersion = "2026-07-26k"
 
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
@@ -63,8 +63,7 @@ function Clear-NpmCaches {
 function Test-DependenciesInstalled {
     return (
         (Test-Path (Join-Path $Root "node_modules\expo")) -and
-        (Test-Path (Join-Path $Root "node_modules\expo-router")) -and
-        (Test-Path (Join-Path $Root "node_modules\stripe"))
+        (Test-Path (Join-Path $Root "node_modules\expo-router"))
     )
 }
 
@@ -569,10 +568,12 @@ function Sync-ProductionEnv {
 
     Ensure-EasProject
 
+    Write-Host "Using sensitive visibility for server API keys (EAS Hosting cannot use secret-type vars)."
+
     $anthropicKey = $EnvVars['ANTHROPIC_API_KEY']
     if (Test-AnthropicKey $anthropicKey) {
         Write-Host "Syncing production env: ANTHROPIC_API_KEY"
-        Set-EasProductionVariable -Name "ANTHROPIC_API_KEY" -Value $anthropicKey -Visibility "secret"
+        Set-EasProductionVariable -Name "ANTHROPIC_API_KEY" -Value $anthropicKey -Visibility "sensitive"
     } else {
         Write-Host ""
         Write-Host "Skipping ANTHROPIC_API_KEY (still the default placeholder in .env)."
@@ -586,7 +587,7 @@ function Sync-ProductionEnv {
     $tavilyKey = $EnvVars['TAVILY_API_KEY']
     if ($tavilyKey -and $tavilyKey -notmatch 'your-key-here|tvly-your') {
         Write-Host "Syncing production env: TAVILY_API_KEY"
-        Set-EasProductionVariable -Name "TAVILY_API_KEY" -Value $tavilyKey -Visibility "secret"
+        Set-EasProductionVariable -Name "TAVILY_API_KEY" -Value $tavilyKey -Visibility "sensitive"
     } else {
         Write-Host ""
         Write-Host "Skipping TAVILY_API_KEY (missing or still the placeholder in .env)."
@@ -629,7 +630,7 @@ Your EXPO_PUBLIC_SUPABASE_URL line should already be there.
     $serviceRoleKey = $EnvVars['SUPABASE_SERVICE_ROLE_KEY']
     if ($serviceRoleKey -and $serviceRoleKey -notmatch 'your-service-role-key-here') {
         Write-Host "Syncing production env: SUPABASE_SERVICE_ROLE_KEY"
-        Set-EasProductionVariable -Name "SUPABASE_SERVICE_ROLE_KEY" -Value $serviceRoleKey -Visibility "secret"
+        Set-EasProductionVariable -Name "SUPABASE_SERVICE_ROLE_KEY" -Value $serviceRoleKey -Visibility "sensitive"
     } else {
         Write-Host ""
         Write-Host "Skipping SUPABASE_SERVICE_ROLE_KEY (missing or placeholder in .env)."
@@ -651,7 +652,7 @@ Your EXPO_PUBLIC_SUPABASE_URL line should already be there.
     $stripeSecretKey = $EnvVars['STRIPE_SECRET_KEY']
     if ($stripeSecretKey -and $stripeSecretKey -notmatch 'your-key-here') {
         Write-Host "Syncing production env: STRIPE_SECRET_KEY"
-        Set-EasProductionVariable -Name "STRIPE_SECRET_KEY" -Value $stripeSecretKey -Visibility "secret"
+        Set-EasProductionVariable -Name "STRIPE_SECRET_KEY" -Value $stripeSecretKey -Visibility "sensitive"
     } else {
         Write-Host ""
         Write-Host "Skipping STRIPE_SECRET_KEY (missing or placeholder in .env)."
@@ -662,7 +663,7 @@ Your EXPO_PUBLIC_SUPABASE_URL line should already be there.
     $stripeWebhookSecret = $EnvVars['STRIPE_WEBHOOK_SECRET']
     if ($stripeWebhookSecret -and $stripeWebhookSecret -notmatch 'your-webhook-secret-here') {
         Write-Host "Syncing production env: STRIPE_WEBHOOK_SECRET"
-        Set-EasProductionVariable -Name "STRIPE_WEBHOOK_SECRET" -Value $stripeWebhookSecret -Visibility "secret"
+        Set-EasProductionVariable -Name "STRIPE_WEBHOOK_SECRET" -Value $stripeWebhookSecret -Visibility "sensitive"
     } else {
         Write-Host ""
         Write-Host "Skipping STRIPE_WEBHOOK_SECRET (missing or placeholder in .env)."

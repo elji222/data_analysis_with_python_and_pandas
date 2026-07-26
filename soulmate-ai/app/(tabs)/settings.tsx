@@ -142,6 +142,11 @@ export default function SettingsScreen() {
                   <ThemedText style={styles.helperText}>
                     Your admin account has full access without billing.
                   </ThemedText>
+                ) : !status?.stripeConfigured ? (
+                  <ThemedText style={styles.helperText}>
+                    Stripe is not configured on the live server yet. Run DEPLOY.cmd after saving your
+                    Stripe keys in .env.
+                  </ThemedText>
                 ) : isActive ? (
                   <Pressable
                     style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
@@ -156,7 +161,7 @@ export default function SettingsScreen() {
                       pressed && styles.pressed,
                       isSubmitting && styles.disabled,
                     ]}
-                    disabled={isSubmitting || isLoading}
+                    disabled={isSubmitting || isLoading || !status?.stripeConfigured}
                     onPress={() => void handleSubscribe()}>
                     {isSubmitting ? (
                       <View style={styles.submittingBlock}>
