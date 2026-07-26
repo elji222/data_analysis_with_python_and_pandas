@@ -26,4 +26,5 @@ export type BillingStatus = {
   isComplimentary: boolean;
   subscription: UserSubscription | null;
   priceLabel: string;
+  stripeConfigured: boolean;
 };

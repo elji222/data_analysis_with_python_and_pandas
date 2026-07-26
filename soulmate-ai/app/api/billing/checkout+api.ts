@@ -1,7 +1,8 @@
 import { getUserSubscription } from '@/lib/billing/repository';
 import {
+  assertStripeConfigured,
+  createCheckoutSession,
   getPublicSiteUrl,
-  getStripeClient,
   getStripePriceId,
 } from '@/lib/billing/stripe';
 import { requireUserAccess } from '@/lib/supabase-server';
@@ -11,27 +12,19 @@ export async function POST(request: Request) {
   if ('error' in auth) return auth.error;
 
   try {
-    const stripe = getStripeClient();
+    assertStripeConfigured();
     const priceId = getStripePriceId();
     const siteUrl = getPublicSiteUrl(request);
     const existing = await getUserSubscription(auth.serviceClient, auth.userId);
 
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      customer: existing?.stripe_customer_id ?? undefined,
-      customer_email: existing?.stripe_customer_id ? undefined : auth.user.email ?? undefined,
-      client_reference_id: auth.userId,
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${siteUrl}/settings?checkout=success`,
-      cancel_url: `${siteUrl}/settings?checkout=canceled`,
-      metadata: {
-        user_id: auth.userId,
-      },
-      subscription_data: {
-        metadata: {
-          user_id: auth.userId,
-        },
-      },
+    const session = await createCheckoutSession({
+      customerId: existing?.stripe_customer_id ?? undefined,
+      customerEmail: existing?.stripe_customer_id ? undefined : auth.user.email ?? undefined,
+      clientReferenceId: auth.userId,
+      priceId,
+      successUrl: `${siteUrl}/settings?checkout=success`,
+      cancelUrl: `${siteUrl}/settings?checkout=canceled`,
+      userId: auth.userId,
     });
 
     if (!session.url) {
