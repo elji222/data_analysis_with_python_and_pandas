@@ -431,7 +431,7 @@ export function ChatPanel({
     value: input,
     onChangeText: setInput,
     onSend: handleSend,
-    onPickAttach: (action) => void handleAttach(action),
+    onPickAttach: (action: 'photos-and-files' | 'camera') => void handleAttach(action),
     onVoicePress: () => void handleVoicePress(),
     onVoiceCancel: handleVoiceCancel,
     onVoiceConfirm: () => void handleVoiceConfirm(),

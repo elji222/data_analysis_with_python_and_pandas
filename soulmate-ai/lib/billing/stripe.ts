@@ -9,9 +9,7 @@ export function getStripeClient(): Stripe {
   }
 
   if (!stripeClient) {
-    stripeClient = new Stripe(secretKey, {
-      apiVersion: '2025-01-27.acacia',
-    });
+    stripeClient = new Stripe(secretKey);
   }
 
   return stripeClient;

@@ -1,4 +1,4 @@
-import { getUserSubscription, upsertSubscriptionRecord } from '@/lib/billing/repository';
+import { getUserSubscription } from '@/lib/billing/repository';
 import {
   getPublicSiteUrl,
   getStripeClient,
