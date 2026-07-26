@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-07-26"
+$CacheBust = "2026-07-26b"
 
 $Files = @(
     "app/_layout.tsx",
@@ -25,6 +25,7 @@ $Files = @(
     "app/api/memories+api.ts",
     "app/api/matches+api.ts",
     "app.json",
+    "package.json",
     "components/attach-popover.tsx",
     "components/app-error-boundary.tsx",
     "components/internet-status-banner.tsx",
@@ -298,6 +299,21 @@ if ($ChatPanelText -notmatch "lib/streaming-text") {
 
 if ($uiVersion -eq "unknown") {
     throw "Download failed. Could not read UI_VERSION from constants/chat-theme.ts."
+}
+
+$PackageFile = Join-Path $Root "package.json"
+$PackageText = Get-Content $PackageFile -Raw
+if ($PackageText -notmatch '"stripe"') {
+    throw "Download failed. package.json is missing the stripe dependency."
+}
+
+$StripeModule = Join-Path $Root "node_modules\stripe"
+if (-not (Test-Path $StripeModule)) {
+    Write-Host ""
+    Write-Host "NOTE: Stripe is in package.json but not installed yet."
+    Write-Host "Before DEPLOY.cmd, run once in this folder:"
+    Write-Host "  npm install"
+    Write-Host ""
 }
 
 Write-Host ""
