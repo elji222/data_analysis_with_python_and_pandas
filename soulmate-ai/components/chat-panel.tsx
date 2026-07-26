@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -54,6 +54,7 @@ import {
 import { getMessagePreviewText, cloneAttachments } from '@/lib/build-chat-api-messages';
 import { isDefaultConversationTitle } from '@/lib/conversation-title';
 import { useAuth } from '@/contexts/auth-context';
+import { useBilling } from '@/hooks/use-billing';
 import { streamChatMessage } from '@/services/chat-api';
 import { fetchConversationTitle } from '@/services/title-api';
 import type { ChatAttachment, ChatMessage } from '@/types/chat';
@@ -83,6 +84,8 @@ export function ChatPanel({
   onInitialPromptConsumed,
 }: ChatPanelProps) {
   const { session } = useAuth();
+  const router = useRouter();
+  const { status: billingStatus } = useBilling(session?.access_token);
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
   const isCompactWeb = useCompactWebLayout();
@@ -117,7 +120,17 @@ export function ChatPanel({
     confirmRecording,
   } = useVoiceInput();
 
-  const messages = conversation?.messages ?? [];
+  const showSubscriptionBanner =
+    billingStatus && !billingStatus.hasActiveSubscription && !billingStatus.isComplimentary;
+
+  const subscriptionBanner = showSubscriptionBanner ? (
+    <Pressable style={styles.subscriptionBanner} onPress={() => router.push('/settings')}>
+      <ThemedText style={styles.subscriptionBannerText}>
+        Subscribe to unlock chat, memory, and matches.
+      </ThemedText>
+      <ThemedText style={styles.subscriptionBannerLink}>Open Settings</ThemedText>
+    </Pressable>
+  ) : null;
   const isStreaming = streamingText !== null;
   const smoothStreamingText = useSmoothStreamingText(streamingText, isStreaming);
   const showSearching = isSearching && streamingText === null;
@@ -467,6 +480,7 @@ export function ChatPanel({
               <View style={styles.mobileEmptySpacer} />
               <MobileQuickSuggestions onSelect={(prompt) => void sendMessage(prompt)} />
               <View style={styles.mobileBottomArea}>
+                {subscriptionBanner}
                 {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
                 {voiceHint && !error ? (
                   <ThemedText style={styles.voiceHintText}>{voiceHint}</ThemedText>
@@ -490,6 +504,7 @@ export function ChatPanel({
 
                 <ChatComposer variant="hero" {...composerProps} />
 
+                {subscriptionBanner}
                 {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
                 {storageWarning && !error ? (
                   <ThemedText style={styles.warningText}>{storageWarning}</ThemedText>
@@ -572,6 +587,7 @@ export function ChatPanel({
                     </View>
                   </View>
 
+                  {subscriptionBanner}
                   {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
                   {storageWarning && !error ? (
                     <ThemedText style={styles.warningText}>{storageWarning}</ThemedText>
@@ -790,6 +806,28 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 24,
     width: '100%',
+  },
+  subscriptionBanner: {
+    marginHorizontal: 20,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#F3EEFF',
+    borderWidth: 1,
+    borderColor: '#D8CCFF',
+    gap: 4,
+  },
+  subscriptionBannerText: {
+    color: ChatTheme.sidebarText,
+    textAlign: 'center',
+    fontSize: 14,
+  },
+  subscriptionBannerLink: {
+    color: ChatTheme.accent,
+    textAlign: 'center',
+    fontWeight: '700',
+    fontSize: 14,
   },
   errorText: {
     color: ChatTheme.error,

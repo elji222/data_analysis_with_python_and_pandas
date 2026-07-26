@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-07-24"
+$CacheBust = "2026-07-26"
 
 $Files = @(
     "app/_layout.tsx",
@@ -15,7 +15,12 @@ $Files = @(
     "app/(tabs)/memory.tsx",
     "app/(tabs)/matches.tsx",
     "app/(tabs)/invites.tsx",
+    "app/(tabs)/settings.tsx",
     "app/api/access+api.ts",
+    "app/api/billing/checkout+api.ts",
+    "app/api/billing/portal+api.ts",
+    "app/api/billing/status+api.ts",
+    "app/api/billing/webhook+api.ts",
     "app/api/chat+api.ts",
     "app/api/memories+api.ts",
     "app/api/matches+api.ts",
@@ -45,6 +50,7 @@ $Files = @(
     "contexts/chat-intent-context.tsx",
     "hooks/use-mobile-chat-layout.ts",
     "hooks/use-conversations.ts",
+    "hooks/use-billing.ts",
     "hooks/use-invites.ts",
     "hooks/use-matches.ts",
     "hooks/use-smooth-streaming-text.ts",
@@ -56,6 +62,10 @@ $Files = @(
     "lib/access/invite-code.ts",
     "lib/access/pending-invite.ts",
     "lib/access/repository.ts",
+    "lib/billing/repository.ts",
+    "lib/billing/status.ts",
+    "lib/billing/stripe.ts",
+    "lib/billing/webhook.ts",
     "lib/api-origin.ts",
     "lib/anthropic.ts",
     "lib/attachments.ts",
@@ -92,14 +102,17 @@ $Files = @(
     "lib/streaming-text.ts",
     "lib/supabase-server.ts",
     "services/access-api.ts",
+    "services/billing-api.ts",
     "services/chat-api.ts",
     "services/conversation-cloud.ts",
     "services/memory-api.ts",
     "services/matches-api.ts",
     "supabase/migrations/20260706143000_memory_categories_visibility.sql",
+    "supabase/migrations/20260711120000_user_subscriptions.sql",
     "supabase/migrations/20260710120000_invite_access.sql",
     "supabase/migrations/20260709120000_user_profiles.sql",
     "types/access.ts",
+    "types/billing.ts",
     "types/memory.ts",
     "types/match.ts",
     "types/user-profile.ts",

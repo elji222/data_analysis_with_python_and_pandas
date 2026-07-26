@@ -646,6 +646,45 @@ Your EXPO_PUBLIC_SUPABASE_URL line should already be there.
         Write-Host "Set ADMIN_EMAILS to your Google account email for unlimited admin invites."
         Write-Host ""
     }
+
+    $stripeSecretKey = $EnvVars['STRIPE_SECRET_KEY']
+    if ($stripeSecretKey -and $stripeSecretKey -notmatch 'your-key-here') {
+        Write-Host "Syncing production env: STRIPE_SECRET_KEY"
+        Set-EasProductionVariable -Name "STRIPE_SECRET_KEY" -Value $stripeSecretKey -Visibility "secret"
+    } else {
+        Write-Host ""
+        Write-Host "Skipping STRIPE_SECRET_KEY (missing or placeholder in .env)."
+        Write-Host "Stripe subscriptions require this key on the server."
+        Write-Host ""
+    }
+
+    $stripeWebhookSecret = $EnvVars['STRIPE_WEBHOOK_SECRET']
+    if ($stripeWebhookSecret -and $stripeWebhookSecret -notmatch 'your-webhook-secret-here') {
+        Write-Host "Syncing production env: STRIPE_WEBHOOK_SECRET"
+        Set-EasProductionVariable -Name "STRIPE_WEBHOOK_SECRET" -Value $stripeWebhookSecret -Visibility "secret"
+    } else {
+        Write-Host ""
+        Write-Host "Skipping STRIPE_WEBHOOK_SECRET (missing or placeholder in .env)."
+        Write-Host "Add a Stripe webhook endpoint after deploy to activate subscriptions."
+        Write-Host ""
+    }
+
+    $stripePriceId = $EnvVars['STRIPE_PRICE_ID']
+    if ($stripePriceId -and $stripePriceId -notmatch 'your-monthly-price-id') {
+        Write-Host "Syncing production env: STRIPE_PRICE_ID"
+        Set-EasProductionVariable -Name "STRIPE_PRICE_ID" -Value $stripePriceId -Visibility "sensitive"
+    } else {
+        Write-Host ""
+        Write-Host "Skipping STRIPE_PRICE_ID (missing or placeholder in .env)."
+        Write-Host "Create a recurring price in Stripe and add STRIPE_PRICE_ID to .env."
+        Write-Host ""
+    }
+
+    $stripePriceLabel = $EnvVars['EXPO_PUBLIC_STRIPE_PRICE_LABEL']
+    if ($stripePriceLabel) {
+        Write-Host "Syncing production env: EXPO_PUBLIC_STRIPE_PRICE_LABEL"
+        Set-EasProductionVariable -Name "EXPO_PUBLIC_STRIPE_PRICE_LABEL" -Value $stripePriceLabel -Visibility "plaintext"
+    }
 }
 
 Write-Host ""

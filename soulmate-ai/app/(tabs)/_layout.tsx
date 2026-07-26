@@ -48,6 +48,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="invites"
         options={{
           title: 'Invites',

@@ -4,11 +4,11 @@ import {
 } from '@/lib/matches/profile-repository';
 import { profilesToMatchRecommendations } from '@/lib/matches/build-match-card';
 import {
-  requireUserAccess,
+  requirePaidAccess,
 } from '@/lib/supabase-server';
 
 async function getAuthedClient(request: Request) {
-  const auth = await requireUserAccess(request);
+  const auth = await requirePaidAccess(request);
   if ('error' in auth) {
     return { error: auth.error };
   }
