@@ -122,7 +122,10 @@ export default function SettingsScreen() {
             </ThemedText>
 
             {isLoading ? (
-              <ActivityIndicator color={ChatTheme.accent} style={styles.loader} />
+              <View style={styles.loadingBlock}>
+                <ActivityIndicator color={ChatTheme.accent} style={styles.loader} />
+                <ThemedText style={styles.loadingText}>Checking subscription...</ThemedText>
+              </View>
             ) : (
               <>
                 <View style={styles.statusPill}>
@@ -153,10 +156,13 @@ export default function SettingsScreen() {
                       pressed && styles.pressed,
                       isSubmitting && styles.disabled,
                     ]}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isLoading}
                     onPress={() => void handleSubscribe()}>
                     {isSubmitting ? (
-                      <ActivityIndicator color="#FFFFFF" />
+                      <View style={styles.submittingBlock}>
+                        <ActivityIndicator color="#FFFFFF" />
+                        <ThemedText style={styles.submittingText}>Opening Stripe...</ThemedText>
+                      </View>
                     ) : (
                       <>
                         <Ionicons name="card-outline" size={18} color="#FFFFFF" />
@@ -169,8 +175,10 @@ export default function SettingsScreen() {
             )}
           </View>
 
-          {actionError || error ? (
-            <ThemedText style={styles.errorText}>{actionError ?? error}</ThemedText>
+          {(actionError || error) && !isLoading ? (
+            <View style={styles.errorCard}>
+              <ThemedText style={styles.errorText}>{actionError ?? error}</ThemedText>
+            </View>
           ) : null}
         </ScrollView>
 
@@ -283,6 +291,30 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginTop: 8,
+  },
+  loadingBlock: {
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+  },
+  loadingText: {
+    color: ChatTheme.sidebarMuted,
+    textAlign: 'center',
+  },
+  submittingBlock: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  submittingText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  errorCard: {
+    borderRadius: 12,
+    padding: 14,
+    backgroundColor: '#FFF1F1',
+    borderWidth: 1,
+    borderColor: '#F3C2C2',
   },
   errorText: {
     color: ChatTheme.error,

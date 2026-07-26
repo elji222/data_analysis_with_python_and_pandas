@@ -5,7 +5,7 @@ import type { BillingStatus } from '@/types/billing';
 
 export function useBilling(accessToken: string | null | undefined) {
   const [status, setStatus] = useState<BillingStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(Boolean(accessToken));
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {

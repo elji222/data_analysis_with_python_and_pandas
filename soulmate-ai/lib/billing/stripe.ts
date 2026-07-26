@@ -9,10 +9,32 @@ export function getStripeClient(): Stripe {
   }
 
   if (!stripeClient) {
-    stripeClient = new Stripe(secretKey);
+    stripeClient = new Stripe(secretKey, {
+      timeout: 10_000,
+      maxNetworkRetries: 1,
+    });
   }
 
   return stripeClient;
+}
+
+export function isStripeConfigured(): boolean {
+  const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
+  const priceId = process.env.STRIPE_PRICE_ID?.trim();
+  return Boolean(
+    secretKey &&
+      priceId &&
+      !secretKey.includes('your-key-here') &&
+      !priceId.includes('your-monthly-price-id')
+  );
+}
+
+export function assertStripeConfigured() {
+  if (!isStripeConfigured()) {
+    throw new Error(
+      'Stripe is not configured on the server. Add STRIPE_SECRET_KEY and STRIPE_PRICE_ID to .env, then run DEPLOY.cmd.'
+    );
+  }
 }
 
 export function getStripePriceId(): string {

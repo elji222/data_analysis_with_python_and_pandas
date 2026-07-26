@@ -16,7 +16,12 @@ export async function getUserSubscription(
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    if (error.code === '42P01' || /user_subscriptions/i.test(error.message ?? '')) {
+      return null;
+    }
+    throw error;
+  }
   return data as UserSubscription | null;
 }
 

@@ -1,5 +1,6 @@
 import { getUserSubscription } from '@/lib/billing/repository';
 import {
+  assertStripeConfigured,
   getPublicSiteUrl,
   getStripeClient,
   getStripePriceId,
@@ -11,6 +12,7 @@ export async function POST(request: Request) {
   if ('error' in auth) return auth.error;
 
   try {
+    assertStripeConfigured();
     const stripe = getStripeClient();
     const priceId = getStripePriceId();
     const siteUrl = getPublicSiteUrl(request);
