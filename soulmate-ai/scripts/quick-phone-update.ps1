@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-07-27e"
+$CacheBust = "2026-07-27f"
 
 $Files = @(
     "app/_layout.tsx",
@@ -22,6 +22,7 @@ $Files = @(
     "app/api/billing/status+api.ts",
     "app/api/billing/webhook+api.ts",
     "app/api/chat+api.ts",
+    "app/api/generate-image+api.ts",
     "app/api/memories+api.ts",
     "app/api/matches+api.ts",
     "app.json",
@@ -76,6 +77,8 @@ $Files = @(
     "lib/current-date.ts",
     "lib/agent/run-chat-agent.ts",
     "lib/agent/types.ts",
+    "lib/image-generation/intent.ts",
+    "lib/image-generation/service.ts",
     "lib/tools/datetime.ts",
     "lib/tools/registry.ts",
     "lib/tools/generate-image.ts",
@@ -311,6 +314,16 @@ $DeployScriptFile = Join-Path $Root "scripts\deploy-live-site.ps1"
 $DeployScriptText = Get-Content $DeployScriptFile -Raw
 if ($DeployScriptText -notmatch 'Remove-EasProductionVariable') {
     throw "Download failed. deploy-live-site.ps1 is missing the Expo env migration fix. Run GET-LATEST.cmd again."
+}
+
+$ImageIntentFile = Join-Path $Root "lib\image-generation\intent.ts"
+if (-not (Test-Path $ImageIntentFile)) {
+    throw "Download failed. lib/image-generation/intent.ts is missing."
+}
+
+$GenerateImageApiFile = Join-Path $Root "app\api\generate-image+api.ts"
+if (-not (Test-Path $GenerateImageApiFile)) {
+    throw "Download failed. app/api/generate-image+api.ts is missing."
 }
 
 Write-Host ""
