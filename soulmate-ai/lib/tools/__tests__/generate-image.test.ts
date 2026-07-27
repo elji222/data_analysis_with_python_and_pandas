@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { getOpenAiImageModel, parseGenerateImageToolResult } from '@/lib/tools/generate-image';
+import {
+  formatGenerateImageToolResultForAnthropic,
+  getOpenAiImageModel,
+  parseGenerateImageToolResult,
+} from '@/lib/tools/generate-image';
 
 describe('getOpenAiImageModel', () => {
   it('defaults to dall-e-3', () => {
@@ -54,5 +58,30 @@ describe('parseGenerateImageToolResult', () => {
     );
 
     expect(parsed).toEqual({ error: 'Image generation is not configured on the server.' });
+  });
+});
+
+describe('formatGenerateImageToolResultForAnthropic', () => {
+  it('removes large image URLs from tool results sent back to Claude', () => {
+    const hugeDataUrl = `data:image/png;base64,${'a'.repeat(500_000)}`;
+    const sanitized = formatGenerateImageToolResultForAnthropic(
+      JSON.stringify({
+        imageUrl: hugeDataUrl,
+        prompt: 'A random landscape',
+      })
+    );
+
+    expect(sanitized.length).toBeLessThan(500);
+    expect(sanitized).not.toContain('base64');
+    expect(JSON.parse(sanitized)).toEqual({
+      success: true,
+      prompt: 'A random landscape',
+      message: 'The image was generated and is already visible to the user in the chat.',
+    });
+  });
+
+  it('keeps error tool results unchanged', () => {
+    const original = JSON.stringify({ error: 'Image generation timed out. Please try again.' });
+    expect(formatGenerateImageToolResultForAnthropic(original)).toBe(original);
   });
 });

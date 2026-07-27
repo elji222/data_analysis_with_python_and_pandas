@@ -125,6 +125,23 @@ export const generateImageTool: ToolHandler = {
   },
 };
 
+export function formatGenerateImageToolResultForAnthropic(result: string) {
+  const parsed = parseGenerateImageToolResult(result);
+  if (!parsed) {
+    return result;
+  }
+
+  if ('error' in parsed) {
+    return result;
+  }
+
+  return JSON.stringify({
+    success: true,
+    prompt: parsed.prompt,
+    message: 'The image was generated and is already visible to the user in the chat.',
+  });
+}
+
 export function parseGenerateImageToolResult(result: string) {
   try {
     const parsed = JSON.parse(result) as {

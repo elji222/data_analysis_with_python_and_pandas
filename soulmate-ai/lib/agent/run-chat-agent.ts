@@ -6,7 +6,7 @@ import {
   isWebSearchTool,
   TOOL_USE_SYSTEM_NOTE,
 } from '@/lib/tools/registry';
-import { parseGenerateImageToolResult } from '@/lib/tools/generate-image';
+import { parseGenerateImageToolResult, formatGenerateImageToolResultForAnthropic } from '@/lib/tools/generate-image';
 import type { ToolContext } from '@/lib/tools/types';
 
 import type {
@@ -313,10 +313,14 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<RunCha
         }
       }
 
+      const toolResultContent = isGenerateImageTool(toolUse.name)
+        ? formatGenerateImageToolResultForAnthropic(result)
+        : result;
+
       toolResults.push({
         type: 'tool_result',
         tool_use_id: toolUse.id,
-        content: result,
+        content: toolResultContent,
       });
     }
 
