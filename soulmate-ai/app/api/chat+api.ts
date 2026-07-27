@@ -132,6 +132,7 @@ export async function POST(request: Request) {
             toolContext: {
               tavilyApiKey: process.env.TAVILY_API_KEY ?? null,
               openaiApiKey: process.env.OPENAI_API_KEY ?? null,
+              openaiImageModel: process.env.OPENAI_IMAGE_MODEL ?? null,
             },
             onEvent: (event) => {
               if (event.type === 'status' && event.status === 'searching') {

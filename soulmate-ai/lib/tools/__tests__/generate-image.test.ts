@@ -1,6 +1,23 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseGenerateImageToolResult } from '@/lib/tools/generate-image';
+import { getOpenAiImageModel, parseGenerateImageToolResult } from '@/lib/tools/generate-image';
+
+describe('getOpenAiImageModel', () => {
+  it('defaults to gpt-image-2', () => {
+    const original = process.env.OPENAI_IMAGE_MODEL;
+    delete process.env.OPENAI_IMAGE_MODEL;
+
+    expect(getOpenAiImageModel()).toBe('gpt-image-2');
+
+    if (original) {
+      process.env.OPENAI_IMAGE_MODEL = original;
+    }
+  });
+
+  it('uses configured model when provided', () => {
+    expect(getOpenAiImageModel('dall-e-3')).toBe('dall-e-3');
+  });
+});
 
 describe('parseGenerateImageToolResult', () => {
   it('parses successful image tool output', () => {

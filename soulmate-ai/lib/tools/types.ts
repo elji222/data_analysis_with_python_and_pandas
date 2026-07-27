@@ -13,6 +13,7 @@ export type AnthropicToolDefinition = {
 export type ToolContext = {
   tavilyApiKey?: string | null;
   openaiApiKey?: string | null;
+  openaiImageModel?: string | null;
 };
 
 export type ToolCall = {

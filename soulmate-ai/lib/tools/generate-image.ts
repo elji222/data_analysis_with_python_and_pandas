@@ -2,6 +2,8 @@ import type { ToolHandler } from './types';
 
 const OPENAI_IMAGES_ENDPOINT = 'https://api.openai.com/v1/images/generations';
 const REQUEST_TIMEOUT_MS = 60_000;
+const DEFAULT_IMAGE_MODEL = 'gpt-image-2';
+const FALLBACK_IMAGE_MODEL = 'dall-e-3';
 
 type ImageSize = '1024x1024' | '1792x1024' | '1024x1792';
 
@@ -17,6 +19,67 @@ function resolveImageSize(aspectRatio: unknown): ImageSize {
   }
 
   return '1024x1024';
+}
+
+export function getOpenAiImageModel(configured?: string | null) {
+  const model = configured?.trim() || process.env.OPENAI_IMAGE_MODEL?.trim();
+  return model || DEFAULT_IMAGE_MODEL;
+}
+
+function shouldFallbackToDallE(errorMessage: string, model: string) {
+  if (model === FALLBACK_IMAGE_MODEL) {
+    return false;
+  }
+
+  const normalized = errorMessage.toLowerCase();
+  return (
+    normalized.includes('model') &&
+    (normalized.includes('not found') ||
+      normalized.includes('does not exist') ||
+      normalized.includes('not available') ||
+      normalized.includes('invalid'))
+  );
+}
+
+async function requestGeneratedImage(params: {
+  apiKey: string;
+  model: string;
+  prompt: string;
+  size: ImageSize;
+  signal: AbortSignal;
+}) {
+  const response = await fetch(OPENAI_IMAGES_ENDPOINT, {
+    method: 'POST',
+    signal: params.signal,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${params.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: params.model,
+      prompt: params.prompt,
+      n: 1,
+      size: params.size,
+      response_format: 'url',
+    }),
+  });
+
+  const json = (await response.json()) as {
+    data?: Array<{ url?: string }>;
+    error?: { message?: string };
+  };
+
+  if (!response.ok) {
+    const message = json.error?.message ?? `Image generation failed (${response.status}).`;
+    throw new Error(message);
+  }
+
+  const imageUrl = json.data?.[0]?.url?.trim();
+  if (!imageUrl) {
+    throw new Error('Image generation did not return a URL.');
+  }
+
+  return imageUrl;
 }
 
 export const generateImageTool: ToolHandler = {
@@ -54,39 +117,35 @@ export const generateImageTool: ToolHandler = {
       });
     }
 
+    const primaryModel = getOpenAiImageModel(context.openaiImageModel);
+    const size = resolveImageSize(input.aspect_ratio);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     try {
-      const response = await fetch(OPENAI_IMAGES_ENDPOINT, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'dall-e-3',
+      let imageUrl: string;
+
+      try {
+        imageUrl = await requestGeneratedImage({
+          apiKey,
+          model: primaryModel,
           prompt,
-          n: 1,
-          size: resolveImageSize(input.aspect_ratio),
-          response_format: 'url',
-        }),
-      });
+          size,
+          signal: controller.signal,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Image generation failed.';
+        if (!shouldFallbackToDallE(message, primaryModel)) {
+          throw error;
+        }
 
-      const json = (await response.json()) as {
-        data?: Array<{ url?: string }>;
-        error?: { message?: string };
-      };
-
-      if (!response.ok) {
-        const message = json.error?.message ?? `Image generation failed (${response.status}).`;
-        return JSON.stringify({ error: message });
-      }
-
-      const imageUrl = json.data?.[0]?.url?.trim();
-      if (!imageUrl) {
-        return JSON.stringify({ error: 'Image generation did not return a URL.' });
+        imageUrl = await requestGeneratedImage({
+          apiKey,
+          model: FALLBACK_IMAGE_MODEL,
+          prompt,
+          size,
+          signal: controller.signal,
+        });
       }
 
       return JSON.stringify({

@@ -641,6 +641,14 @@ function Sync-ProductionEnv {
         Write-Host ""
     }
 
+    $openAiImageModel = $EnvVars['OPENAI_IMAGE_MODEL']
+    if ($openAiImageModel -and $openAiImageModel -notmatch 'your-image-model-here') {
+        Write-Host "Syncing production env: OPENAI_IMAGE_MODEL"
+        Set-EasProductionVariable -Name "OPENAI_IMAGE_MODEL" -Value $openAiImageModel -Visibility "plaintext"
+    } else {
+        Write-Host "Using default production image model: gpt-image-2"
+    }
+
     $supabaseUrl = $EnvVars['EXPO_PUBLIC_SUPABASE_URL']
     $supabaseKey = Get-SupabasePublishableKey -EnvVars $EnvVars
 
