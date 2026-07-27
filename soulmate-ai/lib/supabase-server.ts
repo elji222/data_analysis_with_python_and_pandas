@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 
 import { getUserAccess } from '@/lib/access/repository';
+import type { UserAccess } from '@/types/access';
 import { buildBillingStatus } from '@/lib/billing/repository';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -76,6 +77,7 @@ type AuthedContext = {
 
 type AuthedAccessContext = AuthedContext & {
   serviceClient: SupabaseClient;
+  access: UserAccess | null;
 };
 
 export async function requireAuthenticatedUser(
@@ -125,6 +127,7 @@ export async function requireUserAccess(
 
   return {
     ...auth,
+    access,
     serviceClient,
   };
 }
@@ -135,7 +138,12 @@ export async function requirePaidAccess(
   const auth = await requireUserAccess(request);
   if ('error' in auth) return auth;
 
-  const billing = await buildBillingStatus(auth.client, auth.userId, auth.user.email);
+  const billing = await buildBillingStatus(
+    auth.client,
+    auth.userId,
+    auth.user.email,
+    auth.access
+  );
   if (!billing.hasActiveSubscription) {
     return {
       error: Response.json(

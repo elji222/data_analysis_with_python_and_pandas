@@ -172,13 +172,19 @@ export type RunChatAgentOptions = {
   onEvent: (event: AgentStreamEvent) => void;
 };
 
+export type RunChatAgentResult = {
+  fullReply: string;
+  usedTools: boolean;
+};
+
 const IMAGE_ONLY_REPLY = "Here's your generated image.";
 
-export async function runChatAgent(options: RunChatAgentOptions): Promise<string> {
+export async function runChatAgent(options: RunChatAgentOptions): Promise<RunChatAgentResult> {
   const system = `${options.systemPrompt}\n\n${TOOL_USE_SYSTEM_NOTE}`;
   let conversation = [...options.messages];
   let fullReply = '';
   let generatedImageCount = 0;
+  let usedTools = false;
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
     const isFinalAllowedRound = round === MAX_TOOL_ROUNDS;
@@ -254,9 +260,10 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<string
       }
 
       options.onEvent({ type: 'done', fullReply });
-      return fullReply;
+      return { fullReply, usedTools };
     }
 
+    usedTools = true;
     const assistantContent = buildAssistantContent(roundState);
     conversation = [
       ...conversation,
