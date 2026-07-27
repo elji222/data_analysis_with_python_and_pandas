@@ -6,6 +6,7 @@ import type { ChatApiMessage, ChatMessage } from '@/types/chat';
 type StreamEvent = {
   text?: string;
   error?: string;
+  imageError?: string;
   savedMemories?: string[];
   status?: 'searching' | 'generating_image';
   generatedImage?: GeneratedImage;
@@ -18,6 +19,7 @@ export type StreamChatOptions = {
   onSavedMemories?: (savedMemories: string[]) => void;
   onStatus?: (status: 'searching' | 'generating_image') => void;
   onGeneratedImage?: (image: GeneratedImage) => void;
+  onImageError?: (error: string) => void;
 };
 
 export async function streamChatMessage(
@@ -105,6 +107,9 @@ export async function streamChatMessage(
         }
         if (parsed.generatedImage) {
           options.onGeneratedImage?.(parsed.generatedImage);
+        }
+        if (parsed.imageError) {
+          options.onImageError?.(parsed.imageError);
         }
         if (parsed.text) {
           fullText += parsed.text;

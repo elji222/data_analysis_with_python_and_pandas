@@ -171,6 +171,11 @@ export async function POST(request: Request) {
                   return;
                 }
 
+                if (event.type === 'image_error') {
+                  enqueueEvent({ imageError: event.error });
+                  return;
+                }
+
                 if (event.type === 'text' && event.text) {
                   enqueueEvent({ text: event.text });
                   return;
