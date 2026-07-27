@@ -34,6 +34,20 @@ describe('parseGenerateImageToolResult', () => {
     });
   });
 
+  it('parses data-url image tool output', () => {
+    const parsed = parseGenerateImageToolResult(
+      JSON.stringify({
+        imageUrl: 'data:image/png;base64,abc123',
+        prompt: 'A blue balloon',
+      })
+    );
+
+    expect(parsed).toEqual({
+      imageUrl: 'data:image/png;base64,abc123',
+      prompt: 'A blue balloon',
+    });
+  });
+
   it('parses tool errors', () => {
     const parsed = parseGenerateImageToolResult(
       JSON.stringify({ error: 'Image generation is not configured on the server.' })

@@ -124,6 +124,12 @@ export async function POST(request: Request) {
       async start(controller) {
         let fullReply = '';
 
+        let streamError: string | null = null;
+
+        const enqueueEvent = (payload: Record<string, unknown>) => {
+          controller.enqueue(encoder.encode(sseLine(JSON.stringify(payload))));
+        };
+
         try {
           fullReply = await runChatAgent({
             apiKey,
@@ -135,38 +141,33 @@ export async function POST(request: Request) {
               openaiImageModel: process.env.OPENAI_IMAGE_MODEL ?? null,
             },
             onEvent: (event) => {
-              if (event.type === 'status' && event.status === 'searching') {
-                controller.enqueue(
-                  encoder.encode(sseLine(JSON.stringify({ status: 'searching' })))
-                );
-                return;
-              }
+              try {
+                if (event.type === 'status' && event.status === 'searching') {
+                  enqueueEvent({ status: 'searching' });
+                  return;
+                }
 
-              if (event.type === 'status' && event.status === 'generating_image') {
-                controller.enqueue(
-                  encoder.encode(sseLine(JSON.stringify({ status: 'generating_image' })))
-                );
-                return;
-              }
+                if (event.type === 'status' && event.status === 'generating_image') {
+                  enqueueEvent({ status: 'generating_image' });
+                  return;
+                }
 
-              if (event.type === 'generated_image') {
-                controller.enqueue(
-                  encoder.encode(sseLine(JSON.stringify({ generatedImage: event.image })))
-                );
-                return;
-              }
+                if (event.type === 'generated_image') {
+                  enqueueEvent({ generatedImage: event.image });
+                  return;
+                }
 
-              if (event.type === 'text' && event.text) {
-                controller.enqueue(
-                  encoder.encode(sseLine(JSON.stringify({ text: event.text })))
-                );
-                return;
-              }
+                if (event.type === 'text' && event.text) {
+                  enqueueEvent({ text: event.text });
+                  return;
+                }
 
-              if (event.type === 'error') {
-                controller.enqueue(
-                  encoder.encode(sseLine(JSON.stringify({ error: event.error })))
-                );
+                if (event.type === 'error') {
+                  streamError = event.error;
+                  enqueueEvent({ error: event.error });
+                }
+              } catch (eventError) {
+                console.error('Failed to stream chat event:', eventError);
               }
             },
           });
@@ -200,10 +201,14 @@ export async function POST(request: Request) {
           }
 
           controller.enqueue(encoder.encode(sseLine('[DONE]')));
-        } catch {
-          controller.enqueue(
-            encoder.encode(sseLine(JSON.stringify({ error: 'Stream interrupted.' })))
-          );
+        } catch (error) {
+          console.error('Chat stream failed:', error);
+          const message =
+            streamError ??
+            (error instanceof Error && error.message.trim()
+              ? error.message
+              : 'Stream interrupted.');
+          enqueueEvent({ error: message });
         } finally {
           controller.close();
         }

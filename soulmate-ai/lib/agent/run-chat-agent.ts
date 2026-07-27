@@ -172,10 +172,13 @@ export type RunChatAgentOptions = {
   onEvent: (event: AgentStreamEvent) => void;
 };
 
+const IMAGE_ONLY_REPLY = "Here's your generated image.";
+
 export async function runChatAgent(options: RunChatAgentOptions): Promise<string> {
   const system = `${options.systemPrompt}\n\n${TOOL_USE_SYSTEM_NOTE}`;
   let conversation = [...options.messages];
   let fullReply = '';
+  let generatedImageCount = 0;
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
     const isFinalAllowedRound = round === MAX_TOOL_ROUNDS;
@@ -240,9 +243,14 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<string
       }
 
       if (!fullReply.trim()) {
-        const message = 'Soulmate AI sent an empty reply.';
-        options.onEvent({ type: 'error', error: message });
-        throw new Error(message);
+        if (generatedImageCount > 0) {
+          fullReply = IMAGE_ONLY_REPLY;
+          options.onEvent({ type: 'text', text: fullReply });
+        } else {
+          const message = 'Soulmate AI sent an empty reply.';
+          options.onEvent({ type: 'error', error: message });
+          throw new Error(message);
+        }
       }
 
       options.onEvent({ type: 'done', fullReply });
@@ -274,6 +282,7 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<string
       if (isGenerateImageTool(toolUse.name)) {
         const parsed = parseGenerateImageToolResult(result);
         if (parsed && 'imageUrl' in parsed) {
+          generatedImageCount += 1;
           options.onEvent({
             type: 'generated_image',
             image: {
