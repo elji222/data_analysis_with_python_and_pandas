@@ -5,6 +5,8 @@ import {
 } from '@/lib/image-generation/service';
 import type { ToolHandler } from './types';
 
+const IMAGE_SERVICE_TIMEOUT_MS = IMAGE_GENERATION_TIMEOUT_MS + 5_000;
+
 async function requestImageViaService(params: {
   imageServiceUrl: string;
   authorizationHeader: string;
@@ -75,7 +77,7 @@ export const generateImageTool: ToolHandler = {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), IMAGE_GENERATION_TIMEOUT_MS);
+    const timeoutId = setTimeout(() => controller.abort(), IMAGE_SERVICE_TIMEOUT_MS);
 
     try {
       const imageServiceUrl = context.imageServiceUrl?.trim();
@@ -106,7 +108,6 @@ export const generateImageTool: ToolHandler = {
         aspectRatio: input.aspect_ratio,
         apiKey,
         model: context.openaiImageModel,
-        signal: controller.signal,
       });
 
       return JSON.stringify(result);

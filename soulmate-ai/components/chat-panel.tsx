@@ -327,6 +327,10 @@ export function ChatPanel({
             generatedAttachments.push(attachment);
             setStreamingAttachments((previous) => [...previous, attachment]);
           },
+          onImageError: (imageError) => {
+            setIsGeneratingImage(false);
+            setError(imageError);
+          },
         }
       );
 

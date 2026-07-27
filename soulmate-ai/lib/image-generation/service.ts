@@ -1,7 +1,7 @@
 const OPENAI_IMAGES_ENDPOINT = 'https://api.openai.com/v1/images/generations';
-export const IMAGE_GENERATION_TIMEOUT_MS = 25_000;
-const DEFAULT_IMAGE_MODEL = 'gpt-image-2';
-const FALLBACK_IMAGE_MODEL = 'dall-e-3';
+export const IMAGE_GENERATION_TIMEOUT_MS = 60_000;
+const DEFAULT_IMAGE_MODEL = 'dall-e-3';
+const FALLBACK_IMAGE_MODEL = 'gpt-image-2';
 
 type DalleImageSize = '1024x1024' | '1792x1024' | '1024x1792';
 type GptImageSize = '1024x1024' | '1536x1024' | '1024x1536';
@@ -109,12 +109,45 @@ async function requestGeneratedImage(params: {
   return imageUrl;
 }
 
+function shouldTryFallbackModel(error: unknown, primaryModel: string) {
+  if (primaryModel === FALLBACK_IMAGE_MODEL) {
+    return false;
+  }
+
+  if (!(error instanceof Error)) {
+    return true;
+  }
+
+  if (error.name === 'AbortError') {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return !message.includes('timed out');
+}
+
+async function withImageTimeout<T>(callback: (signal: AbortSignal) => Promise<T>) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), IMAGE_GENERATION_TIMEOUT_MS);
+
+  try {
+    return await callback(controller.signal);
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Image generation timed out. Please try again.');
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export type GenerateImageRequest = {
   prompt: string;
   aspectRatio?: unknown;
   apiKey: string;
   model?: string | null;
-  signal?: AbortSignal;
 };
 
 export async function generateImageFromPrompt(request: GenerateImageRequest) {
@@ -131,14 +164,10 @@ export async function generateImageFromPrompt(request: GenerateImageRequest) {
   }
 
   const primaryModel = getOpenAiImageModel(request.model);
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), IMAGE_GENERATION_TIMEOUT_MS);
-  const signal = request.signal ?? controller.signal;
+  const primarySize = resolveImageSize(request.aspectRatio, primaryModel);
 
   try {
-    const primarySize = resolveImageSize(request.aspectRatio, primaryModel);
-
-    try {
+    return await withImageTimeout(async (signal) => {
       const imageUrl = await requestGeneratedImage({
         apiKey,
         model: primaryModel,
@@ -148,12 +177,15 @@ export async function generateImageFromPrompt(request: GenerateImageRequest) {
       });
 
       return { imageUrl, prompt };
-    } catch (primaryError) {
-      if (primaryModel === FALLBACK_IMAGE_MODEL) {
-        throw primaryError;
-      }
+    });
+  } catch (primaryError) {
+    if (!shouldTryFallbackModel(primaryError, primaryModel)) {
+      throw primaryError;
+    }
 
-      const fallbackSize = resolveImageSize(request.aspectRatio, FALLBACK_IMAGE_MODEL);
+    const fallbackSize = resolveImageSize(request.aspectRatio, FALLBACK_IMAGE_MODEL);
+
+    return withImageTimeout(async (signal) => {
       const imageUrl = await requestGeneratedImage({
         apiKey,
         model: FALLBACK_IMAGE_MODEL,
@@ -163,18 +195,6 @@ export async function generateImageFromPrompt(request: GenerateImageRequest) {
       });
 
       return { imageUrl, prompt };
-    }
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Image generation timed out. Please try again.');
-    }
-
-    if (error instanceof Error) {
-      throw error;
-    }
-
-    throw new Error('Image generation failed.');
-  } finally {
-    clearTimeout(timeoutId);
+    });
   }
 }

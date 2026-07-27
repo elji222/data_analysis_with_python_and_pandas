@@ -185,6 +185,7 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<RunCha
   let fullReply = '';
   let generatedImageCount = 0;
   let usedTools = false;
+  let imageGenerationAttempted = false;
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
     const isFinalAllowedRound = round === MAX_TOOL_ROUNDS;
@@ -243,9 +244,6 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<RunCha
       if (!streamLive && roundText.trim()) {
         fullReply = roundText;
         options.onEvent({ type: 'text', text: roundText });
-      } else if (!fullReply.trim() && roundText.trim()) {
-        fullReply = roundText;
-        options.onEvent({ type: 'text', text: roundText });
       }
 
       if (!fullReply.trim()) {
@@ -278,6 +276,18 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<RunCha
       }
 
       if (isGenerateImageTool(toolUse.name)) {
+        if (imageGenerationAttempted) {
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: toolUse.id,
+            content: JSON.stringify({
+              error: 'Image generation was already attempted for this message.',
+            }),
+          });
+          continue;
+        }
+
+        imageGenerationAttempted = true;
         options.onEvent({ type: 'status', status: 'generating_image' });
       }
 
@@ -298,6 +308,8 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<RunCha
               prompt: parsed.prompt,
             },
           });
+        } else if (parsed && 'error' in parsed) {
+          options.onEvent({ type: 'image_error', error: parsed.error });
         }
       }
 

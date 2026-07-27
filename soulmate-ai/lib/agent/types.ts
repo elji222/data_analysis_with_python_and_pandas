@@ -7,6 +7,7 @@ export type GeneratedImage = {
 export type AgentStreamEvent =
   | { type: 'status'; status: 'searching' | 'generating_image' }
   | { type: 'generated_image'; image: GeneratedImage }
+  | { type: 'image_error'; error: string }
   | { type: 'text'; text: string }
   | { type: 'error'; error: string }
   | { type: 'done'; fullReply: string };

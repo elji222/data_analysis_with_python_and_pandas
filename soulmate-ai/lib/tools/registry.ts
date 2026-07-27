@@ -16,7 +16,8 @@ export const TOOL_USE_SYSTEM_NOTE = `You can use tools when needed:
 - get_current_datetime for today's date or current time.
 - generate_image when the user asks you to create, draw, generate, or make a picture or image.
 When you use web search, summarize clearly, mention that results are from the web, and avoid inventing headlines.
-When you generate an image, briefly describe what you created after the image is ready.`;
+When you generate an image, briefly describe what you created after the image is ready.
+If image generation fails, explain the error clearly and do not call generate_image again in the same reply.`;
 
 export async function executeToolCall(call: ToolCall, context: ToolContext): Promise<string> {
   const handler = TOOL_HANDLERS[call.name];

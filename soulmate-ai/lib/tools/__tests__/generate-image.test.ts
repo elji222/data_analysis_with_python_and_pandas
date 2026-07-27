@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { getOpenAiImageModel, parseGenerateImageToolResult } from '@/lib/tools/generate-image';
 
 describe('getOpenAiImageModel', () => {
-  it('defaults to gpt-image-2', () => {
+  it('defaults to dall-e-3', () => {
     const original = process.env.OPENAI_IMAGE_MODEL;
     delete process.env.OPENAI_IMAGE_MODEL;
 
-    expect(getOpenAiImageModel()).toBe('gpt-image-2');
+    expect(getOpenAiImageModel()).toBe('dall-e-3');
 
     if (original) {
       process.env.OPENAI_IMAGE_MODEL = original;

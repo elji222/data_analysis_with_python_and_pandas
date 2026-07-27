@@ -1,8 +1,8 @@
 import { generateImageFromPrompt } from '@/lib/image-generation/service';
-import { requirePaidAccess } from '@/lib/supabase-server';
+import { requireAuthenticatedUser } from '@/lib/supabase-server';
 
 export async function POST(request: Request) {
-  const auth = await requirePaidAccess(request);
+  const auth = await requireAuthenticatedUser(request);
   if ('error' in auth) return auth.error;
 
   const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -33,6 +33,7 @@ export async function POST(request: Request) {
 
     return Response.json(result);
   } catch (error) {
+    console.error('Image generation failed:', error);
     const message =
       error instanceof Error ? error.message : 'Image generation failed. Please try again.';
     return Response.json({ error: message }, { status: 500 });
