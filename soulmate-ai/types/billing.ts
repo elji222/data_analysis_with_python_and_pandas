@@ -24,6 +24,8 @@ export type UserSubscription = {
 export type BillingStatus = {
   hasActiveSubscription: boolean;
   isComplimentary: boolean;
+  freeAccessForAll: boolean;
+  isAdmin: boolean;
   subscription: UserSubscription | null;
   priceLabel: string;
   stripeConfigured: boolean;

@@ -1,11 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { isAdminEmail } from '@/lib/access/admin';
+import type { UserAccess } from '@/types/access';
 import { getDefaultPriceLabel, isActiveSubscriptionStatus } from '@/lib/billing/status';
 import { isStripeConfigured } from '@/lib/billing/stripe';
 import type { StripeSubscription, StripeSubscriptionStatus } from '@/types/stripe-api';
 import { getUserAccess } from '@/lib/access/repository';
-import type { UserAccess } from '@/types/access';
 import type { BillingStatus, SubscriptionStatus, UserSubscription } from '@/types/billing';
 
 export async function getUserSubscription(
@@ -35,20 +35,29 @@ export async function buildBillingStatus(
   client: SupabaseClient,
   userId: string,
   email?: string | null,
-  existingAccess?: UserAccess | null
+  existingAccess?: UserAccess | null,
+  options?: {
+    freeAccessForAll?: boolean;
+  }
 ): Promise<BillingStatus> {
   const [subscription, access] = await Promise.all([
     getUserSubscription(client, userId),
     existingAccess === undefined ? getUserAccess(client, userId) : Promise.resolve(existingAccess),
   ]);
 
-  const isComplimentary = Boolean(access?.is_admin) || isAdminEmail(email);
+  const isAdmin = Boolean(access?.is_admin) || isAdminEmail(email);
+  const isComplimentary = isAdmin;
+  const freeAccessForAll = Boolean(options?.freeAccessForAll);
   const hasActiveSubscription =
-    isComplimentary || isActiveSubscriptionStatus(subscription?.status ?? null);
+    freeAccessForAll ||
+    isComplimentary ||
+    isActiveSubscriptionStatus(subscription?.status ?? null);
 
   return {
     hasActiveSubscription,
     isComplimentary,
+    freeAccessForAll,
+    isAdmin,
     subscription,
     priceLabel: getDefaultPriceLabel(),
     stripeConfigured: isStripeConfigured(),
