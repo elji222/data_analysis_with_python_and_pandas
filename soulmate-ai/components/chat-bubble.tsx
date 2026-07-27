@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Pressable } from 'react-native';
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -103,9 +103,36 @@ export function ChatBubble({
       }))
     : [];
   const visibleText = artifacts.length > 0 ? stripArtifactBlocks(message.text) : message.text;
+  const imageAttachments = attachments.filter((attachment) => attachment.kind === 'image' && attachment.uri);
+
+  function openImagePreview(url: string, title: string) {
+    onOpenPreview?.({
+      id: `${message.id}-image-preview`,
+      kind: 'image',
+      title,
+      language: 'image',
+      content: url,
+    });
+  }
 
   return (
     <View style={styles.assistantRow}>
+      {imageAttachments.length > 0 ? (
+        <View style={styles.attachmentStack}>
+          {imageAttachments.map((attachment) => (
+            <Pressable
+              key={attachment.id}
+              onPress={() => openImagePreview(attachment.uri, attachment.name || 'Generated image')}>
+              <Image
+                source={{ uri: attachment.uri }}
+                style={styles.generatedImage}
+                contentFit="cover"
+              />
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
       {visibleText ? (
         <FormattedMessageText
           lightColor={ChatTheme.assistantText}
@@ -195,6 +222,20 @@ export function SearchingPlaceholder({ visible }: SearchingPlaceholderProps) {
   );
 }
 
+const GENERATING_IMAGE_TEXT = 'Generating image';
+
+export function GeneratingImagePlaceholder({ visible }: SearchingPlaceholderProps) {
+  if (!visible) return null;
+
+  return (
+    <View style={styles.assistantRow}>
+      <View style={styles.searchingRow}>
+        <ShimmerText style={styles.searchingText}>{GENERATING_IMAGE_TEXT}</ShimmerText>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   userRow: {
     width: '100%',
@@ -215,6 +256,11 @@ const styles = StyleSheet.create({
     width: 220,
     height: 160,
     borderRadius: 14,
+  },
+  generatedImage: {
+    width: 280,
+    height: 280,
+    borderRadius: 16,
   },
   imagePlaceholder: {
     width: 220,

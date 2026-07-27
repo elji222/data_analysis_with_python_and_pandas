@@ -1,4 +1,4 @@
-export type PreviewArtifactKind = 'html' | 'code' | 'svg';
+export type PreviewArtifactKind = 'html' | 'code' | 'svg' | 'image';
 
 export type PreviewArtifact = {
   id: string;

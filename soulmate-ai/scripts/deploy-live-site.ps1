@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$DeployScriptVersion = "2026-07-26n"
+$DeployScriptVersion = "2026-07-27a"
 
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
@@ -623,6 +623,20 @@ function Sync-ProductionEnv {
         Write-Host "Chat will still work, but live web search/news will be unavailable until you:"
         Write-Host "  1. Get a free key from https://tavily.com"
         Write-Host "  2. Put it in .env as TAVILY_API_KEY=tvly-..."
+        Write-Host "  3. Run scripts\deploy-live-site.cmd again"
+        Write-Host ""
+    }
+
+    $openAiKey = $EnvVars['OPENAI_API_KEY']
+    if ($openAiKey -and $openAiKey -notmatch 'your-openai-key-here|your-key-here') {
+        Write-Host "Syncing production env: OPENAI_API_KEY"
+        Set-EasProductionVariable -Name "OPENAI_API_KEY" -Value $openAiKey -Visibility "sensitive"
+    } else {
+        Write-Host ""
+        Write-Host "Skipping OPENAI_API_KEY (missing or still the placeholder in .env)."
+        Write-Host "Chat will still work, but image generation will be unavailable until you:"
+        Write-Host "  1. Get a key from https://platform.openai.com/api-keys"
+        Write-Host "  2. Put it in .env as OPENAI_API_KEY=sk-..."
         Write-Host "  3. Run scripts\deploy-live-site.cmd again"
         Write-Host ""
     }

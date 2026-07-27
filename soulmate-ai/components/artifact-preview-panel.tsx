@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { createElement, useMemo } from 'react';
 import {
   Modal,
@@ -57,6 +58,14 @@ function PreviewBody({ artifact }: { artifact: PreviewArtifact }) {
 
     return null;
   }, [artifact]);
+
+  if (artifact.kind === 'image') {
+    return (
+      <View style={styles.imagePreview}>
+        <Image source={{ uri: artifact.content }} style={styles.previewImage} contentFit="contain" />
+      </View>
+    );
+  }
 
   if (htmlDocument) {
     return (
@@ -189,6 +198,18 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 0,
     backgroundColor: '#FFFFFF',
+  },
+  imagePreview: {
+    flex: 1,
+    minHeight: 0,
+    backgroundColor: '#111111',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
   },
   codeScroll: {
     padding: 16,

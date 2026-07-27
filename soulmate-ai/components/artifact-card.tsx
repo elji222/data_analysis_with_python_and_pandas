@@ -13,7 +13,7 @@ type ArtifactCardProps = {
 
 function getIconName(kind: PreviewArtifact['kind']) {
   if (kind === 'html') return 'globe-outline' as const;
-  if (kind === 'svg') return 'image-outline' as const;
+  if (kind === 'svg' || kind === 'image') return 'image-outline' as const;
   return 'code-slash-outline' as const;
 }
 
