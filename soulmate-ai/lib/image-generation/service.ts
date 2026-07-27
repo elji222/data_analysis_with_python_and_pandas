@@ -1,5 +1,5 @@
 const OPENAI_IMAGES_ENDPOINT = 'https://api.openai.com/v1/images/generations';
-export const IMAGE_GENERATION_TIMEOUT_MS = 60_000;
+export const IMAGE_GENERATION_TIMEOUT_MS = 180_000;
 const DEFAULT_IMAGE_MODEL = 'dall-e-3';
 const FALLBACK_IMAGE_MODEL = 'gpt-image-2';
 
