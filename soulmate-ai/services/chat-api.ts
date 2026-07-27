@@ -1,12 +1,14 @@
 import { buildChatApiMessages } from '@/lib/build-chat-api-messages';
 import { getApiUrl } from '@/lib/api-origin';
+import type { GeneratedImage } from '@/lib/agent/types';
 import type { ChatApiMessage, ChatMessage } from '@/types/chat';
 
 type StreamEvent = {
   text?: string;
   error?: string;
   savedMemories?: string[];
-  status?: 'searching';
+  status?: 'searching' | 'generating_image';
+  generatedImage?: GeneratedImage;
 };
 
 export type StreamChatOptions = {
@@ -14,7 +16,8 @@ export type StreamChatOptions = {
   conversationId?: string;
   messageId?: string;
   onSavedMemories?: (savedMemories: string[]) => void;
-  onStatus?: (status: 'searching') => void;
+  onStatus?: (status: 'searching' | 'generating_image') => void;
+  onGeneratedImage?: (image: GeneratedImage) => void;
 };
 
 export async function streamChatMessage(
@@ -97,8 +100,11 @@ export async function streamChatMessage(
         if (parsed.savedMemories?.length) {
           options.onSavedMemories?.(parsed.savedMemories);
         }
-        if (parsed.status === 'searching') {
-          options.onStatus?.('searching');
+        if (parsed.status === 'searching' || parsed.status === 'generating_image') {
+          options.onStatus?.(parsed.status);
+        }
+        if (parsed.generatedImage) {
+          options.onGeneratedImage?.(parsed.generatedImage);
         }
         if (parsed.text) {
           fullText += parsed.text;

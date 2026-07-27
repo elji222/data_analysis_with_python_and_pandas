@@ -131,11 +131,26 @@ export async function POST(request: Request) {
             messages: agentMessages,
             toolContext: {
               tavilyApiKey: process.env.TAVILY_API_KEY ?? null,
+              openaiApiKey: process.env.OPENAI_API_KEY ?? null,
             },
             onEvent: (event) => {
               if (event.type === 'status' && event.status === 'searching') {
                 controller.enqueue(
                   encoder.encode(sseLine(JSON.stringify({ status: 'searching' })))
+                );
+                return;
+              }
+
+              if (event.type === 'status' && event.status === 'generating_image') {
+                controller.enqueue(
+                  encoder.encode(sseLine(JSON.stringify({ status: 'generating_image' })))
+                );
+                return;
+              }
+
+              if (event.type === 'generated_image') {
+                controller.enqueue(
+                  encoder.encode(sseLine(JSON.stringify({ generatedImage: event.image })))
                 );
                 return;
               }

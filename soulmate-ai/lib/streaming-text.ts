@@ -2,6 +2,7 @@ import type { ChatMessage } from '@/types/chat';
 
 export const THINKING_PLACEHOLDER_ID = 'thinking-placeholder';
 export const SEARCHING_PLACEHOLDER_ID = 'searching-placeholder';
+export const GENERATING_IMAGE_PLACEHOLDER_ID = 'generating-image-placeholder';
 export const STREAMING_ASSISTANT_ID = 'streaming-assistant';
 
 export type ChatListOptions = {
@@ -9,6 +10,8 @@ export type ChatListOptions = {
   visibleStreamingText: string;
   showThinking: boolean;
   showSearching?: boolean;
+  showGeneratingImage?: boolean;
+  streamingAttachments?: ChatMessage['attachments'];
 };
 
 export function getVisibleStreamingText(
@@ -35,6 +38,18 @@ export function buildChatListData(messages: ChatMessage[], options: ChatListOpti
     ];
   }
 
+  if (options.showGeneratingImage) {
+    return [
+      ...messages,
+      {
+        id: GENERATING_IMAGE_PLACEHOLDER_ID,
+        text: '',
+        role: 'assistant',
+        createdAt: Date.now(),
+      },
+    ];
+  }
+
   if (options.showThinking) {
     return [
       ...messages,
@@ -47,7 +62,7 @@ export function buildChatListData(messages: ChatMessage[], options: ChatListOpti
     ];
   }
 
-  if (!options.isStreaming) {
+  if (!options.isStreaming && !options.streamingAttachments?.length) {
     return messages;
   }
 
@@ -62,8 +77,21 @@ export function buildChatListData(messages: ChatMessage[], options: ChatListOpti
     return messages;
   }
 
-  if (!trimmedVisible) {
+  if (!trimmedVisible && !options.streamingAttachments?.length) {
     return messages;
+  }
+
+  if (!trimmedVisible && options.streamingAttachments?.length) {
+    return [
+      ...messages,
+      {
+        id: STREAMING_ASSISTANT_ID,
+        text: '',
+        role: 'assistant',
+        createdAt: Date.now(),
+        attachments: options.streamingAttachments,
+      },
+    ];
   }
 
   return [
@@ -73,6 +101,7 @@ export function buildChatListData(messages: ChatMessage[], options: ChatListOpti
       text: options.visibleStreamingText,
       role: 'assistant',
       createdAt: Date.now(),
+      attachments: options.streamingAttachments?.length ? options.streamingAttachments : undefined,
     },
   ];
 }

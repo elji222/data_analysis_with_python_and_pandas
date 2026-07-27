@@ -2,9 +2,11 @@ import { CLAUDE_MODEL, MAX_OUTPUT_TOKENS } from '@/constants/ai';
 import {
   CHAT_TOOLS,
   executeToolCall,
+  isGenerateImageTool,
   isWebSearchTool,
   TOOL_USE_SYSTEM_NOTE,
 } from '@/lib/tools/registry';
+import { parseGenerateImageToolResult } from '@/lib/tools/generate-image';
 import type { ToolContext } from '@/lib/tools/types';
 
 import type {
@@ -260,10 +262,28 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<string
         options.onEvent({ type: 'status', status: 'searching' });
       }
 
+      if (isGenerateImageTool(toolUse.name)) {
+        options.onEvent({ type: 'status', status: 'generating_image' });
+      }
+
       const result = await executeToolCall(
         { id: toolUse.id, name: toolUse.name, input: toolUse.input },
         options.toolContext
       );
+
+      if (isGenerateImageTool(toolUse.name)) {
+        const parsed = parseGenerateImageToolResult(result);
+        if (parsed && 'imageUrl' in parsed) {
+          options.onEvent({
+            type: 'generated_image',
+            image: {
+              id: toolUse.id,
+              url: parsed.imageUrl,
+              prompt: parsed.prompt,
+            },
+          });
+        }
+      }
 
       toolResults.push({
         type: 'tool_result',

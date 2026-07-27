@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ChatBubble, SearchingPlaceholder, StreamingPlaceholder } from '@/components/chat-bubble';
+import { ChatBubble, GeneratingImagePlaceholder, SearchingPlaceholder, StreamingPlaceholder } from '@/components/chat-bubble';
 import { ChatComposer } from '@/components/chat-composer';
 import { ChatScrollRail } from '@/components/chat-scroll-rail';
 import { MobileChatHeader } from '@/components/mobile-chat-header';
@@ -27,6 +27,7 @@ import { ChatTheme, QUICK_ACTIONS } from '@/constants/chat-theme';
 import { useSmoothStreamingText } from '@/hooks/use-smooth-streaming-text';
 import {
   buildChatListData,
+  GENERATING_IMAGE_PLACEHOLDER_ID,
   getVisibleStreamingText,
   SEARCHING_PLACEHOLDER_ID,
   STREAMING_ASSISTANT_ID,
@@ -102,6 +103,8 @@ export function ChatPanel({
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [streamingAttachments, setStreamingAttachments] = useState<ChatAttachment[]>([]);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -139,10 +142,12 @@ export function ChatPanel({
       <ThemedText style={styles.subscriptionBannerLink}>Open Settings</ThemedText>
     </Pressable>
   ) : null;
-  const isStreaming = streamingText !== null;
+  const isStreaming = streamingText !== null || streamingAttachments.length > 0;
   const smoothStreamingText = useSmoothStreamingText(streamingText, isStreaming);
-  const showSearching = isSearching && streamingText === null;
-  const showThinking = isLoading && streamingText === null && !showSearching;
+  const showSearching = isSearching && streamingText === null && streamingAttachments.length === 0;
+  const showGeneratingImage =
+    isGeneratingImage && streamingText === null && streamingAttachments.length === 0;
+  const showThinking = isLoading && streamingText === null && !showSearching && !showGeneratingImage;
   const isNewChat = isDefaultConversationTitle(conversation?.title ?? 'New chat');
   const showHeroEmpty =
     messages.length === 0 && !showThinking && !isStreaming && isNewChat;
@@ -274,18 +279,23 @@ export function ChatPanel({
     setError(null);
     setIsLoading(true);
     setIsSearching(false);
+    setIsGeneratingImage(false);
+    setStreamingAttachments([]);
     setStreamingText(null);
     cancelRecording();
     pendingScrollUserIndexRef.current = userMessageIndex;
     void onUpdateMessages(conversation.id, nextMessages);
 
     try {
+      const generatedAttachments: ChatAttachment[] = [];
+
       const reply = await streamChatMessage(
         nextMessages,
         (partialText) => {
           setStreamingText(partialText);
           if (partialText) {
             setIsSearching(false);
+            setIsGeneratingImage(false);
           }
         },
         {
@@ -301,6 +311,21 @@ export function ChatPanel({
             if (status === 'searching') {
               setIsSearching(true);
             }
+            if (status === 'generating_image') {
+              setIsGeneratingImage(true);
+            }
+          },
+          onGeneratedImage: (image) => {
+            setIsGeneratingImage(false);
+            const attachment: ChatAttachment = {
+              id: image.id,
+              name: image.prompt,
+              mimeType: 'image/png',
+              kind: 'image',
+              uri: image.url,
+            };
+            generatedAttachments.push(attachment);
+            setStreamingAttachments((previous) => [...previous, attachment]);
           },
         }
       );
@@ -310,10 +335,13 @@ export function ChatPanel({
         text: reply,
         role: 'assistant',
         createdAt: Date.now(),
+        attachments: generatedAttachments.length > 0 ? generatedAttachments : undefined,
       };
 
       setStreamingText(null);
       setIsSearching(false);
+      setIsGeneratingImage(false);
+      setStreamingAttachments([]);
       setStatusMessage(null);
       setIsLoading(false);
       await onUpdateMessages(conversation.id, [...nextMessages, assistantMessage]);
@@ -326,6 +354,8 @@ export function ChatPanel({
     } catch (sendError) {
       setStreamingText(null);
       setIsSearching(false);
+      setIsGeneratingImage(false);
+      setStreamingAttachments([]);
       setStatusMessage(null);
       setIsLoading(false);
       const message =
@@ -361,8 +391,10 @@ export function ChatPanel({
         visibleStreamingText,
         showThinking,
         showSearching,
+        showGeneratingImage,
+        streamingAttachments,
       }),
-    [messages, isStreaming, visibleStreamingText, showThinking, showSearching]
+    [messages, isStreaming, visibleStreamingText, showThinking, showSearching, showGeneratingImage, streamingAttachments]
   );
 
   listDataRef.current = listData;
@@ -580,6 +612,10 @@ export function ChatPanel({
 
                           if (item.id === SEARCHING_PLACEHOLDER_ID) {
                             return <SearchingPlaceholder visible />;
+                          }
+
+                          if (item.id === GENERATING_IMAGE_PLACEHOLDER_ID) {
+                            return <GeneratingImagePlaceholder visible />;
                           }
 
                           return (

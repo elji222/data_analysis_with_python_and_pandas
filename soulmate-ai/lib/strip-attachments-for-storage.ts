@@ -18,9 +18,11 @@ export function stripAttachmentForStorage(attachment: ChatAttachment): ChatAttac
     mimeType: attachment.mimeType,
     kind: attachment.kind,
     uri:
-      attachment.kind === 'image' || Platform.OS === 'web' || isHeavyUri(attachment.uri)
-        ? ''
-        : attachment.uri,
+      attachment.uri.startsWith('https://') || attachment.uri.startsWith('http://')
+        ? attachment.uri
+        : attachment.kind === 'image' || Platform.OS === 'web' || isHeavyUri(attachment.uri)
+          ? ''
+          : attachment.uri,
   };
 
   if (attachment.textPreview) {
