@@ -5,6 +5,7 @@ import { getDefaultPriceLabel, isActiveSubscriptionStatus } from '@/lib/billing/
 import { isStripeConfigured } from '@/lib/billing/stripe';
 import type { StripeSubscription, StripeSubscriptionStatus } from '@/types/stripe-api';
 import { getUserAccess } from '@/lib/access/repository';
+import type { UserAccess } from '@/types/access';
 import type { BillingStatus, SubscriptionStatus, UserSubscription } from '@/types/billing';
 
 export async function getUserSubscription(
@@ -33,11 +34,12 @@ export async function getUserSubscription(
 export async function buildBillingStatus(
   client: SupabaseClient,
   userId: string,
-  email?: string | null
+  email?: string | null,
+  existingAccess?: UserAccess | null
 ): Promise<BillingStatus> {
   const [subscription, access] = await Promise.all([
     getUserSubscription(client, userId),
-    getUserAccess(client, userId),
+    existingAccess === undefined ? getUserAccess(client, userId) : Promise.resolve(existingAccess),
   ]);
 
   const isComplimentary = Boolean(access?.is_admin) || isAdminEmail(email);

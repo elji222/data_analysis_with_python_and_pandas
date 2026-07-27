@@ -2,6 +2,7 @@ import { SOULMATE_SYSTEM_PROMPT } from '@/constants/ai';
 import { runChatAgent } from '@/lib/agent/run-chat-agent';
 import type { AnthropicAgentMessage } from '@/lib/agent/types';
 import { appendCurrentDateContext } from '@/lib/current-date';
+import { isLikelyImageGenerationRequest } from '@/lib/image-generation/intent';
 import { buildChatSystemPrompt } from '@/lib/memory/prompt';
 import { processMessageMemory } from '@/lib/memory/process';
 import {
@@ -44,9 +45,15 @@ async function resolveSystemPrompt(
     return { systemPrompt, memoryEnabled: false };
   }
 
-  const client = createSupabaseServerClient(accessToken!);
   const latestUserMessage =
     [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
+  const latestUserText = getMessageText(latestUserMessage);
+
+  if (isLikelyImageGenerationRequest(latestUserText)) {
+    return { systemPrompt, memoryEnabled: true };
+  }
+
+  const client = createSupabaseServerClient(accessToken!);
 
   const memoryContext = await Promise.race([
     (async () => {
@@ -62,7 +69,7 @@ async function resolveSystemPrompt(
       const filteredMemories = filterMemoriesForAiPrompt(memories);
       const relevant = rankMemoriesForQuery(
         filteredMemories,
-        getMessageText(latestUserMessage),
+        latestUserText,
         15
       );
 
@@ -119,10 +126,15 @@ export async function POST(request: Request) {
     const finalSystemPrompt = appendCurrentDateContext(systemPrompt);
     const agentMessages = messages as AnthropicAgentMessage[];
 
+    const authorizationHeader =
+      request.headers.get('authorization') ?? request.headers.get('Authorization');
+    const imageServiceUrl = new URL('/api/generate-image', request.url).toString();
+
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
         let fullReply = '';
+        let usedTools = false;
 
         let streamError: string | null = null;
 
@@ -131,7 +143,7 @@ export async function POST(request: Request) {
         };
 
         try {
-          fullReply = await runChatAgent({
+          const agentResult = await runChatAgent({
             apiKey,
             systemPrompt: finalSystemPrompt,
             messages: agentMessages,
@@ -139,6 +151,8 @@ export async function POST(request: Request) {
               tavilyApiKey: process.env.TAVILY_API_KEY ?? null,
               openaiApiKey: process.env.OPENAI_API_KEY ?? null,
               openaiImageModel: process.env.OPENAI_IMAGE_MODEL ?? null,
+              imageServiceUrl,
+              authorizationHeader,
             },
             onEvent: (event) => {
               try {
@@ -172,7 +186,10 @@ export async function POST(request: Request) {
             },
           });
 
-          if (userId && accessToken && memoryEnabled && !skipMemory) {
+          fullReply = agentResult.fullReply;
+          usedTools = agentResult.usedTools;
+
+          if (userId && accessToken && memoryEnabled && !skipMemory && !usedTools) {
             try {
               const client = createSupabaseServerClient(accessToken);
               const latestUserMessage =
