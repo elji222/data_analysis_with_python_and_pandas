@@ -13,19 +13,29 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { FormattedMessageText } from '@/components/formatted-message-text';
+import { ArtifactCard } from '@/components/artifact-card';
 import { ShimmerText } from '@/components/shimmer-text';
 import { StreamingCursor } from '@/components/streaming-cursor';
 import { ThemedText } from '@/components/themed-text';
 import { ChatTheme } from '@/constants/chat-theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { parseArtifacts, stripArtifactBlocks } from '@/lib/parse-artifacts';
 import type { ChatMessage } from '@/types/chat';
+import type { PreviewArtifact } from '@/types/preview-artifact';
 
 type ChatBubbleProps = {
   message: ChatMessage;
   isStreaming?: boolean;
+  activePreviewId?: string | null;
+  onOpenPreview?: (artifact: PreviewArtifact) => void;
 };
 
-export function ChatBubble({ message, isStreaming = false }: ChatBubbleProps) {
+export function ChatBubble({
+  message,
+  isStreaming = false,
+  activePreviewId = null,
+  onOpenPreview,
+}: ChatBubbleProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
   const isUser = message.role === 'user';
@@ -86,15 +96,36 @@ export function ChatBubble({ message, isStreaming = false }: ChatBubbleProps) {
     );
   }
 
+  const artifacts = !isUser
+    ? parseArtifacts(message.text).map((artifact, index) => ({
+        ...artifact,
+        id: `${message.id}-artifact-${index}`,
+      }))
+    : [];
+  const visibleText = artifacts.length > 0 ? stripArtifactBlocks(message.text) : message.text;
+
   return (
     <View style={styles.assistantRow}>
-      <FormattedMessageText
-        lightColor={ChatTheme.assistantText}
-        darkColor={ChatTheme.assistantTextDark}
-        style={styles.messageText}
-        text={message.text}
-        suffix={isStreaming ? <StreamingCursor /> : undefined}
-      />
+      {visibleText ? (
+        <FormattedMessageText
+          lightColor={ChatTheme.assistantText}
+          darkColor={ChatTheme.assistantTextDark}
+          style={styles.messageText}
+          text={visibleText}
+          suffix={isStreaming ? <StreamingCursor /> : undefined}
+        />
+      ) : isStreaming ? (
+        <StreamingCursor />
+      ) : null}
+
+      {artifacts.map((artifact) => (
+        <ArtifactCard
+          key={artifact.id}
+          artifact={artifact}
+          isActive={activePreviewId === artifact.id}
+          onPress={() => onOpenPreview?.(artifact)}
+        />
+      ))}
     </View>
   );
 }

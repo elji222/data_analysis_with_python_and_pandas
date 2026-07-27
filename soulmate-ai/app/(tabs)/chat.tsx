@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 
 import { AppErrorBoundary } from '@/components/app-error-boundary';
+import { ArtifactPreviewPanel } from '@/components/artifact-preview-panel';
 import { ChatPanel } from '@/components/chat-panel';
 import { ConversationSidebar } from '@/components/conversation-sidebar';
 import { InternetStatusBanner } from '@/components/internet-status-banner';
@@ -18,6 +19,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useChatIntent } from '@/contexts/chat-intent-context';
 import { useShellLayout } from '@/hooks/use-mobile-chat-layout';
 import { useConversations } from '@/hooks/use-conversations';
+import type { PreviewArtifact } from '@/types/preview-artifact';
 
 export default function ChatScreen() {
   const { user, isLoading: authLoading } = useAuth();
@@ -25,6 +27,7 @@ export default function ChatScreen() {
   const shellLayout = useShellLayout();
   const isWideLayout = shellLayout === 'desktop';
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [previewArtifact, setPreviewArtifact] = useState<PreviewArtifact | null>(null);
   const [initialPrompt, setInitialPrompt] = useState<string | null>(null);
   const pendingIntentRef = useRef<{ prompt: string; newConversation?: boolean } | null>(null);
 
@@ -61,6 +64,10 @@ export default function ChatScreen() {
       void startNewConversation();
     }
   }, [isReady, startNewConversation]);
+
+  useEffect(() => {
+    setPreviewArtifact(null);
+  }, [activeConversationId]);
 
   async function handleSelectConversation(conversationId: string) {
     await selectConversation(conversationId);
@@ -120,6 +127,18 @@ export default function ChatScreen() {
     />
   );
 
+  const chatPanelProps = {
+    conversation: activeConversation,
+    onUpdateMessages: updateConversationMessages,
+    onRenameConversation: renameConversation,
+    storageWarning,
+    userEmail: user.email,
+    initialPrompt,
+    onInitialPromptConsumed: () => setInitialPrompt(null),
+    activePreviewId: previewArtifact?.id ?? null,
+    onOpenPreview: setPreviewArtifact,
+  };
+
   return (
     <AppErrorBoundary title="Chat could not load">
       <ThemedView style={styles.container}>
@@ -128,15 +147,17 @@ export default function ChatScreen() {
           <View style={styles.desktopLayout}>
             {sidebar}
             <View style={styles.chatMain}>
-              <ChatPanel
-                key={activeConversationId}
-                conversation={activeConversation}
-                onUpdateMessages={updateConversationMessages}
-                onRenameConversation={renameConversation}
-                storageWarning={storageWarning}
-                userEmail={user.email}
-                initialPrompt={initialPrompt}
-                onInitialPromptConsumed={() => setInitialPrompt(null)}
+              <View style={styles.chatColumn}>
+                <ChatPanel
+                  key={activeConversationId}
+                  {...chatPanelProps}
+                />
+              </View>
+              <ArtifactPreviewPanel
+                artifact={previewArtifact}
+                visible={Boolean(previewArtifact)}
+                variant="sidebar"
+                onClose={() => setPreviewArtifact(null)}
               />
             </View>
           </View>
@@ -144,15 +165,16 @@ export default function ChatScreen() {
           <>
             <ChatPanel
               key={activeConversationId}
-              conversation={activeConversation}
-              onUpdateMessages={updateConversationMessages}
-              onRenameConversation={renameConversation}
+              {...chatPanelProps}
               onOpenSidebar={() => setIsSidebarOpen(true)}
               showSidebarToggle
-              storageWarning={storageWarning}
-              userEmail={user.email}
-              initialPrompt={initialPrompt}
-              onInitialPromptConsumed={() => setInitialPrompt(null)}
+            />
+
+            <ArtifactPreviewPanel
+              artifact={previewArtifact}
+              visible={Boolean(previewArtifact)}
+              variant="modal"
+              onClose={() => setPreviewArtifact(null)}
             />
 
             <Modal
@@ -188,8 +210,13 @@ const styles = StyleSheet.create({
   },
   chatMain: {
     flex: 1,
+    flexDirection: 'row',
     alignItems: 'stretch',
     minHeight: 0,
+    minWidth: 0,
+  },
+  chatColumn: {
+    flex: 1,
     minWidth: 0,
   },
   mobileSidebar: {

@@ -28,6 +28,8 @@ $Files = @(
     "package.json",
     "components/attach-popover.tsx",
     "components/app-error-boundary.tsx",
+    "components/artifact-card.tsx",
+    "components/artifact-preview-panel.tsx",
     "components/internet-status-banner.tsx",
     "components/chat-bubble.tsx",
     "components/shimmer-text.tsx",

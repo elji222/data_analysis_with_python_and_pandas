@@ -60,6 +60,7 @@ import { streamChatMessage } from '@/services/chat-api';
 import { fetchConversationTitle } from '@/services/title-api';
 import type { ChatAttachment, ChatMessage } from '@/types/chat';
 import type { Conversation } from '@/types/conversation';
+import type { PreviewArtifact } from '@/types/preview-artifact';
 
 type ChatPanelProps = {
   conversation: Conversation | null;
@@ -71,6 +72,8 @@ type ChatPanelProps = {
   userEmail?: string | null;
   initialPrompt?: string | null;
   onInitialPromptConsumed?: () => void;
+  activePreviewId?: string | null;
+  onOpenPreview?: (artifact: PreviewArtifact) => void;
 };
 
 export function ChatPanel({
@@ -83,6 +86,8 @@ export function ChatPanel({
   userEmail,
   initialPrompt = null,
   onInitialPromptConsumed,
+  activePreviewId = null,
+  onOpenPreview,
 }: ChatPanelProps) {
   const { session } = useAuth();
   const router = useRouter();
@@ -581,6 +586,8 @@ export function ChatPanel({
                             <ChatBubble
                               message={item}
                               isStreaming={item.id === STREAMING_ASSISTANT_ID && isStreaming}
+                              activePreviewId={activePreviewId}
+                              onOpenPreview={onOpenPreview}
                             />
                           );
                         }}
