@@ -8,6 +8,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,7 +20,7 @@ import { ChatTheme } from '@/constants/chat-theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useBilling } from '@/hooks/use-billing';
 import { useMobileChatLayout } from '@/hooks/use-mobile-chat-layout';
-import { openBillingPortal, startCheckout } from '@/services/billing-api';
+import { openBillingPortal, startCheckout, updateFreeAccessForAll } from '@/services/billing-api';
 
 function formatRenewalDate(value: string | null | undefined) {
   if (!value) return null;
@@ -38,6 +39,7 @@ export default function SettingsScreen() {
   const { status, isLoading, error, refresh } = useBilling(session?.access_token);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUpdatingAccessMode, setIsUpdatingAccessMode] = useState(false);
   const [bannerMessage, setBannerMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -92,8 +94,32 @@ export default function SettingsScreen() {
     }
   }
 
+  async function handleToggleFreeAccess(nextValue: boolean) {
+    if (!session?.access_token) return;
+
+    try {
+      setIsUpdatingAccessMode(true);
+      setActionError(null);
+      const nextStatus = await updateFreeAccessForAll(session.access_token, nextValue);
+      await refresh();
+      setBannerMessage(
+        nextStatus.freeAccessForAll
+          ? 'Free access is now enabled for all users. Subscribe remains available in Settings.'
+          : 'Paid access restored. Users need an active subscription again.'
+      );
+    } catch (toggleError) {
+      const message =
+        toggleError instanceof Error ? toggleError.message : 'Could not update free access mode.';
+      setActionError(message);
+    } finally {
+      setIsUpdatingAccessMode(false);
+    }
+  }
+
   const isActive = Boolean(status?.hasActiveSubscription);
   const isComplimentary = Boolean(status?.isComplimentary);
+  const isAdmin = Boolean(status?.isAdmin);
+  const freeAccessForAll = Boolean(status?.freeAccessForAll);
   const renewalDate = formatRenewalDate(status?.subscription?.current_period_end);
 
   return (
@@ -132,9 +158,11 @@ export default function SettingsScreen() {
                   <ThemedText style={styles.statusText}>
                     {isComplimentary
                       ? 'Admin access (complimentary)'
-                      : isActive
-                        ? `Active${renewalDate ? ` · renews ${renewalDate}` : ''}`
-                        : 'Not subscribed'}
+                      : freeAccessForAll
+                        ? 'Free access enabled'
+                        : isActive
+                          ? `Active${renewalDate ? ` · renews ${renewalDate}` : ''}`
+                          : 'Not subscribed'}
                   </ThemedText>
                 </View>
 
@@ -142,13 +170,18 @@ export default function SettingsScreen() {
                   <ThemedText style={styles.helperText}>
                     Your admin account has full access without billing.
                   </ThemedText>
+                ) : freeAccessForAll ? (
+                  <ThemedText style={styles.helperText}>
+                    Soulmate AI is currently free for everyone. You can still subscribe below to
+                    support the app.
+                  </ThemedText>
                 ) : !status?.stripeConfigured ? (
                   <ThemedText style={styles.helperText}>
                     Stripe is not configured on the live server yet. Check that STRIPE_SECRET_KEY in .env
                     is your Stripe key (sk_test_... or sk_live_...), not your Anthropic key, then run
                     DEPLOY.cmd again.
                   </ThemedText>
-                ) : isActive ? (
+                ) : isActive && status?.subscription ? (
                   <Pressable
                     style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
                     disabled={isSubmitting}
@@ -172,7 +205,9 @@ export default function SettingsScreen() {
                     ) : (
                       <>
                         <Ionicons name="card-outline" size={18} color="#FFFFFF" />
-                        <ThemedText style={styles.primaryButtonText}>Subscribe with Stripe</ThemedText>
+                        <ThemedText style={styles.primaryButtonText}>
+                          {freeAccessForAll ? 'Subscribe to support Soulmate AI' : 'Subscribe with Stripe'}
+                        </ThemedText>
                       </>
                     )}
                   </Pressable>
@@ -180,6 +215,33 @@ export default function SettingsScreen() {
               </>
             )}
           </View>
+
+          {isAdmin ? (
+            <View style={styles.card}>
+              <ThemedText style={styles.cardTitle}>Admin access mode</ThemedText>
+              <ThemedText style={styles.cardText}>
+                Turn on free access for everyone while keeping Stripe subscriptions available in
+                Settings.
+              </ThemedText>
+              <View style={styles.toggleRow}>
+                <View style={styles.toggleCopy}>
+                  <ThemedText style={styles.toggleTitle}>Free access for all users</ThemedText>
+                  <ThemedText style={styles.helperText}>
+                    {freeAccessForAll
+                      ? 'All signed-in users can chat without paying.'
+                      : 'Users need an active subscription to use Soulmate AI.'}
+                  </ThemedText>
+                </View>
+                <Switch
+                  value={freeAccessForAll}
+                  disabled={isUpdatingAccessMode || isLoading}
+                  onValueChange={(value) => void handleToggleFreeAccess(value)}
+                  trackColor={{ false: '#D9D9D9', true: ChatTheme.accent }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+            </View>
+          ) : null}
 
           {(actionError || error) && !isLoading ? (
             <View style={styles.errorCard}>
@@ -266,6 +328,20 @@ const styles = StyleSheet.create({
   },
   helperText: {
     color: ChatTheme.sidebarMuted,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  toggleCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  toggleTitle: {
+    fontWeight: '600',
+    color: ChatTheme.sidebarText,
   },
   primaryButton: {
     flexDirection: 'row',

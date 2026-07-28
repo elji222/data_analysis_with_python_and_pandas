@@ -89,3 +89,19 @@ export async function openBillingPortal(accessToken: string): Promise<string> {
 
   return data.url;
 }
+
+export async function updateFreeAccessForAll(
+  accessToken: string,
+  freeAccessForAll: boolean
+): Promise<BillingStatus> {
+  const data = await billingRequest<{ status: BillingStatus }>('/api/billing/access-mode', accessToken, {
+    method: 'PATCH',
+    body: JSON.stringify({ freeAccessForAll }),
+  });
+
+  if (!data.status) {
+    throw new Error('Could not update free access mode.');
+  }
+
+  return data.status;
+}

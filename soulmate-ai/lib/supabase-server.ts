@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient, type User } from '@supabase/supabase
 import { getUserAccess } from '@/lib/access/repository';
 import type { UserAccess } from '@/types/access';
 import { buildBillingStatus } from '@/lib/billing/repository';
+import { getFreeAccessForAll } from '@/lib/billing/app-settings';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey =
@@ -138,11 +139,13 @@ export async function requirePaidAccess(
   const auth = await requireUserAccess(request);
   if ('error' in auth) return auth;
 
+  const freeAccessForAll = await getFreeAccessForAll(auth.serviceClient);
   const billing = await buildBillingStatus(
     auth.client,
     auth.userId,
     auth.user.email,
-    auth.access
+    auth.access,
+    { freeAccessForAll }
   );
   if (!billing.hasActiveSubscription) {
     return {
