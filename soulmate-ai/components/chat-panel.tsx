@@ -21,6 +21,7 @@ import { ChatComposer } from '@/components/chat-composer';
 import { ChatScrollRail } from '@/components/chat-scroll-rail';
 import { MobileChatHeader } from '@/components/mobile-chat-header';
 import { MobileQuickSuggestions } from '@/components/mobile-quick-suggestions';
+import { NativeMobileChatShell } from '@/components/native-mobile-chat-shell';
 import { ScrollToBottomButton } from '@/components/scroll-to-bottom-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -100,6 +101,7 @@ export function ChatPanel({
   const isDark = colorScheme === 'dark';
   const isCompactWeb = useCompactWebLayout();
   const isMobileChatLayout = useMobileChatLayout();
+  const useNativeMobileShell = Platform.OS !== 'web' && isMobileChatLayout;
   const mobileEdgeGutter = ChatTheme.mobileEdgeGutter;
   const insets = useSafeAreaInsets();
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -206,6 +208,11 @@ export function ChatPanel({
   }, [conversation?.id]);
 
   useEffect(() => {
+    if (useNativeMobileShell) {
+      pendingScrollUserIndexRef.current = null;
+      return;
+    }
+
     const targetIndex = pendingScrollUserIndexRef.current;
     if (targetIndex === null || messages.length <= targetIndex) {
       return;
@@ -213,7 +220,7 @@ export function ChatPanel({
 
     pendingScrollUserIndexRef.current = null;
     scrollMessageToTop(listRef, targetIndex);
-  }, [messages.length]);
+  }, [messages.length, useNativeMobileShell]);
 
   async function handleAttach(action: 'photos-and-files' | 'camera') {
     try {
@@ -315,7 +322,11 @@ export function ChatPanel({
     setStreamingAttachments([]);
     setStreamingText(null);
     cancelRecording();
-    pendingScrollUserIndexRef.current = userMessageIndex;
+    if (!useNativeMobileShell) {
+      pendingScrollUserIndexRef.current = userMessageIndex;
+    } else {
+      scrollToEnd();
+    }
     void onUpdateMessages(conversation.id, nextMessages);
 
     try {
@@ -435,6 +446,11 @@ export function ChatPanel({
 
   listDataRef.current = listData;
 
+  useEffect(() => {
+    if (!useNativeMobileShell) return;
+    scrollToEnd();
+  }, [listData.length, visibleStreamingText, useNativeMobileShell]);
+
   const scrollMarkers = useMemo(() => buildUserScrollMarkers(listData), [listData]);
   const scrollProgress = getScrollProgress(scrollMetrics);
   const isScrollable =
@@ -444,7 +460,8 @@ export function ChatPanel({
     !isMobileChatLayout && scrollMarkers.length > 0 && isScrollable;
   const showJumpToBottom = shouldShowScrollToBottom(scrollMetrics);
   const responseRoomHeight = Math.max(Math.floor(listViewportHeight * 0.55), 180);
-  const showResponseRoom = (isLoading || isStreaming) && listViewportHeight > 0;
+  const showResponseRoom =
+    !useNativeMobileShell && (isLoading || isStreaming) && listViewportHeight > 0;
 
   const listFooter = showResponseRoom ? (
     <View style={{ minHeight: responseRoomHeight }} />
@@ -532,6 +549,82 @@ export function ChatPanel({
     showCameraOption: shouldShowCameraOption(),
     layout: isMobileChatLayout ? ('mobile' as const) : ('default' as const),
   };
+
+  const renderChatItem = useCallback(
+    ({ item }: { item: ChatMessage }) => {
+      if (item.id === THINKING_PLACEHOLDER_ID) {
+        return <StreamingPlaceholder visible />;
+      }
+
+      if (item.id === SEARCHING_PLACEHOLDER_ID) {
+        return <SearchingPlaceholder visible />;
+      }
+
+      if (item.id === GENERATING_IMAGE_PLACEHOLDER_ID) {
+        return <GeneratingImagePlaceholder visible />;
+      }
+
+      return (
+        <ChatBubble
+          message={item}
+          isStreaming={item.id === STREAMING_ASSISTANT_ID && isStreaming}
+          activePreviewId={activePreviewId}
+          onOpenPreview={onOpenPreview}
+          layout={isMobileChatLayout ? 'mobile' : 'default'}
+        />
+      );
+    },
+    [activePreviewId, isMobileChatLayout, isStreaming, onOpenPreview]
+  );
+
+  const mobileComposerBlock = (
+    <>
+      {subscriptionBanner}
+      {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+      {voiceHint && !error ? (
+        <ThemedText style={styles.voiceHintText}>{voiceHint}</ThemedText>
+      ) : null}
+      <ChatComposer variant="bottom" {...composerProps} />
+    </>
+  );
+
+  if (useNativeMobileShell) {
+    return (
+      <ThemedView
+        lightColor={ChatTheme.pageBg}
+        darkColor={ChatTheme.pageBgDark}
+        style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={['top']}>
+          {showSidebarToggle && onOpenSidebar ? (
+            <MobileChatHeader onOpenSidebar={onOpenSidebar} />
+          ) : null}
+
+          <NativeMobileChatShell
+            listData={listData}
+            listRef={listRef}
+            showHeroEmpty={showHeroEmpty}
+            isKeyboardVisible={isKeyboardVisible}
+            mobileEdgeGutter={mobileEdgeGutter}
+            pageBackgroundColor={isDark ? ChatTheme.pageBgDark : ChatTheme.pageBg}
+            onSelectSuggestion={(prompt) => void sendMessage(prompt)}
+            onListLayout={handleListLayout}
+            onScroll={handleScroll}
+            onContentSizeChange={(_width, contentHeight) => {
+              setScrollMetrics((previous) => ({
+                ...previous,
+                contentHeight,
+              }));
+            }}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
+            onScrollToIndexFailed={handleScrollToIndexFailed}
+            renderItem={renderChatItem}
+            composer={mobileComposerBlock}
+          />
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView
