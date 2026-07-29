@@ -26,7 +26,7 @@ export function MobileQuickSuggestions({ onSelect }: MobileQuickSuggestionsProps
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 20,
+    paddingHorizontal: ChatTheme.mobileEdgeGutter,
     paddingBottom: 12,
     gap: 2,
   },

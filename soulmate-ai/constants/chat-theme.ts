@@ -1,5 +1,5 @@
-export const UI_VERSION = '2026-07-29m';
-export const MOBILE_UI_MARKER = 'chatgpt-mobile-v3';
+export const UI_VERSION = '2026-07-29n';
+export const MOBILE_UI_MARKER = 'chatgpt-mobile-v4';
 
 export const ChatTheme = {
   pageBg: '#FFFFFF',
@@ -19,6 +19,7 @@ export const ChatTheme = {
   contentMaxWidth: 768,
   composerMaxWidth: 768,
   threadContentMaxWidth: 768,
+  mobileEdgeGutter: 12,
   threadRailWidth: 48,
   messageFontSize: 16,
   messageLineHeight: 26,

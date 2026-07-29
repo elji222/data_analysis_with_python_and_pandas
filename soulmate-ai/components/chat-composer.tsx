@@ -188,7 +188,7 @@ export function ChatComposer({
   }
 
   return (
-    <View style={[styles.wrapper, isHero && styles.wrapperHero]}>
+    <View style={[styles.wrapper, isHero && styles.wrapperHero, isMobileLayout && styles.wrapperMobile]}>
       <View style={styles.composerStack}>
         <AttachPopover
           visible={isAttachMenuOpen}
@@ -361,6 +361,9 @@ const styles = StyleSheet.create({
   },
   wrapperHero: {
     width: '100%',
+  },
+  wrapperMobile: {
+    maxWidth: '100%',
   },
   composerStack: {
     position: 'relative',
