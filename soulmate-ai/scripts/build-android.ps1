@@ -7,6 +7,7 @@ Write-Step " BUILD ANDROID APK (internal install link)"
 Write-Step "============================================================"
 
 Ensure-NodeModules
+Ensure-GitRepo
 Ensure-EasLogin
 Ensure-ProductionEnvSynced
 

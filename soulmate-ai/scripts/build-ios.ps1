@@ -7,6 +7,7 @@ Write-Step " BUILD iOS APP (TestFlight / App Store Connect)"
 Write-Step "============================================================"
 
 Ensure-NodeModules
+Ensure-GitRepo
 Ensure-EasLogin
 Ensure-ProductionEnvSynced
 

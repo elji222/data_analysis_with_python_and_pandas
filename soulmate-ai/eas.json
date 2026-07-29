@@ -1,13 +1,12 @@
 {
   "cli": {
     "version": ">= 16.32.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "preview": {
       "environment": "production",
       "distribution": "internal",
-      "channel": "preview",
       "android": {
         "buildType": "apk"
       }
@@ -15,14 +14,12 @@
     "preview-ios": {
       "environment": "production",
       "distribution": "store",
-      "channel": "preview",
       "ios": {
         "simulator": false
       }
     },
     "production": {
       "environment": "production",
-      "channel": "production",
       "android": {
         "buildType": "app-bundle"
       }

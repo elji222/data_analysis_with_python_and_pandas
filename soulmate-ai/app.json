@@ -17,6 +17,7 @@
     },
     "android": {
       "package": "com.matyatech.soulmateai",
+      "versionCode": 1,
       "permissions": ["INTERNET"],
       "adaptiveIcon": {
         "backgroundColor": "#F3EEFF",
