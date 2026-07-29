@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { StaleBundleGate } from '@/components/stale-bundle-gate';
 import { ThemedText } from '@/components/themed-text';
@@ -97,11 +98,13 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <ChatIntentProvider>
-        <RootNavigator />
-      </ChatIntentProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <ChatIntentProvider>
+          <RootNavigator />
+        </ChatIntentProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
 
