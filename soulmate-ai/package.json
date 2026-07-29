@@ -13,7 +13,10 @@
     "lint": "expo lint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "deploy:web": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/deploy-live-site.ps1"
+    "deploy:web": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/deploy-live-site.ps1",
+    "build:android": "eas build --platform android --profile preview",
+    "build:ios": "eas build --platform ios --profile preview-ios",
+    "build:ios:submit": "eas submit --platform ios --profile preview-ios --latest"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
