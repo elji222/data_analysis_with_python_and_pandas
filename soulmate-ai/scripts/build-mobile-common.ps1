@@ -3,6 +3,9 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
+# EAS prints "new version available" to stderr; PowerShell treats that as a fatal error.
+$env:npm_config_update_notifier = "false"
+
 function Write-Step([string]$Message) {
     Write-Host ""
     Write-Host $Message
@@ -29,22 +32,43 @@ function Get-EasBin {
     return "npx"
 }
 
+function Invoke-EasNative {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$EasBin,
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$EasArgs
+    )
+
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        if ($EasBin -eq "npx") {
+            & npx eas @EasArgs
+        } else {
+            & $EasBin @EasArgs
+        }
+        return $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+}
+
 function Invoke-Eas {
     param(
         [Parameter(ValueFromRemainingArguments = $true)]
         [string[]]$EasArgs
     )
 
-    $easBin = Get-EasBin
-    if ($easBin -eq "npx") {
-        & npx eas @EasArgs
-    } else {
-        & $easBin @EasArgs
-    }
-
-    if ($LASTEXITCODE -ne 0) {
+    $exitCode = Invoke-EasNative -EasBin (Get-EasBin) @EasArgs
+    if ($exitCode -ne 0) {
         throw "EAS command failed: eas $($EasArgs -join ' ')"
     }
+}
+
+function Test-EasLoggedIn {
+    $exitCode = Invoke-EasNative -EasBin (Get-EasBin) whoami
+    return $exitCode -eq 0
 }
 
 function Ensure-EasLogin {
@@ -53,14 +77,7 @@ function Ensure-EasLogin {
         return
     }
 
-    $easBin = Get-EasBin
-    if ($easBin -eq "npx") {
-        & npx eas whoami 2>$null | Out-Null
-    } else {
-        & $easBin whoami 2>$null | Out-Null
-    }
-
-    if ($LASTEXITCODE -eq 0) {
+    if (Test-EasLoggedIn) {
         return
     }
 
