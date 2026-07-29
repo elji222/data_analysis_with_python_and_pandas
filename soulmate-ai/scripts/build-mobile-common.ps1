@@ -117,6 +117,35 @@ function Invoke-EasNative {
     }
 }
 
+function Ensure-GitRepo {
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        git rev-parse --is-inside-work-tree 2>$null | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            return
+        }
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+
+    Write-Host "Initializing git repository (EAS Build requires git)..."
+    git init | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Git not found. Set EAS_NO_VCS=1 in .env or install Git for Windows."
+        $env:EAS_NO_VCS = "1"
+        return
+    }
+
+    git config user.email "eas-build@local"
+    git config user.name "EAS Build"
+    git add -A
+    git commit -m "EAS build snapshot" 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        git commit -m "EAS build snapshot" --allow-empty | Out-Null
+    }
+}
+
 function Invoke-Eas {
     param(
         [Parameter(ValueFromRemainingArguments = $true)]
@@ -125,6 +154,12 @@ function Invoke-Eas {
 
     $exitCode = Invoke-EasNative -EasBin (Get-EasBin) @EasArgs
     if ($exitCode -ne 0) {
+        Write-Host ""
+        Write-Host "Build failed. Common fixes:"
+        Write-Host "  1. Run GET-LATEST.cmd"
+        Write-Host "  2. Run DEPLOY.cmd (uploads env vars to Expo)"
+        Write-Host "  3. Install Git for Windows if you downloaded a ZIP folder"
+        Write-Host "  4. On first Android build, answer Yes when asked to create a keystore"
         throw "EAS command failed: eas $($EasArgs -join ' ')"
     }
 }
