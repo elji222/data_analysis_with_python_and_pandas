@@ -1,5 +1,5 @@
-export const UI_VERSION = '2026-07-29n';
-export const MOBILE_UI_MARKER = 'chatgpt-mobile-v4';
+export const UI_VERSION = '2026-07-29q';
+export const MOBILE_UI_MARKER = 'chatgpt-mobile-v5';
 
 export const ChatTheme = {
   pageBg: '#FFFFFF',

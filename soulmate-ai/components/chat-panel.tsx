@@ -103,13 +103,12 @@ export function ChatPanel({
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const nativeBottomInset =
     Platform.OS === 'android'
-      ? isKeyboardVisible
-        ? Math.max(insets.bottom, 8)
-        : Math.max(insets.bottom, 32)
+      ? Math.max(insets.bottom, 12)
       : Math.max(insets.bottom, 12);
-  const bottomComposerPadding = Platform.OS === 'web' ? 12 : nativeBottomInset;
+  const bottomComposerPadding =
+    Platform.OS === 'web' ? 12 : isKeyboardVisible ? 8 : nativeBottomInset;
   const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + 12 : 0;
-  const keyboardAvoidingBehavior = Platform.OS === 'ios' ? 'padding' : undefined;
+  const keyboardAvoidingBehavior = Platform.OS === 'web' ? undefined : 'padding';
   const { width: viewportWidth } = useWindowDimensions();
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const [input, setInput] = useState('');
@@ -496,6 +495,18 @@ export function ChatPanel({
 
   const voiceHint = !isSupported && isMobileChatLayout ? getWebVoiceUnsupportedReason() : null;
 
+  const mobileComposerDockStyle = useMemo(
+    () => [
+      styles.mobileComposerDock,
+      {
+        paddingBottom: bottomComposerPadding,
+        paddingHorizontal: mobileEdgeGutter,
+        backgroundColor: isDark ? ChatTheme.pageBgDark : ChatTheme.pageBg,
+      },
+    ],
+    [bottomComposerPadding, mobileEdgeGutter, isDark]
+  );
+
   const composerProps = {
     value: input,
     onChangeText: setInput,
@@ -549,15 +560,12 @@ export function ChatPanel({
           keyboardVerticalOffset={keyboardVerticalOffset}>
           {showHeroEmpty && isMobileChatLayout ? (
             <View style={styles.mobileEmptyRoot}>
-              {!isKeyboardVisible ? <View style={styles.mobileEmptySpacer} /> : null}
-              {!isKeyboardVisible ? (
-                <MobileQuickSuggestions onSelect={(prompt) => void sendMessage(prompt)} />
-              ) : null}
-              <View
-                style={[
-                  styles.mobileBottomArea,
-                  { paddingBottom: bottomComposerPadding, paddingHorizontal: mobileEdgeGutter },
-                ]}>
+              <View style={styles.mobileEmptyBody}>
+                {!isKeyboardVisible ? (
+                  <MobileQuickSuggestions onSelect={(prompt) => void sendMessage(prompt)} />
+                ) : null}
+              </View>
+              <View style={mobileComposerDockStyle}>
                 {subscriptionBanner}
                 {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
                 {voiceHint && !error ? (
@@ -617,11 +625,15 @@ export function ChatPanel({
             </View>
           ) : (
             <View style={styles.threadOuter}>
-              <View style={styles.threadCenterColumn}>
+              <View
+                style={[
+                  styles.threadCenterColumn,
+                  isMobileChatLayout && styles.threadCenterColumnMobile,
+                ]}>
                 <View
                   style={[
                     styles.threadContent,
-                    isMobileChatLayout && { paddingHorizontal: mobileEdgeGutter },
+                    isMobileChatLayout && styles.threadContentMobile,
                   ]}>
                   <View style={styles.threadWrapper}>
                   <View style={styles.threadBody}>
@@ -649,6 +661,8 @@ export function ChatPanel({
                         onScrollToIndexFailed={handleScrollToIndexFailed}
                         showsVerticalScrollIndicator={!showScrollRail}
                         nestedScrollEnabled
+                        keyboardShouldPersistTaps="handled"
+                        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                         ListFooterComponent={listFooter}
                         renderItem={({ item }) => {
                           if (item.id === THINKING_PLACEHOLDER_ID) {
@@ -705,13 +719,16 @@ export function ChatPanel({
                   ) : null}
 
                   <View
-                    style={[
-                      styles.bottomComposerArea,
-                      isMobileChatLayout && styles.bottomComposerAreaMobile,
-                      isMobileChatLayout && styles.mobileBottomArea,
-                      isMobileChatLayout && { paddingBottom: bottomComposerPadding },
-                      { backgroundColor: isDark ? ChatTheme.pageBgDark : ChatTheme.pageBg },
-                    ]}>
+                    style={
+                      isMobileChatLayout
+                        ? mobileComposerDockStyle
+                        : [
+                            styles.bottomComposerArea,
+                            {
+                              backgroundColor: isDark ? ChatTheme.pageBgDark : ChatTheme.pageBg,
+                            },
+                          ]
+                    }>
                     <ChatComposer {...composerProps} />
                     {!isMobileChatLayout ? (
                       <ThemedText style={styles.disclaimer}>
@@ -788,13 +805,18 @@ const styles = StyleSheet.create({
   mobileEmptyRoot: {
     flex: 1,
     minHeight: 0,
+    justifyContent: 'flex-end',
   },
-  mobileEmptySpacer: {
+  mobileEmptyBody: {
     flex: 1,
+    justifyContent: 'flex-end',
+    paddingBottom: 8,
   },
-  mobileBottomArea: {
+  mobileComposerDock: {
+    width: '100%',
     paddingTop: 4,
     gap: 8,
+    flexShrink: 0,
   },
   mainColumn: {
     flex: 1,
@@ -865,12 +887,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 0,
   },
+  threadCenterColumnMobile: {
+    alignItems: 'stretch',
+  },
   threadContent: {
     flex: 1,
     width: '100%',
     maxWidth: ChatTheme.threadContentMaxWidth,
     minHeight: 0,
     paddingHorizontal: 20,
+  },
+  threadContentMobile: {
+    maxWidth: '100%',
+    width: '100%',
+    paddingHorizontal: ChatTheme.mobileEdgeGutter,
+    alignSelf: 'stretch',
   },
   railDock: {
     position: 'absolute',
@@ -980,9 +1011,6 @@ const styles = StyleSheet.create({
     width: '100%',
     flexShrink: 0,
     zIndex: 2,
-  },
-  bottomComposerAreaMobile: {
-    paddingHorizontal: 0,
   },
   disclaimer: {
     marginTop: 10,

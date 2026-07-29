@@ -17,9 +17,9 @@
     },
     "android": {
       "package": "com.matyatech.soulmateai",
-      "versionCode": 4,
+      "versionCode": 5,
       "permissions": ["INTERNET"],
-      "softwareKeyboardLayoutMode": "resize",
+      "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "backgroundColor": "#F3EEFF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
