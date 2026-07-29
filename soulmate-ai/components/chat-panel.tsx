@@ -100,15 +100,20 @@ export function ChatPanel({
   const isMobileChatLayout = useMobileChatLayout();
   const mobileEdgeGutter = ChatTheme.mobileEdgeGutter;
   const insets = useSafeAreaInsets();
+  const isAndroid = Platform.OS === 'android';
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  const nativeBottomInset =
-    Platform.OS === 'android'
-      ? Math.max(insets.bottom, 12)
-      : Math.max(insets.bottom, 12);
   const bottomComposerPadding =
-    Platform.OS === 'web' ? 12 : isKeyboardVisible ? 8 : nativeBottomInset;
+    Platform.OS === 'web'
+      ? 12
+      : isAndroid
+        ? isKeyboardVisible
+          ? 0
+          : Math.max(insets.bottom, 12)
+        : isKeyboardVisible
+          ? 8
+          : Math.max(insets.bottom, 12);
   const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + 12 : 0;
-  const keyboardAvoidingBehavior = Platform.OS === 'web' ? undefined : 'padding';
+  const KeyboardWrapper = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
   const { width: viewportWidth } = useWindowDimensions();
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const [input, setInput] = useState('');
@@ -180,7 +185,10 @@ export function ChatPanel({
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const showSubscription = Keyboard.addListener(showEvent, () => setIsKeyboardVisible(true));
+    const showSubscription = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+      scrollToEnd();
+    });
     const hideSubscription = Keyboard.addListener(hideEvent, () => setIsKeyboardVisible(false));
 
     return () => {
@@ -493,7 +501,10 @@ export function ChatPanel({
 
   const userInitial = userEmail?.charAt(0).toUpperCase() ?? '?';
 
-  const voiceHint = !isSupported && isMobileChatLayout ? getWebVoiceUnsupportedReason() : null;
+  const voiceHint =
+    Platform.OS === 'web' && !isSupported && isMobileChatLayout
+      ? getWebVoiceUnsupportedReason()
+      : null;
 
   const mobileComposerDockStyle = useMemo(
     () => [
@@ -554,10 +565,11 @@ export function ChatPanel({
         </View>
         ) : null}
 
-        <KeyboardAvoidingView
+        <KeyboardWrapper
           style={styles.keyboardView}
-          behavior={keyboardAvoidingBehavior}
-          keyboardVerticalOffset={keyboardVerticalOffset}>
+          {...(Platform.OS === 'ios'
+            ? { behavior: 'padding' as const, keyboardVerticalOffset }
+            : {})}>
           {showHeroEmpty && isMobileChatLayout ? (
             <View style={styles.mobileEmptyRoot}>
               <View style={styles.mobileEmptyBody}>
@@ -753,7 +765,7 @@ export function ChatPanel({
               ) : null}
             </View>
           )}
-        </KeyboardAvoidingView>
+        </KeyboardWrapper>
       </SafeAreaView>
     </ThemedView>
   );
@@ -896,6 +908,7 @@ const styles = StyleSheet.create({
     maxWidth: ChatTheme.threadContentMaxWidth,
     minHeight: 0,
     paddingHorizontal: 20,
+    flexDirection: 'column',
   },
   threadContentMobile: {
     maxWidth: '100%',
