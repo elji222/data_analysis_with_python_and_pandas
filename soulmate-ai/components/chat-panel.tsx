@@ -97,6 +97,7 @@ export function ChatPanel({
   const isDark = colorScheme === 'dark';
   const isCompactWeb = useCompactWebLayout();
   const isMobileChatLayout = useMobileChatLayout();
+  const mobileEdgeGutter = ChatTheme.mobileEdgeGutter;
   const insets = useSafeAreaInsets();
   const nativeBottomInset =
     Platform.OS === 'android' ? Math.max(insets.bottom, 32) : Math.max(insets.bottom, 12);
@@ -140,7 +141,9 @@ export function ChatPanel({
     billingStatus && !billingStatus.hasActiveSubscription && !billingStatus.isComplimentary;
 
   const subscriptionBanner = showSubscriptionBanner ? (
-    <Pressable style={styles.subscriptionBanner} onPress={() => router.push('/settings')}>
+    <Pressable
+      style={[styles.subscriptionBanner, isMobileChatLayout && styles.subscriptionBannerMobile]}
+      onPress={() => router.push('/settings')}>
       <ThemedText style={styles.subscriptionBannerText}>
         Subscribe to unlock chat, memory, and matches.
       </ThemedText>
@@ -528,7 +531,11 @@ export function ChatPanel({
             <View style={styles.mobileEmptyRoot}>
               <View style={styles.mobileEmptySpacer} />
               <MobileQuickSuggestions onSelect={(prompt) => void sendMessage(prompt)} />
-              <View style={[styles.mobileBottomArea, { paddingBottom: bottomComposerPadding }]}>
+              <View
+                style={[
+                  styles.mobileBottomArea,
+                  { paddingBottom: bottomComposerPadding, paddingHorizontal: mobileEdgeGutter },
+                ]}>
                 {subscriptionBanner}
                 {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
                 {voiceHint && !error ? (
@@ -589,7 +596,11 @@ export function ChatPanel({
           ) : (
             <View style={styles.threadOuter}>
               <View style={styles.threadCenterColumn}>
-                <View style={styles.threadContent}>
+                <View
+                  style={[
+                    styles.threadContent,
+                    isMobileChatLayout && { paddingHorizontal: mobileEdgeGutter },
+                  ]}>
                   <View style={styles.threadWrapper}>
                   <View style={styles.threadBody}>
                     <View style={styles.threadArea}>
@@ -598,7 +609,10 @@ export function ChatPanel({
                         style={styles.messageScroll}
                         data={listData}
                         keyExtractor={(item) => item.id}
-                        contentContainerStyle={styles.messageList}
+                        contentContainerStyle={[
+                          styles.messageList,
+                          isMobileChatLayout && styles.messageListMobile,
+                        ]}
                         onLayout={handleListLayout}
                         onContentSizeChange={(_width, contentHeight) => {
                           setScrollMetrics((previous) => ({
@@ -633,6 +647,7 @@ export function ChatPanel({
                               isStreaming={item.id === STREAMING_ASSISTANT_ID && isStreaming}
                               activePreviewId={activePreviewId}
                               onOpenPreview={onOpenPreview}
+                              layout={isMobileChatLayout ? 'mobile' : 'default'}
                             />
                           );
                         }}
@@ -643,20 +658,34 @@ export function ChatPanel({
                   </View>
 
                   {subscriptionBanner}
-                  {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+                  {error ? (
+                    <ThemedText style={[styles.errorText, isMobileChatLayout && styles.inlineMessageMobile]}>
+                      {error}
+                    </ThemedText>
+                  ) : null}
                   {storageWarning && !error ? (
-                    <ThemedText style={styles.warningText}>{storageWarning}</ThemedText>
+                    <ThemedText
+                      style={[styles.warningText, isMobileChatLayout && styles.inlineMessageMobile]}>
+                      {storageWarning}
+                    </ThemedText>
                   ) : null}
                   {statusMessage && !error ? (
-                    <ThemedText style={styles.statusText}>{statusMessage}</ThemedText>
+                    <ThemedText
+                      style={[styles.statusText, isMobileChatLayout && styles.inlineMessageMobile]}>
+                      {statusMessage}
+                    </ThemedText>
                   ) : null}
                   {voiceHint && !error && !statusMessage ? (
-                    <ThemedText style={styles.voiceHintText}>{voiceHint}</ThemedText>
+                    <ThemedText
+                      style={[styles.voiceHintText, isMobileChatLayout && styles.inlineMessageMobile]}>
+                      {voiceHint}
+                    </ThemedText>
                   ) : null}
 
                   <View
                     style={[
                       styles.bottomComposerArea,
+                      isMobileChatLayout && styles.bottomComposerAreaMobile,
                       isMobileChatLayout && styles.mobileBottomArea,
                       isMobileChatLayout && { paddingBottom: bottomComposerPadding },
                       { backgroundColor: isDark ? ChatTheme.pageBgDark : ChatTheme.pageBg },
@@ -742,8 +771,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mobileBottomArea: {
-    paddingHorizontal: 12,
-    paddingBottom: 12,
     paddingTop: 4,
     gap: 8,
   },
@@ -863,6 +890,9 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     width: '100%',
   },
+  messageListMobile: {
+    paddingHorizontal: 0,
+  },
   subscriptionBanner: {
     marginHorizontal: 20,
     marginBottom: 8,
@@ -873,6 +903,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D8CCFF',
     gap: 4,
+  },
+  subscriptionBannerMobile: {
+    marginHorizontal: 0,
   },
   subscriptionBannerText: {
     color: ChatTheme.sidebarText,
@@ -915,6 +948,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
+  inlineMessageMobile: {
+    paddingHorizontal: 0,
+  },
   bottomComposerArea: {
     paddingHorizontal: 4,
     paddingTop: 8,
@@ -922,6 +958,9 @@ const styles = StyleSheet.create({
     width: '100%',
     flexShrink: 0,
     zIndex: 2,
+  },
+  bottomComposerAreaMobile: {
+    paddingHorizontal: 0,
   },
   disclaimer: {
     marginTop: 10,

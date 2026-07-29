@@ -28,6 +28,7 @@ type ChatBubbleProps = {
   isStreaming?: boolean;
   activePreviewId?: string | null;
   onOpenPreview?: (artifact: PreviewArtifact) => void;
+  layout?: 'default' | 'mobile';
 };
 
 export function ChatBubble({
@@ -35,10 +36,12 @@ export function ChatBubble({
   isStreaming = false,
   activePreviewId = null,
   onOpenPreview,
+  layout = 'default',
 }: ChatBubbleProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
   const isUser = message.role === 'user';
+  const isMobileLayout = layout === 'mobile';
   const attachments = message.attachments ?? [];
 
   if (isUser) {
@@ -47,6 +50,7 @@ export function ChatBubble({
         <View
           style={[
             styles.userBubble,
+            isMobileLayout && styles.userBubbleMobile,
             { backgroundColor: isDark ? ChatTheme.userBubbleDark : ChatTheme.userBubble },
           ]}>
           {attachments.length > 0 ? (
@@ -247,6 +251,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 24,
+  },
+  userBubbleMobile: {
+    maxWidth: '92%',
+    paddingHorizontal: 14,
   },
   attachmentStack: {
     gap: 8,
