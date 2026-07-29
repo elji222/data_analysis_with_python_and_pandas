@@ -117,7 +117,18 @@ function Invoke-EasNative {
     }
 }
 
+function Test-GitAvailable {
+    return [bool](Get-Command git -ErrorAction SilentlyContinue)
+}
+
 function Ensure-GitRepo {
+    if (-not (Test-GitAvailable)) {
+        Write-Host "Git is not installed. Continuing with EAS_NO_VCS=1."
+        Write-Host "Optional: install Git for Windows from https://git-scm.com/download/win"
+        $env:EAS_NO_VCS = "1"
+        return
+    }
+
     $prev = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
     try {
@@ -132,7 +143,7 @@ function Ensure-GitRepo {
     Write-Host "Initializing git repository (EAS Build requires git)..."
     git init | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "Git not found. Set EAS_NO_VCS=1 in .env or install Git for Windows."
+        Write-Host "Could not initialize git. Continuing with EAS_NO_VCS=1."
         $env:EAS_NO_VCS = "1"
         return
     }
