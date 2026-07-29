@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Keyboard,
@@ -15,7 +15,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { KeyboardStickyView } from 'react-native-keyboard-controller';
 
 import { ChatBubble, GeneratingImagePlaceholder, SearchingPlaceholder, StreamingPlaceholder } from '@/components/chat-bubble';
 import { ChatComposer } from '@/components/chat-composer';
@@ -103,29 +102,15 @@ export function ChatPanel({
   const isMobileChatLayout = useMobileChatLayout();
   const mobileEdgeGutter = ChatTheme.mobileEdgeGutter;
   const insets = useSafeAreaInsets();
-  const useNativeStickyComposer = Platform.OS !== 'web' && isMobileChatLayout;
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const bottomComposerPadding =
     Platform.OS === 'web'
       ? 12
-      : useNativeStickyComposer
-        ? 0
-        : isKeyboardVisible
-          ? 8
-          : Math.max(insets.bottom, 12);
+      : isKeyboardVisible
+        ? 8
+        : Math.max(insets.bottom, 12);
   const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + 12 : 0;
-  const stickyKeyboardOffset = useMemo(
-    () => ({
-      closed: Math.max(insets.bottom, 12),
-      opened: 0,
-    }),
-    [insets.bottom]
-  );
-  const KeyboardWrapper = useNativeStickyComposer
-    ? View
-    : Platform.OS === 'ios'
-      ? KeyboardAvoidingView
-      : View;
+  const KeyboardWrapper = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
   const { width: viewportWidth } = useWindowDimensions();
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const [input, setInput] = useState('');
@@ -522,25 +507,13 @@ export function ChatPanel({
     () => [
       styles.mobileComposerDock,
       {
+        paddingBottom: bottomComposerPadding,
         paddingHorizontal: mobileEdgeGutter,
         backgroundColor: isDark ? ChatTheme.pageBgDark : ChatTheme.pageBg,
-        ...(useNativeStickyComposer ? {} : { paddingBottom: bottomComposerPadding }),
       },
     ],
-    [bottomComposerPadding, mobileEdgeGutter, isDark, useNativeStickyComposer]
+    [bottomComposerPadding, mobileEdgeGutter, isDark]
   );
-
-  function renderMobileComposerDock(children: ReactNode) {
-    if (useNativeStickyComposer) {
-      return (
-        <KeyboardStickyView offset={stickyKeyboardOffset} style={mobileComposerDockStyle}>
-          {children}
-        </KeyboardStickyView>
-      );
-    }
-
-    return <View style={mobileComposerDockStyle}>{children}</View>;
-  }
 
   const composerProps = {
     value: input,
@@ -591,7 +564,7 @@ export function ChatPanel({
 
         <KeyboardWrapper
           style={styles.keyboardView}
-          {...(Platform.OS === 'ios' && !useNativeStickyComposer
+          {...(Platform.OS === 'ios'
             ? { behavior: 'padding' as const, keyboardVerticalOffset }
             : {})}>
           {showHeroEmpty && isMobileChatLayout ? (
@@ -601,16 +574,14 @@ export function ChatPanel({
                   <MobileQuickSuggestions onSelect={(prompt) => void sendMessage(prompt)} />
                 ) : null}
               </View>
-              {renderMobileComposerDock(
-                <>
-                  {subscriptionBanner}
-                  {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
-                  {voiceHint && !error ? (
-                    <ThemedText style={styles.voiceHintText}>{voiceHint}</ThemedText>
-                  ) : null}
-                  <ChatComposer variant="bottom" {...composerProps} />
-                </>
-              )}
+              <View style={mobileComposerDockStyle}>
+                {subscriptionBanner}
+                {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+                {voiceHint && !error ? (
+                  <ThemedText style={styles.voiceHintText}>{voiceHint}</ThemedText>
+                ) : null}
+                <ChatComposer variant="bottom" {...composerProps} />
+              </View>
             </View>
           ) : showHeroEmpty ? (
             <View style={[styles.mainColumn, isCompactWeb && styles.mainColumnCompact]}>
@@ -684,7 +655,7 @@ export function ChatPanel({
                         contentContainerStyle={[
                           styles.messageList,
                           isMobileChatLayout && styles.messageListMobile,
-                          useNativeStickyComposer && { paddingBottom: MOBILE_COMPOSER_CLEARANCE },
+                          isMobileChatLayout && { paddingBottom: MOBILE_COMPOSER_CLEARANCE },
                         ]}
                         onLayout={handleListLayout}
                         onContentSizeChange={(_width, contentHeight) => {
@@ -757,9 +728,11 @@ export function ChatPanel({
                     </ThemedText>
                   ) : null}
 
-                  {isMobileChatLayout
-                    ? renderMobileComposerDock(<ChatComposer {...composerProps} />)
-                    : (
+                  {isMobileChatLayout ? (
+                    <View style={mobileComposerDockStyle}>
+                      <ChatComposer {...composerProps} />
+                    </View>
+                  ) : (
                       <View
                         style={[
                           styles.bottomComposerArea,
