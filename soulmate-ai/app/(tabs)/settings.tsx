@@ -21,6 +21,8 @@ import { useAuth } from '@/contexts/auth-context';
 import { useBilling } from '@/hooks/use-billing';
 import { useMobileChatLayout } from '@/hooks/use-mobile-chat-layout';
 import { openBillingPortal, startCheckout, updateFreeAccessForAll } from '@/services/billing-api';
+import { fetchAdminUsageStats } from '@/services/admin-api';
+import type { AdminUsageStats } from '@/types/admin-usage';
 
 function formatRenewalDate(value: string | null | undefined) {
   if (!value) return null;
@@ -28,6 +30,16 @@ function formatRenewalDate(value: string | null | undefined) {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
+  });
+}
+
+function formatUsageTimestamp(value: string | null | undefined) {
+  if (!value) return 'Never';
+  return new Date(value).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   });
 }
 
@@ -41,6 +53,9 @@ export default function SettingsScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUpdatingAccessMode, setIsUpdatingAccessMode] = useState(false);
   const [bannerMessage, setBannerMessage] = useState<string | null>(null);
+  const [usageStats, setUsageStats] = useState<AdminUsageStats | null>(null);
+  const [usageError, setUsageError] = useState<string | null>(null);
+  const [isUsageLoading, setIsUsageLoading] = useState(false);
 
   useEffect(() => {
     if (params.checkout === 'success') {
@@ -50,6 +65,43 @@ export default function SettingsScreen() {
       setBannerMessage('Checkout canceled. You can subscribe whenever you are ready.');
     }
   }, [params.checkout, refresh]);
+
+  useEffect(() => {
+    const accessToken = session?.access_token;
+    if (!accessToken || !status?.isAdmin) {
+      setUsageStats(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadUsage() {
+      try {
+        setIsUsageLoading(true);
+        setUsageError(null);
+        const stats = await fetchAdminUsageStats(accessToken);
+        if (!cancelled) {
+          setUsageStats(stats);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          const message =
+            loadError instanceof Error ? loadError.message : 'Could not load usage stats.';
+          setUsageError(message);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsUsageLoading(false);
+        }
+      }
+    }
+
+    void loadUsage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.access_token, status?.isAdmin]);
 
   async function openStripeUrl(url: string) {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -218,6 +270,66 @@ export default function SettingsScreen() {
 
           {isAdmin ? (
             <View style={styles.card}>
+              <ThemedText style={styles.cardTitle}>Usage overview</ThemedText>
+              <ThemedText style={styles.cardText}>
+                Signed-in users with cloud-synced chat activity. Times are shown in your local
+                timezone.
+              </ThemedText>
+
+              {isUsageLoading ? (
+                <View style={styles.loadingBlock}>
+                  <ActivityIndicator color={ChatTheme.accent} style={styles.loader} />
+                  <ThemedText style={styles.loadingText}>Loading usage...</ThemedText>
+                </View>
+              ) : usageError ? (
+                <ThemedText style={styles.errorText}>{usageError}</ThemedText>
+              ) : usageStats ? (
+                <>
+                  <View style={styles.statsGrid}>
+                    <View style={styles.statTile}>
+                      <ThemedText style={styles.statValue}>{usageStats.activeUsersToday}</ThemedText>
+                      <ThemedText style={styles.statLabel}>Active today</ThemedText>
+                    </View>
+                    <View style={styles.statTile}>
+                      <ThemedText style={styles.statValue}>{usageStats.messagesToday}</ThemedText>
+                      <ThemedText style={styles.statLabel}>Messages today</ThemedText>
+                    </View>
+                    <View style={styles.statTile}>
+                      <ThemedText style={styles.statValue}>{usageStats.activeUsersLast7Days}</ThemedText>
+                      <ThemedText style={styles.statLabel}>Active 7 days</ThemedText>
+                    </View>
+                    <View style={styles.statTile}>
+                      <ThemedText style={styles.statValue}>{usageStats.totalUsers}</ThemedText>
+                      <ThemedText style={styles.statLabel}>Total users</ThemedText>
+                    </View>
+                  </View>
+
+                  <ThemedText style={styles.sectionLabel}>Recent users</ThemedText>
+                  {usageStats.recentUsers.length === 0 ? (
+                    <ThemedText style={styles.helperText}>No signed-in users yet.</ThemedText>
+                  ) : (
+                    usageStats.recentUsers.map((row) => (
+                      <View key={row.userId} style={styles.usageRow}>
+                        <View style={styles.usageRowCopy}>
+                          <ThemedText style={styles.usageEmail}>{row.email ?? 'Unknown user'}</ThemedText>
+                          <ThemedText style={styles.helperText}>
+                            Last sign-in: {formatUsageTimestamp(row.lastSignInAt)}
+                          </ThemedText>
+                        </View>
+                        <View style={styles.usageCounts}>
+                          <ThemedText style={styles.usageCount}>{row.messagesToday} today</ThemedText>
+                          <ThemedText style={styles.helperText}>{row.messagesLast7Days} this week</ThemedText>
+                        </View>
+                      </View>
+                    ))
+                  )}
+                </>
+              ) : null}
+            </View>
+          ) : null}
+
+          {isAdmin ? (
+            <View style={styles.card}>
               <ThemedText style={styles.cardTitle}>Admin access mode</ThemedText>
               <ThemedText style={styles.cardText}>
                 Turn on free access for everyone while keeping Stripe subscriptions available in
@@ -342,6 +454,56 @@ const styles = StyleSheet.create({
   toggleTitle: {
     fontWeight: '600',
     color: ChatTheme.sidebarText,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  statTile: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    gap: 4,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: ChatTheme.sidebarText,
+  },
+  statLabel: {
+    color: ChatTheme.sidebarMuted,
+  },
+  sectionLabel: {
+    fontWeight: '600',
+    color: ChatTheme.sidebarText,
+    marginTop: 4,
+  },
+  usageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+  },
+  usageRowCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  usageEmail: {
+    fontWeight: '600',
+    color: ChatTheme.sidebarText,
+  },
+  usageCounts: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  usageCount: {
+    fontWeight: '600',
+    color: ChatTheme.accent,
   },
   primaryButton: {
     flexDirection: 'row',
