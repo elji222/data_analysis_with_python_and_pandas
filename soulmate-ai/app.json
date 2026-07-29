@@ -9,9 +9,14 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "bundleIdentifier": "com.matyatech.soulmateai",
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.matyatech.soulmateai",
       "permissions": ["INTERNET"],
       "adaptiveIcon": {
         "backgroundColor": "#F3EEFF",
