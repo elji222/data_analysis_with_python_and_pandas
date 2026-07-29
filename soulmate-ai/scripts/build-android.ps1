@@ -12,6 +12,12 @@ Ensure-GitRepo
 Ensure-EasLogin
 Ensure-ProductionEnvSynced
 
+Write-Step "Verifying Android bundle locally..."
+& "$PSScriptRoot\verify-android-bundle.ps1"
+if ($LASTEXITCODE -ne 0) {
+    throw "Android bundle check failed."
+}
+
 Write-Step "Starting EAS build: Android APK (profile: preview)..."
 Write-Host "This uses your Expo production environment variables."
 Write-Host "When it finishes, Expo shows a download/install link for testers."

@@ -155,6 +155,8 @@ $Files = @(
     "scripts/login-eas.cmd",
     "scripts/build-android.ps1",
     "scripts/build-android.cmd",
+    "scripts/verify-android-bundle.ps1",
+    "scripts/verify-android-bundle.cmd",
     "scripts/build-ios.ps1",
     "scripts/build-ios.cmd",
     "scripts/build-ios-submit.ps1",
@@ -176,7 +178,7 @@ Write-Host "Folder: $Root"
 Write-Host ""
 
 foreach ($RelativePath in $Files) {
-    $Url = if ($RelativePath -match '^(app\.config\.js|package-lock\.json|scripts/(deploy-live-site|build-mobile-common|login-eas|build-android|build-ios|build-ios-submit)\.(ps1|cmd)|LOGIN-EAS\.cmd|BUILD-.*\.cmd)$') {
+    $Url = if ($RelativePath -match '^(app\.config\.js|package-lock\.json|scripts/(deploy-live-site|build-mobile-common|login-eas|build-android|verify-android-bundle|build-ios|build-ios-submit)\.(ps1|cmd)|LOGIN-EAS\.cmd|BUILD-.*\.cmd)$') {
         "$Base/$RelativePath`?$CacheBust"
     } else {
         "$Base/$RelativePath"
