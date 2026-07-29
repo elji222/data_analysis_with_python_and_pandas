@@ -6,6 +6,27 @@ Set-Location $Root
 # EAS prints "new version available" to stderr; PowerShell treats that as a fatal error.
 $env:npm_config_update_notifier = "false"
 
+function Import-ExpoTokenFromDotEnv {
+    if ($env:EXPO_TOKEN) {
+        return
+    }
+
+    $envFile = Join-Path $Root ".env"
+    if (-not (Test-Path $envFile)) {
+        return
+    }
+
+    foreach ($line in Get-Content $envFile) {
+        $trimmed = $line.Trim()
+        if ($trimmed -match '^EXPO_TOKEN=(.+)$') {
+            $env:EXPO_TOKEN = $Matches[1].Trim().Trim('"').Trim("'")
+            return
+        }
+    }
+}
+
+Import-ExpoTokenFromDotEnv
+
 function Write-Step([string]$Message) {
     Write-Host ""
     Write-Host $Message
@@ -30,6 +51,48 @@ function Get-EasBin {
     }
 
     return "npx"
+}
+
+function Get-EasOutput {
+    param(
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$EasArgs
+    )
+
+    $easBin = Get-EasBin
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        if ($easBin -eq "npx") {
+            return (& npx eas @EasArgs 2>&1 | Out-String)
+        }
+        return (& $easBin @EasArgs 2>&1 | Out-String)
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+}
+
+function Get-EasAccountName {
+    $output = Get-EasOutput whoami
+    if ($output -match 'Not logged in') {
+        return $null
+    }
+
+    foreach ($line in ($output -split "`r?`n")) {
+        $line = $line.Trim()
+        if (
+            $line -and
+            $line -notmatch 'eas-cli@' -and
+            $line -notmatch 'upgrade' -and
+            $line -notmatch 'Proceeding' -and
+            $line -notmatch 'To upgrade' -and
+            $line -notmatch 'npm install'
+        ) {
+            return $line
+        }
+    }
+
+    return $null
 }
 
 function Invoke-EasNative {
@@ -67,8 +130,7 @@ function Invoke-Eas {
 }
 
 function Test-EasLoggedIn {
-    $exitCode = Invoke-EasNative -EasBin (Get-EasBin) whoami
-    return $exitCode -eq 0
+    return [bool](Get-EasAccountName)
 }
 
 function Ensure-EasLogin {
@@ -77,12 +139,15 @@ function Ensure-EasLogin {
         return
     }
 
-    if (Test-EasLoggedIn) {
+    $account = Get-EasAccountName
+    if ($account) {
+        Write-Host "Logged in to Expo as $account"
         return
     }
 
-    Write-Step "Log in to Expo (command line - not the same as the website)..."
-    Write-Host "If nothing happens, close this window and run LOGIN-EAS.cmd first."
+    Write-Step "Not logged in to Expo command line yet."
+    Write-Host "Run LOGIN-EAS.cmd, or add EXPO_TOKEN to your .env file."
+    Write-Host "Create a token: https://expo.dev/settings/access-tokens"
     Write-Host ""
 
     try {
@@ -92,6 +157,13 @@ function Ensure-EasLogin {
     }
 
     Invoke-Eas login
+
+    $account = Get-EasAccountName
+    if (-not $account) {
+        throw "Expo login did not complete. Run LOGIN-EAS.cmd or set EXPO_TOKEN in .env."
+    }
+
+    Write-Host "Logged in as $account"
 }
 
 function Ensure-ProductionEnvSynced {
