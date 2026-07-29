@@ -152,6 +152,33 @@ function Ensure-GitRepo {
     }
 }
 
+function Ensure-PackageLockSynced {
+    $lockFile = Join-Path $Root "package-lock.json"
+    if (-not (Test-Path $lockFile)) {
+        Write-Host "package-lock.json is missing. Running npm install..."
+        npm install
+        if ($LASTEXITCODE -ne 0) {
+            throw "npm install failed."
+        }
+        return
+    }
+
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        npm ci --dry-run 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "package-lock.json is out of date. Running npm install..."
+            npm install
+            if ($LASTEXITCODE -ne 0) {
+                throw "npm install failed."
+            }
+        }
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+}
+
 function Invoke-Eas {
     param(
         [Parameter(ValueFromRemainingArguments = $true)]
