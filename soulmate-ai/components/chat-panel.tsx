@@ -13,7 +13,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChatBubble, GeneratingImagePlaceholder, SearchingPlaceholder, StreamingPlaceholder } from '@/components/chat-bubble';
 import { ChatComposer } from '@/components/chat-composer';
@@ -97,6 +97,9 @@ export function ChatPanel({
   const isDark = colorScheme === 'dark';
   const isCompactWeb = useCompactWebLayout();
   const isMobileChatLayout = useMobileChatLayout();
+  const insets = useSafeAreaInsets();
+  const bottomComposerPadding =
+    Platform.OS === 'web' ? 12 : Math.max(insets.bottom, 12);
   const { width: viewportWidth } = useWindowDimensions();
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const [input, setInput] = useState('');
@@ -523,7 +526,7 @@ export function ChatPanel({
             <View style={styles.mobileEmptyRoot}>
               <View style={styles.mobileEmptySpacer} />
               <MobileQuickSuggestions onSelect={(prompt) => void sendMessage(prompt)} />
-              <View style={styles.mobileBottomArea}>
+              <View style={[styles.mobileBottomArea, { paddingBottom: bottomComposerPadding }]}>
                 {subscriptionBanner}
                 {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
                 {voiceHint && !error ? (
@@ -653,6 +656,7 @@ export function ChatPanel({
                     style={[
                       styles.bottomComposerArea,
                       isMobileChatLayout && styles.mobileBottomArea,
+                      isMobileChatLayout && { paddingBottom: bottomComposerPadding },
                       { backgroundColor: isDark ? ChatTheme.pageBgDark : ChatTheme.pageBg },
                     ]}>
                     <ChatComposer {...composerProps} />
