@@ -45,11 +45,6 @@ function Ensure-NodeModules {
 }
 
 function Get-EasBin {
-    $local = Join-Path $Root "node_modules\.bin\eas.cmd"
-    if (Test-Path $local) {
-        return $local
-    }
-
     return "npx"
 }
 
