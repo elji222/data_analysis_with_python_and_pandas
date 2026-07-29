@@ -81,7 +81,7 @@ function Ensure-EasLogin {
         return
     }
 
-    Write-Step "Log in to Expo (command line — not the same as the website)..."
+    Write-Step "Log in to Expo (command line - not the same as the website)..."
     Write-Host "If nothing happens, close this window and run LOGIN-EAS.cmd first."
     Write-Host ""
 
