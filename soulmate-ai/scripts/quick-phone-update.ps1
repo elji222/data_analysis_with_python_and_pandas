@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-07-29l"
+$CacheBust = "2026-07-29m"
 
 $Files = @(
     "app/_layout.tsx",
@@ -18,6 +18,7 @@ $Files = @(
     "app/(tabs)/settings.tsx",
     "app/api/access+api.ts",
     "app/api/billing/access-mode+api.ts",
+    "app/api/admin/usage+api.ts",
     "app/api/billing/checkout+api.ts",
     "app/api/billing/portal+api.ts",
     "app/api/billing/status+api.ts",
@@ -70,6 +71,7 @@ $Files = @(
     "lib/access/pending-invite.ts",
     "lib/access/repository.ts",
     "lib/billing/app-settings.ts",
+    "lib/admin/usage-stats.ts",
     "lib/billing/repository.ts",
     "lib/billing/status.ts",
     "lib/billing/stripe.ts",
@@ -115,6 +117,7 @@ $Files = @(
     "lib/supabase-server.ts",
     "services/access-api.ts",
     "services/billing-api.ts",
+    "services/admin-api.ts",
     "services/chat-api.ts",
     "services/conversation-cloud.ts",
     "services/memory-api.ts",
@@ -126,6 +129,7 @@ $Files = @(
     "supabase/migrations/20260709120000_user_profiles.sql",
     "types/access.ts",
     "types/billing.ts",
+    "types/admin-usage.ts",
     "types/stripe-api.ts",
     "types/memory.ts",
     "types/preview-artifact.ts",
