@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-07-29j"
+$CacheBust = "2026-07-29k"
 
 $Files = @(
     "app/_layout.tsx",
@@ -29,6 +29,7 @@ $Files = @(
     "app.json",
     "app.config.js",
     "package.json",
+    "package-lock.json",
     "components/attach-popover.tsx",
     "components/app-error-boundary.tsx",
     "components/artifact-card.tsx",
@@ -171,7 +172,7 @@ Write-Host "Folder: $Root"
 Write-Host ""
 
 foreach ($RelativePath in $Files) {
-    $Url = if ($RelativePath -match '^(scripts/(deploy-live-site|build-mobile-common|login-eas|build-android|build-ios|build-ios-submit)\.(ps1|cmd)|LOGIN-EAS\.cmd|BUILD-.*\.cmd)$') {
+    $Url = if ($RelativePath -match '^(app\.config\.js|package-lock\.json|scripts/(deploy-live-site|build-mobile-common|login-eas|build-android|build-ios|build-ios-submit)\.(ps1|cmd)|LOGIN-EAS\.cmd|BUILD-.*\.cmd)$') {
         "$Base/$RelativePath`?$CacheBust"
     } else {
         "$Base/$RelativePath"
