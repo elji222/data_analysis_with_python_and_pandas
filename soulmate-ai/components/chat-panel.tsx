@@ -98,8 +98,10 @@ export function ChatPanel({
   const isCompactWeb = useCompactWebLayout();
   const isMobileChatLayout = useMobileChatLayout();
   const insets = useSafeAreaInsets();
-  const bottomComposerPadding =
-    Platform.OS === 'web' ? 12 : Math.max(insets.bottom, 12);
+  const nativeBottomInset =
+    Platform.OS === 'android' ? Math.max(insets.bottom, 32) : Math.max(insets.bottom, 12);
+  const bottomComposerPadding = Platform.OS === 'web' ? 12 : nativeBottomInset;
+  const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + 12 : 0;
   const { width: viewportWidth } = useWindowDimensions();
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const [input, setInput] = useState('');
@@ -520,8 +522,8 @@ export function ChatPanel({
 
         <KeyboardAvoidingView
           style={styles.keyboardView}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
+          behavior={Platform.OS === 'web' ? undefined : 'padding'}
+          keyboardVerticalOffset={keyboardVerticalOffset}>
           {showHeroEmpty && isMobileChatLayout ? (
             <View style={styles.mobileEmptyRoot}>
               <View style={styles.mobileEmptySpacer} />

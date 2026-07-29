@@ -12,6 +12,36 @@ type StreamEvent = {
   generatedImage?: GeneratedImage;
 };
 
+async function readApiErrorMessage(response: Response): Promise<string> {
+  const text = await response.text();
+
+  try {
+    const data = JSON.parse(text) as { error?: string };
+    return data.error ?? 'Something went wrong. Please try again.';
+  } catch {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return 'Something went wrong. Please try again.';
+    }
+
+    if (trimmed.startsWith('<')) {
+      return 'Server returned an unexpected page. Try again in a moment.';
+    }
+
+    return trimmed.slice(0, 180);
+  }
+}
+
+async function readJsonResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error('Server returned an unexpected response. Try again in a moment.');
+  }
+}
+
 export type StreamChatOptions = {
   accessToken?: string | null;
   conversationId?: string;
@@ -52,18 +82,15 @@ export async function streamChatMessage(
   const contentType = response.headers.get('content-type') ?? '';
 
   if (!response.ok) {
-    const data = contentType.includes('application/json')
-      ? ((await response.json()) as { error?: string })
-      : { error: 'Something went wrong. Please try again.' };
-    throw new Error(data.error ?? 'Something went wrong. Please try again.');
+    throw new Error(await readApiErrorMessage(response));
   }
 
   if (!contentType.includes('text/event-stream') || !response.body) {
-    const data = (await response.json()) as {
+    const data = await readJsonResponse<{
       reply?: string;
       error?: string;
       savedMemories?: string[];
-    };
+    }>(response);
     if (data.error) throw new Error(data.error);
     if (!data.reply) throw new Error('No reply received. Please try again.');
     if (data.savedMemories?.length) {
@@ -117,6 +144,9 @@ export async function streamChatMessage(
         }
       } catch (error) {
         if (error instanceof Error && error.message !== 'Unexpected end of JSON input') {
+          if (error instanceof SyntaxError) {
+            continue;
+          }
           throw error;
         }
       }
