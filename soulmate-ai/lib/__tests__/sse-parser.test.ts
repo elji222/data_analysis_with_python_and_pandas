@@ -1,8 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { parseSseText, processSseEventBlocks } from '@/lib/sse-parser';
+vi.mock('@/lib/build-chat-api-messages', () => ({
+  buildChatApiMessages: vi.fn(),
+}));
 
-describe('sse-parser', () => {
+vi.mock('@/lib/api-origin', () => ({
+  getApiUrl: vi.fn(),
+}));
+
+import { parseSseText, processSseEventBlocks } from '@/services/chat-api';
+
+describe('chat-api sse parsing', () => {
   it('accumulates streamed text deltas from SSE blocks', () => {
     const onDelta = vi.fn();
     const sse = [

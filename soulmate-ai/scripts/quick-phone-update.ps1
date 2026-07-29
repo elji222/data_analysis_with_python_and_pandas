@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-07-29o"
+$CacheBust = "2026-07-29p"
 
 $Files = @(
     "app/_layout.tsx",
@@ -114,7 +114,6 @@ $Files = @(
     "lib/parse-artifacts.ts",
     "lib/recover-stale-web-bundle.ts",
     "lib/streaming-text.ts",
-    "lib/sse-parser.ts",
     "lib/supabase-server.ts",
     "services/access-api.ts",
     "services/billing-api.ts",
@@ -325,15 +324,10 @@ if (-not (Test-Path $StreamingTextFile)) {
     throw "Download failed. lib/streaming-text.ts is missing."
 }
 
-$SseParserFile = Join-Path $Root "lib\sse-parser.ts"
-if (-not (Test-Path $SseParserFile)) {
-    throw "Download failed. lib/sse-parser.ts is missing."
-}
-
 $ChatApiFile = Join-Path $Root "services\chat-api.ts"
 $ChatApiText = Get-Content $ChatApiFile -Raw
-if ($ChatApiText -match "@/lib/sse-parser" -and -not (Test-Path $SseParserFile)) {
-    throw "Download failed. services/chat-api.ts needs lib/sse-parser.ts."
+if ($ChatApiText -match "@/lib/sse-parser") {
+    throw "Download failed. services/chat-api.ts still imports the removed lib/sse-parser module. Run GET-LATEST.cmd again."
 }
 
 $ChatPanelFile = Join-Path $Root "components\chat-panel.tsx"
