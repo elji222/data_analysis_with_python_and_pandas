@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -99,10 +100,16 @@ export function ChatPanel({
   const isMobileChatLayout = useMobileChatLayout();
   const mobileEdgeGutter = ChatTheme.mobileEdgeGutter;
   const insets = useSafeAreaInsets();
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const nativeBottomInset =
-    Platform.OS === 'android' ? Math.max(insets.bottom, 32) : Math.max(insets.bottom, 12);
+    Platform.OS === 'android'
+      ? isKeyboardVisible
+        ? Math.max(insets.bottom, 8)
+        : Math.max(insets.bottom, 32)
+      : Math.max(insets.bottom, 12);
   const bottomComposerPadding = Platform.OS === 'web' ? 12 : nativeBottomInset;
   const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + 12 : 0;
+  const keyboardAvoidingBehavior = Platform.OS === 'ios' ? 'padding' : undefined;
   const { width: viewportWidth } = useWindowDimensions();
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const [input, setInput] = useState('');
@@ -169,6 +176,19 @@ export function ChatPanel({
     setIsLoading(false);
     cancelRecording();
   }, [conversation?.id, cancelRecording]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSubscription = Keyboard.addListener(showEvent, () => setIsKeyboardVisible(true));
+    const hideSubscription = Keyboard.addListener(hideEvent, () => setIsKeyboardVisible(false));
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   function scrollToEnd() {
     requestAnimationFrame(() => {
@@ -525,12 +545,14 @@ export function ChatPanel({
 
         <KeyboardAvoidingView
           style={styles.keyboardView}
-          behavior={Platform.OS === 'web' ? undefined : 'padding'}
+          behavior={keyboardAvoidingBehavior}
           keyboardVerticalOffset={keyboardVerticalOffset}>
           {showHeroEmpty && isMobileChatLayout ? (
             <View style={styles.mobileEmptyRoot}>
-              <View style={styles.mobileEmptySpacer} />
-              <MobileQuickSuggestions onSelect={(prompt) => void sendMessage(prompt)} />
+              {!isKeyboardVisible ? <View style={styles.mobileEmptySpacer} /> : null}
+              {!isKeyboardVisible ? (
+                <MobileQuickSuggestions onSelect={(prompt) => void sendMessage(prompt)} />
+              ) : null}
               <View
                 style={[
                   styles.mobileBottomArea,

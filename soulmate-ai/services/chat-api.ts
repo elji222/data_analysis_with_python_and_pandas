@@ -1,16 +1,7 @@
 import { buildChatApiMessages } from '@/lib/build-chat-api-messages';
 import { getApiUrl } from '@/lib/api-origin';
-import type { GeneratedImage } from '@/lib/agent/types';
-import type { ChatApiMessage, ChatMessage } from '@/types/chat';
-
-type StreamEvent = {
-  text?: string;
-  error?: string;
-  imageError?: string;
-  savedMemories?: string[];
-  status?: 'searching' | 'generating_image';
-  generatedImage?: GeneratedImage;
-};
+import { consumeSseStream, parseSseText } from '@/lib/sse-parser';
+import type { ChatMessage } from '@/types/chat';
 
 async function readApiErrorMessage(response: Response): Promise<string> {
   const text = await response.text();
@@ -48,7 +39,7 @@ export type StreamChatOptions = {
   messageId?: string;
   onSavedMemories?: (savedMemories: string[]) => void;
   onStatus?: (status: 'searching' | 'generating_image') => void;
-  onGeneratedImage?: (image: GeneratedImage) => void;
+  onGeneratedImage?: (image: import('@/lib/agent/types').GeneratedImage) => void;
   onImageError?: (error: string) => void;
 };
 
@@ -57,7 +48,7 @@ export async function streamChatMessage(
   onDelta: (fullText: string) => void,
   options: StreamChatOptions = {}
 ): Promise<string> {
-  const apiMessages: ChatApiMessage[] = buildChatApiMessages(messages);
+  const apiMessages = buildChatApiMessages(messages);
   const latestUserMessage = [...messages].reverse().find((message) => message.role === 'user');
 
   const headers: Record<string, string> = {
@@ -85,77 +76,33 @@ export async function streamChatMessage(
     throw new Error(await readApiErrorMessage(response));
   }
 
-  if (!contentType.includes('text/event-stream') || !response.body) {
-    const data = await readJsonResponse<{
-      reply?: string;
-      error?: string;
-      savedMemories?: string[];
-    }>(response);
-    if (data.error) throw new Error(data.error);
-    if (!data.reply) throw new Error('No reply received. Please try again.');
-    if (data.savedMemories?.length) {
-      options.onSavedMemories?.(data.savedMemories);
+  const handlers = {
+    onDelta,
+    onSavedMemories: options.onSavedMemories,
+    onStatus: options.onStatus,
+    onGeneratedImage: options.onGeneratedImage,
+    onImageError: options.onImageError,
+  };
+
+  if (contentType.includes('text/event-stream')) {
+    if (response.body) {
+      return consumeSseStream(response.body, handlers);
     }
-    onDelta(data.reply);
-    return data.reply;
+
+    const text = await response.text();
+    return parseSseText(text, handlers);
   }
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let fullText = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const events = buffer.split('\n\n');
-    buffer = events.pop() ?? '';
-
-    for (const eventBlock of events) {
-      const line = eventBlock
-        .split('\n')
-        .find((entry) => entry.startsWith('data: '));
-      if (!line) continue;
-
-      const data = line.slice(6).trim();
-      if (!data) continue;
-      if (data === '[DONE]') return fullText;
-
-      try {
-        const parsed = JSON.parse(data) as StreamEvent;
-        if (parsed.error) throw new Error(parsed.error);
-        if (parsed.savedMemories?.length) {
-          options.onSavedMemories?.(parsed.savedMemories);
-        }
-        if (parsed.status === 'searching' || parsed.status === 'generating_image') {
-          options.onStatus?.(parsed.status);
-        }
-        if (parsed.generatedImage) {
-          options.onGeneratedImage?.(parsed.generatedImage);
-        }
-        if (parsed.imageError) {
-          options.onImageError?.(parsed.imageError);
-        }
-        if (parsed.text) {
-          fullText += parsed.text;
-          onDelta(fullText);
-        }
-      } catch (error) {
-        if (error instanceof Error && error.message !== 'Unexpected end of JSON input') {
-          if (error instanceof SyntaxError) {
-            continue;
-          }
-          throw error;
-        }
-      }
-    }
+  const data = await readJsonResponse<{
+    reply?: string;
+    error?: string;
+    savedMemories?: string[];
+  }>(response);
+  if (data.error) throw new Error(data.error);
+  if (!data.reply) throw new Error('No reply received. Please try again.');
+  if (data.savedMemories?.length) {
+    options.onSavedMemories?.(data.savedMemories);
   }
-
-  if (!fullText.trim()) {
-    throw new Error('Soulmate AI sent an empty reply.');
-  }
-
-  return fullText;
+  onDelta(data.reply);
+  return data.reply;
 }
