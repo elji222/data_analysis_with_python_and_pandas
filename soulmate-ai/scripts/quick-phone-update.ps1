@@ -27,6 +27,7 @@ $Files = @(
     "app/api/memories+api.ts",
     "app/api/matches+api.ts",
     "app.json",
+    "app.config.js",
     "package.json",
     "components/attach-popover.tsx",
     "components/app-error-boundary.tsx",
