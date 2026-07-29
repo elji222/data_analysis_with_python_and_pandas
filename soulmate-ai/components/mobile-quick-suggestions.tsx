@@ -6,11 +6,12 @@ import { MOBILE_QUICK_ACTIONS, ChatTheme } from '@/constants/chat-theme';
 
 type MobileQuickSuggestionsProps = {
   onSelect: (prompt: string) => void;
+  embedded?: boolean;
 };
 
-export function MobileQuickSuggestions({ onSelect }: MobileQuickSuggestionsProps) {
+export function MobileQuickSuggestions({ onSelect, embedded = false }: MobileQuickSuggestionsProps) {
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, embedded && styles.containerEmbedded]}>
       {MOBILE_QUICK_ACTIONS.map((action) => (
         <Pressable
           key={action.label}
@@ -29,6 +30,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: ChatTheme.mobileEdgeGutter,
     paddingBottom: 12,
     gap: 2,
+  },
+  containerEmbedded: {
+    paddingHorizontal: 0,
   },
   row: {
     flexDirection: 'row',
