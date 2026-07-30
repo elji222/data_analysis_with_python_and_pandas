@@ -97,16 +97,26 @@ function RootNavigator() {
   );
 }
 
+// The keyboard module only has a native implementation, and the web build already
+// reflows around the on-screen keyboard on its own.
+function KeyboardShell({ children }: { children: React.ReactNode }) {
+  if (Platform.OS === 'web') {
+    return <>{children}</>;
+  }
+
+  return <KeyboardProvider preload={false}>{children}</KeyboardProvider>;
+}
+
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <KeyboardProvider preload={false}>
+      <KeyboardShell>
         <AuthProvider>
           <ChatIntentProvider>
             <RootNavigator />
           </ChatIntentProvider>
         </AuthProvider>
-      </KeyboardProvider>
+      </KeyboardShell>
     </SafeAreaProvider>
   );
 }

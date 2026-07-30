@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { KeyboardSpacer } from '@/components/keyboard-spacer';
 import { LogoutButton } from '@/components/logout-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -435,6 +436,7 @@ export default function MemoryScreen() {
               </View>
             </View>
           </ThemedView>
+          <KeyboardSpacer />
         </View>
       </Modal>
     </ThemedView>
