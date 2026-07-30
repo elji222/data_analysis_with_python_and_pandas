@@ -603,10 +603,10 @@ export function ChatPanel({
             listData={listData}
             listRef={listRef}
             showHeroEmpty={showHeroEmpty}
-            isKeyboardVisible={isKeyboardVisible}
             mobileEdgeGutter={mobileEdgeGutter}
             pageBackgroundColor={isDark ? ChatTheme.pageBgDark : ChatTheme.pageBg}
             onSelectSuggestion={(prompt) => void sendMessage(prompt)}
+            onKeyboardShow={scrollToEnd}
             onListLayout={handleListLayout}
             onScroll={handleScroll}
             onContentSizeChange={(_width, contentHeight) => {

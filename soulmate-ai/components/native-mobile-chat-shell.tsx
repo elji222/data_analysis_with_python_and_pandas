@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   FlatList,
   Platform,
@@ -8,26 +8,30 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
-import { KeyboardStickyView } from 'react-native-keyboard-controller';
+import {
+  useKeyboardState,
+  useReanimatedKeyboardAnimation,
+} from 'react-native-keyboard-controller';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MobileQuickSuggestions } from '@/components/mobile-quick-suggestions';
 import type { ChatMessage } from '@/types/chat';
 
-const DEFAULT_COMPOSER_CLEARANCE = 108;
+const MIN_BOTTOM_INSET = 10;
 
 type NativeMobileChatShellProps = {
   listData: ChatMessage[];
   listRef: React.RefObject<FlatList<ChatMessage> | null>;
   showHeroEmpty: boolean;
-  isKeyboardVisible: boolean;
   mobileEdgeGutter: number;
   pageBackgroundColor: string;
   onSelectSuggestion: (prompt: string) => void;
+  onKeyboardShow: () => void;
   onListLayout: (event: { nativeEvent: { layout: { height: number } } }) => void;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onContentSizeChange: (width: number, height: number) => void;
-  onViewableItemsChanged: (info: { viewableItems: Array<{ index: number | null }> }) => void;
+  onViewableItemsChanged: (info: { viewableItems: { index: number | null }[] }) => void;
   viewabilityConfig: { itemVisiblePercentThreshold: number };
   onScrollToIndexFailed: (info: { index: number; averageItemLength: number }) => void;
   renderItem: ListRenderItem<ChatMessage>;
@@ -38,10 +42,10 @@ export function NativeMobileChatShell({
   listData,
   listRef,
   showHeroEmpty,
-  isKeyboardVisible,
   mobileEdgeGutter,
   pageBackgroundColor,
   onSelectSuggestion,
+  onKeyboardShow,
   onListLayout,
   onScroll,
   onContentSizeChange,
@@ -52,37 +56,28 @@ export function NativeMobileChatShell({
   composer,
 }: NativeMobileChatShellProps) {
   const insets = useSafeAreaInsets();
-  const [composerHeight, setComposerHeight] = useState(DEFAULT_COMPOSER_CLEARANCE);
-  const bottomInset = isKeyboardVisible ? 8 : Math.max(insets.bottom, 12);
-  const listBottomPadding = composerHeight + 12;
+  const { height: keyboardOffset } = useReanimatedKeyboardAnimation();
+  const isKeyboardVisible = useKeyboardState((state) => state.isVisible);
+  const restingBottomInset = Math.max(insets.bottom, MIN_BOTTOM_INSET);
 
-  const handleComposerLayout = useCallback(
-    (event: { nativeEvent: { layout: { height: number } } }) => {
-      const nextHeight = Math.ceil(event.nativeEvent.layout.height);
-      if (nextHeight > 0) {
-        setComposerHeight(nextHeight);
-      }
-    },
-    []
-  );
+  const onKeyboardShowRef = useRef(onKeyboardShow);
+  onKeyboardShowRef.current = onKeyboardShow;
 
-  const composerDock = (
-    <View
-      onLayout={handleComposerLayout}
-      style={[
-        styles.composerDock,
-        {
-          paddingBottom: bottomInset,
-          paddingHorizontal: mobileEdgeGutter,
-          backgroundColor: pageBackgroundColor,
-        },
-      ]}>
-      {composer}
-    </View>
-  );
+  useEffect(() => {
+    if (isKeyboardVisible) {
+      onKeyboardShowRef.current();
+    }
+  }, [isKeyboardVisible]);
+
+  // `keyboardOffset` is negative while the keyboard is open. Growing a spacer under the
+  // composer squeezes the whole column, which reproduces `adjustResize` behaviour that
+  // Android disables once the app runs edge-to-edge.
+  const keyboardSpacerStyle = useAnimatedStyle(() => ({
+    height: Math.max(-keyboardOffset.value, restingBottomInset),
+  }));
 
   return (
-    <View style={styles.shell}>
+    <View style={[styles.shell, { backgroundColor: pageBackgroundColor }]}>
       <FlatList
         ref={listRef}
         style={styles.messageList}
@@ -91,16 +86,12 @@ export function NativeMobileChatShell({
         renderItem={renderItem}
         contentContainerStyle={[
           styles.messageListContent,
-          { paddingBottom: listBottomPadding, paddingHorizontal: mobileEdgeGutter },
+          { paddingHorizontal: mobileEdgeGutter },
           showHeroEmpty && listData.length === 0 ? styles.messageListContentEmpty : null,
         ]}
         ListEmptyComponent={
-          showHeroEmpty ? (
-            <View style={styles.emptySuggestions}>
-              {!isKeyboardVisible ? (
-                <MobileQuickSuggestions embedded onSelect={onSelectSuggestion} />
-              ) : null}
-            </View>
+          showHeroEmpty && !isKeyboardVisible ? (
+            <MobileQuickSuggestions embedded onSelect={onSelectSuggestion} />
           ) : null
         }
         onLayout={onListLayout}
@@ -115,11 +106,18 @@ export function NativeMobileChatShell({
         showsVerticalScrollIndicator
       />
 
-      {Platform.OS === 'ios' ? (
-        <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>{composerDock}</KeyboardStickyView>
-      ) : (
-        composerDock
-      )}
+      <View
+        style={[
+          styles.composerDock,
+          { paddingHorizontal: mobileEdgeGutter, backgroundColor: pageBackgroundColor },
+        ]}>
+        {composer}
+      </View>
+
+      <Animated.View
+        style={[keyboardSpacerStyle, { backgroundColor: pageBackgroundColor }]}
+        pointerEvents="none"
+      />
     </View>
   );
 }
@@ -136,18 +134,17 @@ const styles = StyleSheet.create({
   },
   messageListContent: {
     paddingTop: 12,
+    paddingBottom: 12,
     width: '100%',
   },
   messageListContentEmpty: {
     flexGrow: 1,
     justifyContent: 'flex-end',
   },
-  emptySuggestions: {
-    width: '100%',
-  },
   composerDock: {
     width: '100%',
     paddingTop: 4,
+    paddingBottom: 4,
     gap: 8,
     flexShrink: 0,
   },
