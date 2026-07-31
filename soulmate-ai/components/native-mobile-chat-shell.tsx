@@ -16,6 +16,7 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MobileQuickSuggestions } from '@/components/mobile-quick-suggestions';
+import { ChatTheme } from '@/constants/chat-theme';
 import type { ChatMessage } from '@/types/chat';
 
 const MIN_BOTTOM_INSET = 10;
@@ -109,7 +110,10 @@ export function NativeMobileChatShell({
       <View
         style={[
           styles.composerDock,
-          { paddingHorizontal: mobileEdgeGutter, backgroundColor: pageBackgroundColor },
+          {
+            paddingHorizontal: ChatTheme.mobileComposerGutter,
+            backgroundColor: pageBackgroundColor,
+          },
         ]}>
         {composer}
       </View>
