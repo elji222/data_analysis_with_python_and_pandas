@@ -561,11 +561,11 @@ export function ChatPanel({
       styles.mobileComposerDock,
       {
         paddingBottom: bottomComposerPadding,
-        paddingHorizontal: mobileEdgeGutter,
+        paddingHorizontal: ChatTheme.mobileComposerGutter,
         backgroundColor: isDark ? ChatTheme.pageBgDark : ChatTheme.pageBg,
       },
     ],
-    [bottomComposerPadding, mobileEdgeGutter, isDark]
+    [bottomComposerPadding, isDark]
   );
 
   const composerProps = {

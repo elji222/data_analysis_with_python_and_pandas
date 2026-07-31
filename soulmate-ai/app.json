@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.matyatech.soulmateai",
-      "versionCode": 12,
+      "versionCode": 13,
       "permissions": ["INTERNET"],
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
