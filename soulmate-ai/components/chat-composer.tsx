@@ -28,6 +28,8 @@ type ChatComposerProps = {
   onVoiceConfirm?: () => void;
   attachments: ChatAttachment[];
   onRemoveAttachment: (attachmentId: string) => void;
+  onStop?: () => void;
+  isGenerating?: boolean;
   isLoading?: boolean;
   isRecording?: boolean;
   recordingTranscript?: string;
@@ -72,6 +74,8 @@ export function ChatComposer({
   onVoiceConfirm,
   attachments,
   onRemoveAttachment,
+  onStop,
+  isGenerating = false,
   isLoading = false,
   isRecording = false,
   recordingTranscript = '',
@@ -305,19 +309,29 @@ export function ChatComposer({
               </View>
             ) : (
               <View style={styles.trailingActions}>
-                <Pressable
-                  style={({ pressed }) => [styles.iconSlot, pressed && styles.iconPressed]}
-                  disabled={isLoading}
-                  onPress={onVoicePress}
-                  accessibilityRole="button"
-                  accessibilityLabel="Voice input">
-                  <Ionicons
-                    name="mic-outline"
-                    size={22}
-                    color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
-                  />
-                </Pressable>
-                {canSend ? (
+                {!isGenerating ? (
+                  <Pressable
+                    style={({ pressed }) => [styles.iconSlot, pressed && styles.iconPressed]}
+                    disabled={isLoading}
+                    onPress={onVoicePress}
+                    accessibilityRole="button"
+                    accessibilityLabel="Voice input">
+                    <Ionicons
+                      name="mic-outline"
+                      size={22}
+                      color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
+                    />
+                  </Pressable>
+                ) : null}
+                {isGenerating ? (
+                  <Pressable
+                    style={({ pressed }) => [styles.sendButton, pressed && styles.pressed]}
+                    onPress={onStop}
+                    accessibilityRole="button"
+                    accessibilityLabel="Stop generating">
+                    <Ionicons name="stop" size={16} color="#FFFFFF" />
+                  </Pressable>
+                ) : canSend ? (
                   <Pressable
                     style={({ pressed }) => [styles.sendButton, pressed && styles.pressed]}
                     onPress={onSend}>

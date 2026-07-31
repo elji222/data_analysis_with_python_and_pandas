@@ -38,10 +38,13 @@ export async function buildBillingStatus(
   existingAccess?: UserAccess | null,
   options?: {
     freeAccessForAll?: boolean;
+    existingSubscription?: UserSubscription | null;
   }
 ): Promise<BillingStatus> {
   const [subscription, access] = await Promise.all([
-    getUserSubscription(client, userId),
+    options?.existingSubscription === undefined
+      ? getUserSubscription(client, userId)
+      : Promise.resolve(options.existingSubscription),
     existingAccess === undefined ? getUserAccess(client, userId) : Promise.resolve(existingAccess),
   ]);
 

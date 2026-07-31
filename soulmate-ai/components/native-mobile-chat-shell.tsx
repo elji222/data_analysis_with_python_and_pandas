@@ -90,7 +90,7 @@ export function NativeMobileChatShell({
           showHeroEmpty && listData.length === 0 ? styles.messageListContentEmpty : null,
         ]}
         ListEmptyComponent={
-          showHeroEmpty && !isKeyboardVisible ? (
+          showHeroEmpty ? (
             <MobileQuickSuggestions embedded onSelect={onSelectSuggestion} />
           ) : null
         }

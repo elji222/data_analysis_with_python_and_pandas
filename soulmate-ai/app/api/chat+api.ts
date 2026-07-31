@@ -12,7 +12,8 @@ import {
 import { filterMemoriesForAiPrompt, rankMemoriesForQuery } from '@/lib/memory/search';
 import {
   createSupabaseServerClient,
-  requirePaidAccess,
+  ensurePaidAccess,
+  requireAuthenticatedUser,
 } from '@/lib/supabase-server';
 import type { ApiContentBlock, ApiTextBlock, ChatApiMessage } from '@/types/chat';
 
@@ -102,10 +103,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const auth = await requirePaidAccess(request);
+    const bodyPromise = request.json();
+
+    const auth = await requireAuthenticatedUser(request);
     if ('error' in auth) return auth.error;
 
-    const body = await request.json();
+    const body = await bodyPromise;
     const userId = auth.userId;
     const accessToken = auth.token;
     const messages = body.messages as ChatApiMessage[] | undefined;
@@ -117,12 +120,17 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Please send at least one message.' }, { status: 400 });
     }
 
-    const { systemPrompt, memoryEnabled } = await resolveSystemPrompt(
-      userId,
-      accessToken,
-      messages,
-      skipMemory
-    );
+    // Memory lookup only needs the authenticated user, so it overlaps with the
+    // billing checks instead of waiting behind them.
+    const systemPromptPromise = resolveSystemPrompt(userId, accessToken, messages, skipMemory);
+
+    const paidAccess = await ensurePaidAccess(auth);
+    if ('error' in paidAccess) {
+      void systemPromptPromise.catch(() => {});
+      return paidAccess.error;
+    }
+
+    const { systemPrompt, memoryEnabled } = await systemPromptPromise;
     const finalSystemPrompt = appendCurrentDateContext(systemPrompt);
     const agentMessages = messages as AnthropicAgentMessage[];
 
