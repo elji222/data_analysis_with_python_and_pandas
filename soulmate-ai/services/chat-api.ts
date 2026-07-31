@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 import { buildChatApiMessages } from '@/lib/build-chat-api-messages';
 import { getApiUrl } from '@/lib/api-origin';
 import type { GeneratedImage } from '@/lib/agent/types';
@@ -20,9 +22,7 @@ type SseEventHandlers = {
   onImageError?: (error: string) => void;
 };
 
-async function readApiErrorMessage(response: Response): Promise<string> {
-  const text = await response.text();
-
+export function toApiErrorMessage(text: string): string {
   try {
     const data = JSON.parse(text) as { error?: string };
     return data.error ?? 'Something went wrong. Please try again.';
@@ -38,6 +38,16 @@ async function readApiErrorMessage(response: Response): Promise<string> {
 
     return trimmed.slice(0, 180);
   }
+}
+
+async function readApiErrorMessage(response: Response): Promise<string> {
+  return toApiErrorMessage(await response.text());
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    error instanceof Error && (error.name === 'AbortError' || error.message === 'Aborted')
+  );
 }
 
 async function readJsonResponse<T>(response: Response): Promise<T> {
@@ -106,6 +116,20 @@ export function processSseEventBlocks(
   return fullText;
 }
 
+/**
+ * Returns the portion of a partially received SSE body that contains only whole
+ * `\n\n`-delimited events. A trailing fragment is left for the next chunk so an
+ * event is never parsed before it has fully arrived.
+ */
+export function takeCompleteSseEvents(pending: string, isFinalChunk: boolean): string {
+  if (isFinalChunk) return pending;
+
+  const lastBoundary = pending.lastIndexOf('\n\n');
+  if (lastBoundary === -1) return '';
+
+  return pending.slice(0, lastBoundary + 2);
+}
+
 export function parseSseText(text: string, handlers: SseEventHandlers): string {
   const events = text.split('\n\n');
   const fullText = processSseEventBlocks(events, handlers, '');
@@ -126,15 +150,24 @@ async function consumeSseStream(
   let buffer = '';
   let fullText = '';
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    buffer += decoder.decode(value, { stream: true });
-    const events = buffer.split('\n\n');
-    buffer = events.pop() ?? '';
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split('\n\n');
+      buffer = events.pop() ?? '';
 
-    fullText = processSseEventBlocks(events, handlers, fullText);
+      fullText = processSseEventBlocks(events, handlers, fullText);
+    }
+  } catch (error) {
+    // Stopping generation keeps whatever text already arrived.
+    if (isAbortError(error)) {
+      return fullText;
+    }
+
+    throw error;
   }
 
   if (buffer.trim()) {
@@ -148,6 +181,159 @@ async function consumeSseStream(
   return fullText;
 }
 
+/**
+ * React Native's `fetch` resolves without a readable `body`, so awaiting the
+ * response would hold every token back until generation finished. `XMLHttpRequest`
+ * exposes `responseText` while the request is still in flight, which is what lets
+ * replies appear token by token on device.
+ */
+function streamSseViaXhr(
+  url: string,
+  headers: Record<string, string>,
+  requestBody: string,
+  handlers: SseEventHandlers,
+  signal?: AbortSignal | null
+): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    let consumedLength = 0;
+    let fullText = '';
+    let isSettled = false;
+    let isAborted = false;
+    let removeAbortListener: (() => void) | null = null;
+
+    const settle = (finish: () => void) => {
+      if (isSettled) return;
+      isSettled = true;
+      removeAbortListener?.();
+      finish();
+    };
+
+    // Only whole `\n\n`-delimited events are parsed; a partial trailing event stays
+    // buffered until the rest of it arrives.
+    const drain = (isFinalChunk: boolean) => {
+      const raw = xhr.responseText ?? '';
+      if (raw.length <= consumedLength) return;
+
+      const consumable = takeCompleteSseEvents(raw.slice(consumedLength), isFinalChunk);
+      if (!consumable) return;
+
+      consumedLength += consumable.length;
+      fullText = processSseEventBlocks(consumable.split('\n\n'), handlers, fullText);
+    };
+
+    xhr.open('POST', url, true);
+    Object.entries(headers).forEach(([name, value]) => xhr.setRequestHeader(name, value));
+
+    xhr.onreadystatechange = () => {
+      // Stopping generation keeps whatever text already arrived.
+      if (isAborted) {
+        settle(() => resolve(fullText));
+        return;
+      }
+
+      const isSuccess = xhr.status >= 200 && xhr.status < 300;
+
+      if (xhr.readyState === 3 && isSuccess) {
+        try {
+          drain(false);
+        } catch (error) {
+          settle(() => {
+            xhr.abort();
+            reject(error);
+          });
+        }
+        return;
+      }
+
+      if (xhr.readyState !== 4) return;
+
+      if (!isSuccess) {
+        settle(() => reject(new Error(toApiErrorMessage(xhr.responseText ?? ''))));
+        return;
+      }
+
+      try {
+        drain(true);
+      } catch (error) {
+        settle(() => reject(error));
+        return;
+      }
+
+      if (fullText.trim()) {
+        settle(() => resolve(fullText));
+        return;
+      }
+
+      // A non-streaming JSON reply can still come back on this endpoint.
+      try {
+        const data = JSON.parse(xhr.responseText ?? '') as {
+          reply?: string;
+          error?: string;
+          savedMemories?: string[];
+        };
+
+        if (data.error) {
+          settle(() => reject(new Error(data.error)));
+          return;
+        }
+
+        if (data.reply) {
+          if (data.savedMemories?.length) {
+            handlers.onSavedMemories?.(data.savedMemories);
+          }
+          handlers.onDelta(data.reply);
+          settle(() => resolve(data.reply!));
+          return;
+        }
+      } catch {
+        // Fall through to the empty-reply error below.
+      }
+
+      settle(() => reject(new Error('Soulmate AI sent an empty reply.')));
+    };
+
+    xhr.onerror = () => {
+      if (isAborted) {
+        settle(() => resolve(fullText));
+        return;
+      }
+
+      settle(() => reject(new Error('Could not reach Soulmate AI. Check your connection.')));
+    };
+
+    xhr.ontimeout = () => {
+      settle(() => reject(new Error('The request timed out. Please try again.')));
+    };
+
+    if (signal) {
+      const onAbort = () => {
+        // Set before aborting: `abort()` fires the state handler synchronously,
+        // and it must resolve with the partial reply rather than reject.
+        isAborted = true;
+
+        try {
+          xhr.abort();
+        } catch {
+          // The request may already be finished.
+        }
+
+        settle(() => resolve(fullText));
+      };
+
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+
+      signal.addEventListener('abort', onAbort);
+      removeAbortListener = () => signal.removeEventListener('abort', onAbort);
+    }
+
+    xhr.send(requestBody);
+  });
+}
+
 export type StreamChatOptions = {
   accessToken?: string | null;
   conversationId?: string;
@@ -156,6 +342,7 @@ export type StreamChatOptions = {
   onStatus?: (status: 'searching' | 'generating_image') => void;
   onGeneratedImage?: (image: GeneratedImage) => void;
   onImageError?: (error: string) => void;
+  signal?: AbortSignal | null;
 };
 
 export async function streamChatMessage(
@@ -175,21 +362,11 @@ export async function streamChatMessage(
     headers.Authorization = `Bearer ${options.accessToken}`;
   }
 
-  const response = await fetch(getApiUrl('/api/chat'), {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      messages: apiMessages,
-      conversationId: options.conversationId,
-      messageId: latestUserMessage?.id ?? options.messageId,
-    }),
+  const requestBody = JSON.stringify({
+    messages: apiMessages,
+    conversationId: options.conversationId,
+    messageId: latestUserMessage?.id ?? options.messageId,
   });
-
-  const contentType = response.headers.get('content-type') ?? '';
-
-  if (!response.ok) {
-    throw new Error(await readApiErrorMessage(response));
-  }
 
   const handlers: SseEventHandlers = {
     onDelta,
@@ -198,6 +375,29 @@ export async function streamChatMessage(
     onGeneratedImage: options.onGeneratedImage,
     onImageError: options.onImageError,
   };
+
+  if (Platform.OS !== 'web') {
+    return streamSseViaXhr(
+      getApiUrl('/api/chat'),
+      headers,
+      requestBody,
+      handlers,
+      options.signal
+    );
+  }
+
+  const response = await fetch(getApiUrl('/api/chat'), {
+    method: 'POST',
+    headers,
+    body: requestBody,
+    signal: options.signal ?? undefined,
+  });
+
+  const contentType = response.headers.get('content-type') ?? '';
+
+  if (!response.ok) {
+    throw new Error(await readApiErrorMessage(response));
+  }
 
   if (contentType.includes('text/event-stream')) {
     if (response.body) {

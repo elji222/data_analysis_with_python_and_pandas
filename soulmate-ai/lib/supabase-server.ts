@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient, type User } from '@supabase/supabase
 
 import { getUserAccess } from '@/lib/access/repository';
 import type { UserAccess } from '@/types/access';
-import { buildBillingStatus } from '@/lib/billing/repository';
+import { buildBillingStatus, getUserSubscription } from '@/lib/billing/repository';
 import { getFreeAccessForAll } from '@/lib/billing/app-settings';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -133,20 +133,41 @@ export async function requireUserAccess(
   };
 }
 
-export async function requirePaidAccess(
-  request: Request
+/**
+ * Access, billing settings and subscription do not depend on each other, so they
+ * are fetched together. Stacking them sequentially adds a round-trip each in front
+ * of every chat request.
+ */
+export async function ensurePaidAccess(
+  auth: AuthedContext
 ): Promise<AuthedAccessContext | { error: Response }> {
-  const auth = await requireUserAccess(request);
-  if ('error' in auth) return auth;
+  let serviceClient: SupabaseClient;
+  try {
+    serviceClient = createSupabaseServiceClient();
+  } catch {
+    return {
+      error: Response.json(
+        { error: 'Invite system is not configured yet. Add SUPABASE_SERVICE_ROLE_KEY.' },
+        { status: 503 }
+      ),
+    };
+  }
 
-  const freeAccessForAll = await getFreeAccessForAll(auth.serviceClient);
-  const billing = await buildBillingStatus(
-    auth.client,
-    auth.userId,
-    auth.user.email,
-    auth.access,
-    { freeAccessForAll }
-  );
+  const [access, freeAccessForAll, subscription] = await Promise.all([
+    getUserAccess(auth.client, auth.userId),
+    getFreeAccessForAll(serviceClient),
+    getUserSubscription(auth.client, auth.userId),
+  ]);
+
+  if (!access) {
+    return { error: Response.json({ error: 'Invite required' }, { status: 403 }) };
+  }
+
+  const billing = await buildBillingStatus(auth.client, auth.userId, auth.user.email, access, {
+    freeAccessForAll,
+    existingSubscription: subscription,
+  });
+
   if (!billing.hasActiveSubscription) {
     return {
       error: Response.json(
@@ -159,6 +180,15 @@ export async function requirePaidAccess(
     };
   }
 
-  return auth;
+  return { ...auth, access, serviceClient };
+}
+
+export async function requirePaidAccess(
+  request: Request
+): Promise<AuthedAccessContext | { error: Response }> {
+  const auth = await requireAuthenticatedUser(request);
+  if ('error' in auth) return auth;
+
+  return ensurePaidAccess(auth);
 }
 

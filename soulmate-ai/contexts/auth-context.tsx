@@ -2,6 +2,11 @@ import { Session, User } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
 
+import {
+  clearCachedAccess,
+  readCachedAccess,
+  writeCachedAccess,
+} from '@/lib/access/access-cache';
 import { clearPendingInviteCode, getPendingInviteCode } from '@/lib/access/pending-invite';
 import { completeWebAuthCallbackIfPresent, signOut as authSignOut } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
@@ -45,42 +50,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAccessError(null);
     setIsLoading(false);
     setIsAccessLoading(false);
+    await clearCachedAccess();
     await clearPendingInviteCode();
     await authSignOut();
   }, []);
 
+  const verifyAccess = useCallback(
+    async (accessToken: string, userId: string, { blocking }: { blocking: boolean }) => {
+      if (blocking) {
+        setIsAccessLoading(true);
+      }
+      setAccessError(null);
+
+      try {
+        const pendingInviteCode = await getPendingInviteCode();
+        const status = await ensureAccessForSession(accessToken, pendingInviteCode);
+        setAccessStatus(status);
+
+        if (!status.hasAccess) {
+          setAccessError('An invite code is required to join Soulmate AI.');
+          await signOut();
+          return;
+        }
+
+        await writeCachedAccess(userId, status);
+        await clearPendingInviteCode();
+      } catch (error) {
+        // A cached grant means the user is already inside the app; a failed
+        // background re-check (usually a flaky network) must not eject them.
+        if (!blocking) {
+          return;
+        }
+
+        const message =
+          error instanceof Error ? error.message : 'Could not verify your invite access.';
+        setAccessError(message);
+        setAccessStatus(null);
+        await signOut();
+      } finally {
+        if (blocking) {
+          setIsAccessLoading(false);
+        }
+      }
+    },
+    [signOut]
+  );
+
   const refreshAccess = useCallback(async () => {
-    if (!session?.access_token) {
+    if (!session?.access_token || !session.user?.id) {
       setAccessStatus(null);
       setAccessError(null);
       return;
     }
 
-    setIsAccessLoading(true);
-    setAccessError(null);
-
-    try {
-      const pendingInviteCode = await getPendingInviteCode();
-      const status = await ensureAccessForSession(session.access_token, pendingInviteCode);
-      setAccessStatus(status);
-
-      if (!status.hasAccess) {
-        setAccessError('An invite code is required to join Soulmate AI.');
-        await signOut();
-        return;
-      }
-
-      await clearPendingInviteCode();
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Could not verify your invite access.';
-      setAccessError(message);
-      setAccessStatus(null);
-      await signOut();
-    } finally {
-      setIsAccessLoading(false);
-    }
-  }, [session?.access_token, signOut]);
+    await verifyAccess(session.access_token, session.user.id, { blocking: true });
+  }, [session?.access_token, session?.user?.id, verifyAccess]);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,15 +139,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!session?.access_token) {
+    const accessToken = session?.access_token;
+    const userId = session?.user?.id;
+
+    if (!accessToken || !userId) {
       setAccessStatus(null);
       setAccessError(null);
       setIsAccessLoading(false);
       return;
     }
 
-    void refreshAccess();
-  }, [session?.access_token, refreshAccess]);
+    let cancelled = false;
+
+    // Set synchronously so the router does not treat the not-yet-checked state
+    // as "no access" and bounce back to the login screen.
+    setIsAccessLoading(true);
+
+    async function checkAccess() {
+      const cached = await readCachedAccess(userId!);
+      if (cancelled) return;
+
+      if (cached) {
+        // Open the app right away and confirm with the server in the background.
+        setAccessStatus(cached);
+        setIsAccessLoading(false);
+        void verifyAccess(accessToken!, userId!, { blocking: false });
+        return;
+      }
+
+      await verifyAccess(accessToken!, userId!, { blocking: true });
+    }
+
+    void checkAccess();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.access_token, session?.user?.id, verifyAccess]);
 
   const value = useMemo(
     () => ({

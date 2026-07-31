@@ -134,6 +134,7 @@ export function ChatPanel({
   const inputBeforeRecordingRef = useRef('');
   const listDataRef = useRef<ChatMessage[]>([]);
   const pendingScrollUserIndexRef = useRef<number | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const {
     isRecording,
@@ -181,6 +182,12 @@ export function ChatPanel({
   }, [conversation?.id, cancelRecording]);
 
   useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
@@ -196,11 +203,15 @@ export function ChatPanel({
     };
   }, []);
 
-  function scrollToEnd() {
+  function scrollToEnd(animated = true) {
     requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated: true });
+      listRef.current?.scrollToEnd({ animated });
     });
   }
+
+  // Focusing the composer should not animate the thread; the list is already
+  // being resized by the keyboard and animating on top of that reads as a jump.
+  const scrollToEndForKeyboard = useCallback(() => scrollToEnd(false), []);
 
   useEffect(() => {
     if (messages.length === 0) return;
@@ -299,6 +310,10 @@ export function ChatPanel({
     const trimmed = text.trim();
     if ((!trimmed && pendingAttachments.length === 0) || isLoading) return;
 
+    abortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     const isFirstExchange = messages.length === 0;
     const messageAttachments = cloneAttachments(pendingAttachments);
 
@@ -345,6 +360,7 @@ export function ChatPanel({
           accessToken: session?.access_token,
           conversationId: conversation.id,
           messageId: userMessage.id,
+          signal: abortController.signal,
           onSavedMemories: (savedMemories) => {
             if (savedMemories.length > 0) {
               setStatusMessage('Saved to Memory.');
@@ -391,9 +407,16 @@ export function ChatPanel({
       setStreamingAttachments([]);
       setStatusMessage(null);
       setIsLoading(false);
+
+      // A stopped reply with nothing streamed yet leaves the thread untouched.
+      const wasStopped = abortController.signal.aborted;
+      if (wasStopped && !reply.trim() && generatedAttachments.length === 0) {
+        return;
+      }
+
       await onUpdateMessages(conversation.id, [...nextMessages, assistantMessage]);
 
-      if (isFirstExchange && onRenameConversation) {
+      if (isFirstExchange && onRenameConversation && !wasStopped) {
         void fetchConversationTitle(getMessagePreviewText(userMessage)).then((title) => {
           void onRenameConversation(conversation.id, title);
         });
@@ -405,10 +428,23 @@ export function ChatPanel({
       setStreamingAttachments([]);
       setStatusMessage(null);
       setIsLoading(false);
+
+      if (abortController.signal.aborted) {
+        return;
+      }
+
       const message =
         sendError instanceof Error ? sendError.message : 'Something went wrong. Please try again.';
       setError(message);
+    } finally {
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+      }
     }
+  }
+
+  function handleStopGenerating() {
+    abortControllerRef.current?.abort();
   }
 
   function handleSend() {
@@ -542,6 +578,8 @@ export function ChatPanel({
     onVoiceConfirm: () => void handleVoiceConfirm(),
     attachments,
     onRemoveAttachment: handleRemoveAttachment,
+    onStop: handleStopGenerating,
+    isGenerating: isLoading || isStreaming,
     isLoading,
     isRecording,
     recordingTranscript,
@@ -606,7 +644,7 @@ export function ChatPanel({
             mobileEdgeGutter={mobileEdgeGutter}
             pageBackgroundColor={isDark ? ChatTheme.pageBgDark : ChatTheme.pageBg}
             onSelectSuggestion={(prompt) => void sendMessage(prompt)}
-            onKeyboardShow={scrollToEnd}
+            onKeyboardShow={scrollToEndForKeyboard}
             onListLayout={handleListLayout}
             onScroll={handleScroll}
             onContentSizeChange={(_width, contentHeight) => {

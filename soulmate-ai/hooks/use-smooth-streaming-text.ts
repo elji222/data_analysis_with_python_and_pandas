@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 
 const MIN_CHARS_PER_FRAME = 1;
-const MAX_CHARS_PER_FRAME = 2;
-const MAX_CATCHUP_CHARS_PER_FRAME = 10;
-const CATCH_UP_DIVISOR = 10;
+const MAX_CHARS_PER_FRAME = 3;
+// The model streams faster than a letter-by-letter reveal can keep up with, so the
+// catch-up ceiling has to outpace generation or the text lags seconds behind.
+const MAX_CATCHUP_CHARS_PER_FRAME = 20;
+const CATCH_UP_DIVISOR = 5;
 const LETTER_BY_LETTER_BEHIND_CHARS = 4;
-const FAST_CATCH_UP_BEHIND_CHARS = 36;
+const FAST_CATCH_UP_BEHIND_CHARS = 20;
 const BASE_FRAME_INTERVAL_MS = 1000 / 60;
 const SLOWDOWN_FACTOR = 1.15;
 
