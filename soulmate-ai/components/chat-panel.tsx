@@ -55,6 +55,7 @@ import {
   shouldShowScrollToBottom,
   type ScrollMetrics,
 } from '@/lib/chat-scroll';
+import { getApiUrl } from '@/lib/api-origin';
 import { getMessagePreviewText, cloneAttachments } from '@/lib/build-chat-api-messages';
 import { isDefaultConversationTitle } from '@/lib/conversation-title';
 import { useAuth } from '@/contexts/auth-context';
@@ -185,6 +186,13 @@ export function ChatPanel({
     return () => {
       abortControllerRef.current?.abort();
     };
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    // Warm up DNS + TLS so the first message doesn't pay for the handshake.
+    void fetch(getApiUrl('/api/ping')).catch(() => {});
   }, []);
 
   useEffect(() => {
