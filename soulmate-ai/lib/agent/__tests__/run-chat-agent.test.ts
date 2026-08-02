@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { applyAnthropicStreamEvent } from '@/lib/agent/run-chat-agent';
+import { applyAnthropicStreamEvent, runChatAgent } from '@/lib/agent/run-chat-agent';
 
 function createState() {
   return {
@@ -35,5 +35,59 @@ describe('applyAnthropicStreamEvent', () => {
     expect(state.toolUses[0]?.name).toBe('web_search');
     expect(state.toolUses[0]?.input).toEqual({ query: 'Israel news' });
     expect(state.stopReason).toBe('tool_use');
+  });
+});
+
+function sseBody(events: object[]): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const event of events) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n`));
+      }
+      controller.close();
+    },
+  });
+}
+
+describe('runChatAgent streaming', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('emits each text delta as it arrives instead of buffering the round', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        body: sseBody([
+          { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Hel' } },
+          { type: 'content_block_delta', delta: { type: 'text_delta', text: 'lo!' } },
+          { type: 'message_delta', delta: { stop_reason: 'end_turn' } },
+        ]),
+      })
+    );
+
+    const events: Array<{ type: string; text?: string }> = [];
+
+    const result = await runChatAgent({
+      apiKey: 'test-key',
+      systemPrompt: 'Be kind.',
+      messages: [{ role: 'user', content: 'Hi' }],
+      toolContext: {
+        tavilyApiKey: null,
+        openaiApiKey: null,
+        openaiImageModel: null,
+        imageServiceUrl: 'https://example.com/api/generate-image',
+        authorizationHeader: null,
+      },
+      onEvent: (event) => events.push(event as { type: string; text?: string }),
+    });
+
+    const textEvents = events.filter((event) => event.type === 'text');
+    expect(textEvents.map((event) => event.text)).toEqual(['Hel', 'lo!']);
+    expect(result.fullReply).toBe('Hello!');
+    expect(result.usedTools).toBe(false);
   });
 });

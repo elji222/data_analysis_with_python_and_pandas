@@ -220,20 +220,27 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<RunCha
       throw new Error(message);
     }
 
-    let roundText = '';
     let roundState = createStreamState();
-    const streamLive = round > 0;
+    let emittedRoundText = false;
 
+    // Every round streams to the client as it generates. Holding text back until
+    // a round completes made the user wait the full generation time before the
+    // first character appeared.
     for await (const chunk of parseAnthropicStream(response.body)) {
       roundState = chunk.state;
 
       if (chunk.textDelta) {
-        roundText += chunk.textDelta;
+        let delta = chunk.textDelta;
 
-        if (streamLive) {
-          fullReply += chunk.textDelta;
-          options.onEvent({ type: 'text', text: chunk.textDelta });
+        // Text following a tool round continues an already-visible reply, so
+        // keep a paragraph break between the two.
+        if (!emittedRoundText && fullReply.trim() && !fullReply.endsWith('\n')) {
+          delta = `\n\n${delta}`;
         }
+
+        emittedRoundText = true;
+        fullReply += delta;
+        options.onEvent({ type: 'text', text: delta });
       }
     }
 
@@ -241,11 +248,6 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<RunCha
     const shouldRunTools = toolUses.length > 0 && !isFinalAllowedRound;
 
     if (!shouldRunTools) {
-      if (!streamLive && roundText.trim()) {
-        fullReply = roundText;
-        options.onEvent({ type: 'text', text: roundText });
-      }
-
       if (!fullReply.trim()) {
         if (generatedImageCount > 0) {
           fullReply = IMAGE_ONLY_REPLY;

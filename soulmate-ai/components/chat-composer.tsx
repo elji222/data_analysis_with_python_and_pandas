@@ -278,7 +278,9 @@ export function ChatComposer({
                 submitBehavior="submit"
                 multiline
                 scrollEnabled={isAtMaxHeight}
-                editable={!isLoading}
+                // Typing stays available while a reply generates (sending is still
+                // guarded); a disabled input silently swallows taps on Android.
+                editable
                 underlineColorAndroid="transparent"
                 selectionColor={ChatTheme.accent}
                 textAlignVertical="top"

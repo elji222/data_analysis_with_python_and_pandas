@@ -103,7 +103,9 @@ export function NativeMobileChatShell({
         viewabilityConfig={viewabilityConfig}
         onScrollToIndexFailed={onScrollToIndexFailed}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        // Android's `on-drag` also fires for the layout shift the keyboard itself
+        // causes, dismissing the keyboard right after the input is tapped.
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
         showsVerticalScrollIndicator
       />
 
