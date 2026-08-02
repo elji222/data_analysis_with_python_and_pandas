@@ -476,6 +476,38 @@ function Invoke-EasWithOutput {
     return Invoke-ExternalOutput -Command { & $script:EasBin @EasArgs }
 }
 
+function Test-TransientNetworkError {
+    param([string]$Output)
+
+    if (-not $Output) { return $false }
+
+    return $Output -match 'ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EPIPE|socket hang up|network timeout|fetch failed|GraphQL request failed'
+}
+
+function Invoke-WithNetworkRetry {
+    param(
+        [scriptblock]$Operation,
+        [string]$Description,
+        [int]$MaxAttempts = 4
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        $result = & $Operation
+
+        if ($result.ExitCode -eq 0) {
+            return $result
+        }
+
+        if ($attempt -eq $MaxAttempts -or -not (Test-TransientNetworkError $result.Output)) {
+            return $result
+        }
+
+        $delay = 4 * $attempt
+        Write-Host "Network problem during $Description (attempt $attempt of $MaxAttempts). Retrying in $delay seconds..."
+        Start-Sleep -Seconds $delay
+    }
+}
+
 function Test-AnthropicKey {
     param([string]$Value)
 
@@ -528,7 +560,9 @@ function Ensure-EasProject {
 
     Write-Host "Linking this folder to Expo project $projectId ..."
 
-    $initResult = Invoke-EasWithOutput init --id $projectId --force --non-interactive
+    $initResult = Invoke-WithNetworkRetry -Description "linking the Expo project" -Operation {
+        Invoke-EasWithOutput init --id $projectId --force --non-interactive
+    }
     if ($initResult.ExitCode -ne 0) {
         throw "Could not link EAS project.`n$($initResult.Output)"
     }
@@ -557,15 +591,20 @@ function Set-EasProductionVariable {
     )
 
     # Expo cannot change secret -> sensitive/plaintext in place. Delete first, then create.
+    # The whole delete+create pair retries on network blips: a failure after the
+    # delete would otherwise leave the variable missing in production.
     Write-Host "Updating production env: $Name ($Visibility)"
-    Remove-EasProductionVariable -Name $Name
 
-    $result = Invoke-EasWithOutput env:create `
-        --name $Name `
-        --value $Value `
-        --visibility $Visibility `
-        --environment production `
-        --non-interactive
+    $result = Invoke-WithNetworkRetry -Description "setting $Name" -Operation {
+        Remove-EasProductionVariable -Name $Name
+
+        Invoke-EasWithOutput env:create `
+            --name $Name `
+            --value $Value `
+            --visibility $Visibility `
+            --environment production `
+            --non-interactive
+    }
 
     if ($result.ExitCode -eq 0) {
         return
@@ -844,7 +883,9 @@ Your project folder is very deep inside Downloads. Either:
     Write-Host "Uploading build $uiVersion to production..."
     Write-Host ""
 
-    $deployResult = Invoke-EasDeployProduction -WorkingDir $shortDrive
+    $deployResult = Invoke-WithNetworkRetry -Description "uploading the build" -MaxAttempts 3 -Operation {
+        Invoke-EasDeployProduction -WorkingDir $shortDrive
+    }
 
     if ($deployResult.Output) {
         Write-Host $deployResult.Output
