@@ -4,18 +4,21 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ChatTheme } from '@/constants/chat-theme';
-import { parseCritiqueSegments } from '@/lib/parse-critique-segments';
+import {
+  parseCritiqueSegments,
+  parseCritiqueStructure,
+} from '@/lib/parse-critique-segments';
 import type { CouncilAnswer, CouncilReview } from '@/types/chat';
 
 type CouncilAnswersPanelProps = {
   review: CouncilReview;
 };
 
-function CritiqueText({ text }: { text: string }) {
+function CritiqueRichText({ text, style }: { text: string; style?: object }) {
   const segments = parseCritiqueSegments(text);
 
   return (
-    <Text style={styles.critiqueText}>
+    <Text style={[styles.critiqueText, style]}>
       {segments.map((segment, index) =>
         segment.bold ? (
           <Text key={`${index}-${segment.text.slice(0, 24)}`} style={styles.critiqueHighlight}>
@@ -26,6 +29,28 @@ function CritiqueText({ text }: { text: string }) {
         )
       )}
     </Text>
+  );
+}
+
+function CritiqueBody({ text }: { text: string }) {
+  const { summary, bullets } = parseCritiqueStructure(text);
+
+  if (bullets.length === 0) {
+    return <CritiqueRichText text={summary || text} />;
+  }
+
+  return (
+    <View style={styles.critiqueBody}>
+      {summary ? <CritiqueRichText text={summary} /> : null}
+      <View style={styles.bulletList}>
+        {bullets.map((bullet, index) => (
+          <View key={`${index}-${bullet.slice(0, 24)}`} style={styles.bulletRow}>
+            <Text style={styles.bulletMarker}>•</Text>
+            <CritiqueRichText text={bullet} style={styles.bulletText} />
+          </View>
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -62,7 +87,7 @@ function CouncilAnswerRow({ answer }: { answer: CouncilAnswer }) {
                   key={`${critique.fromModelId}-${critique.text.slice(0, 24)}`}
                   style={styles.critiqueCard}>
                   <ThemedText style={styles.critiqueFrom}>{critique.fromModelLabel}</ThemedText>
-                  <CritiqueText text={critique.text} />
+                  <CritiqueBody text={critique.text} />
                 </View>
               ))}
             </View>
@@ -156,12 +181,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 10,
     paddingVertical: 10,
-    gap: 4,
+    gap: 6,
   },
   critiqueFrom: {
     fontSize: 13,
     fontWeight: '600',
     color: ChatTheme.sidebarText,
+  },
+  critiqueBody: {
+    gap: 8,
   },
   critiqueText: {
     fontSize: 14,
@@ -171,6 +199,24 @@ const styles = StyleSheet.create({
   critiqueHighlight: {
     fontWeight: '700',
     color: ChatTheme.sidebarText,
+  },
+  bulletList: {
+    gap: 6,
+  },
+  bulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  bulletMarker: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: ChatTheme.sidebarText,
+    fontWeight: '700',
+    width: 10,
+  },
+  bulletText: {
+    flex: 1,
   },
   noCritiques: {
     fontSize: 13,
