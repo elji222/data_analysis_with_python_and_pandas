@@ -3,6 +3,7 @@ import {
   buildAccessStatus,
   createInviteForUser,
 } from '@/lib/access/repository';
+import { ensureUserProfile } from '@/lib/matches/profile-repository';
 import {
   createSupabaseServiceClient,
   requireAuthenticatedUser,
@@ -45,6 +46,17 @@ export async function POST(request: Request) {
         email: auth.user.email ?? '',
         inviteCode,
       });
+
+      if (status.hasAccess) {
+        // Keep the member visible in everyone else's Matches even if they
+        // never open the Matches tab themselves. Must not block sign-in.
+        try {
+          await ensureUserProfile(auth.client, auth.user);
+        } catch (profileError) {
+          console.error('Could not sync user profile during bootstrap', profileError);
+        }
+      }
+
       return Response.json(status);
     }
 
