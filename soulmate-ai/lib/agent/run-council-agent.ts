@@ -428,12 +428,17 @@ export async function runCouncilAgent(
         role: 'user',
         content: `Question from the user:\n${question}\n\nCandidate answers:\n\n${answersBlock}\n\nRank these answers from best to worst for the user. Judge how well each helps the user: accuracy, clarity of reasoning, completeness, and usefulness for the substance of the question. Do not reward or penalize tone, warmth, friendliness, empathy, or writing style by themselves.
 
-Also write a short critique (1-3 sentences) of EACH answer from an analytical perspective only: what claims or reasoning were strong, what was weak or missing, and any factual or logical gaps. Do not comment on tone, warmth, friendliness, empathy, or style.
+Also write a short critique of EACH answer from an analytical perspective only. Do not comment on tone, warmth, friendliness, empathy, or style.
 
-In each critique, wrap the 1-3 most important analytical points in double asterisks like **this**, so the key statements stand out. Keep the rest of the sentence normal.
+Format EACH critique exactly like this:
+1) One short free-text sentence first (overall take or what it got right). Do NOT use **bold** in that sentence.
+2) Then 1-3 bullet lines starting with "- " for the actual criticisms only (gaps, weak reasoning, missing facts, unclear claims). In those bullets, wrap only the critical phrases in **double asterisks** like **this**. Never bold compliments or praise.
+
+Example critique string:
+"Clear overview of the main options.\n- Missed **tradeoffs on cost**\n- No concrete **next step for the user**"
 
 Reply with ONLY JSON in this exact shape:
-{"ranking":["B","A","C"],"critiques":{"A":"Strong on **X**, but missed **Y**.","B":"...","C":"..."}}`,
+{"ranking":["B","A","C"],"critiques":{"A":"Clear overview of the main options.\\n- Missed **tradeoffs on cost**\\n- No concrete **next step for the user**","B":"...","C":"..."}}`,
       },
     ];
 
@@ -444,7 +449,7 @@ Reply with ONLY JSON in this exact shape:
             const reply = await withTimeout(
               completeWithMember(
                 member,
-                'You are an impartial judge comparing AI answers for the user. Rank by usefulness, accuracy, reasoning, and completeness—not by tone or warmth. Mark the most important critique points with **double asterisks**. Reply with only the JSON object.',
+                'You are an impartial judge comparing AI answers for the user. Rank by usefulness, accuracy, reasoning, and completeness—not by tone or warmth. For critiques: free-text sentence first (no bold), then "- " bullets for real criticisms only, with **bold** only on the critical phrases. Reply with only the JSON object.',
                 rankingPrompt,
                 RANKING_MAX_TOKENS
               ),
