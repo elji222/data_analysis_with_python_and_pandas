@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   parseCouncilJudgment,
   parseCouncilRanking,
+  scoreCouncilPeerRankings,
   scoreCouncilRankings,
 } from '@/lib/agent/run-council-agent';
 
@@ -88,5 +89,47 @@ describe('scoreCouncilRankings', () => {
         ['A', 'B', 'C']
       )
     ).toEqual(['B', 'A', 'C']);
+  });
+});
+
+describe('scoreCouncilPeerRankings', () => {
+  it('ignores each model voting for its own answer', () => {
+    // Without peer-only scoring, each self-vote for #1 ties everyone at 2.
+    // With peer-only scoring, only cross-votes count:
+    // A (claude) ranked 1st by gpt + gemini → wins.
+    expect(
+      scoreCouncilPeerRankings(
+        [
+          { memberId: 'claude', ranking: ['A', 'B', 'C'] },
+          { memberId: 'gpt', ranking: ['B', 'A', 'C'] },
+          { memberId: 'gemini', ranking: ['C', 'A', 'B'] },
+        ],
+        [
+          { label: 'A', memberId: 'claude' },
+          { label: 'B', memberId: 'gpt' },
+          { label: 'C', memberId: 'gemini' },
+        ],
+        ['A', 'B', 'C']
+      )
+    ).toEqual(['A', 'B', 'C']);
+  });
+
+  it('still elects a peer favorite when self-votes would obscure it', () => {
+    // Each model ranks itself first, but peers all prefer B second/first among others.
+    expect(
+      scoreCouncilPeerRankings(
+        [
+          { memberId: 'claude', ranking: ['A', 'B', 'C'] },
+          { memberId: 'gpt', ranking: ['B', 'C', 'A'] },
+          { memberId: 'gemini', ranking: ['C', 'B', 'A'] },
+        ],
+        [
+          { label: 'A', memberId: 'claude' },
+          { label: 'B', memberId: 'gpt' },
+          { label: 'C', memberId: 'gemini' },
+        ],
+        ['A', 'B', 'C']
+      )
+    ).toEqual(['B', 'C', 'A']);
   });
 });

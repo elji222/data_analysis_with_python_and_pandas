@@ -5,7 +5,8 @@ import { toOpenAiMessages } from './run-openai-agent';
 import type { AgentStreamEvent } from './types';
 
 const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com/v1/messages';
-const CANDIDATE_MAX_TOKENS = 1024;
+// Match the room other providers get (they reject max_tokens on GPT-5-era APIs).
+const CANDIDATE_MAX_TOKENS = MAX_OUTPUT_TOKENS;
 const RANKING_MAX_TOKENS = 900;
 const STAGE_TIMEOUT_MS = 60_000;
 
@@ -84,6 +85,7 @@ async function completeWithMember(
     },
     body: JSON.stringify({
       model: member.apiModel,
+      // GPT-5-era chat completions reject `max_tokens`; leave uncapped here.
       messages: [{ role: 'system', content: systemPrompt }, ...toOpenAiMessages(messages)],
     }),
   });
@@ -292,6 +294,32 @@ export function scoreCouncilRankings(
   });
 }
 
+/**
+ * Peer-only Borda: each judge's ranking of their own answer is removed before
+ * scoring, so models cannot vote themselves into first place.
+ */
+export function scoreCouncilPeerRankings(
+  judgments: Array<{ memberId: string; ranking: string[] }>,
+  candidates: Array<{ label: string; memberId: string }>,
+  validLabels: string[]
+): string[] {
+  const memberIdByLabel = new Map(
+    candidates.map((candidate) => [candidate.label, candidate.memberId])
+  );
+
+  const peerRankings = judgments
+    .map(({ memberId, ranking }) =>
+      ranking.filter((label) => memberIdByLabel.get(label) !== memberId)
+    )
+    .filter((ranking) => ranking.length > 0);
+
+  if (peerRankings.length === 0) {
+    return [...validLabels];
+  }
+
+  return scoreCouncilRankings(peerRankings, validLabels);
+}
+
 function shuffled<T>(items: T[]): T[] {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -398,7 +426,7 @@ export async function runCouncilAgent(
     const rankingPrompt: ChatApiMessage[] = [
       {
         role: 'user',
-        content: `Question from the user:\n${question}\n\nCandidate answers:\n\n${answersBlock}\n\nRank these answers from best to worst for the user. Judge only analytical quality: accuracy, clarity of reasoning, completeness, and how well each addresses the substance of the question. Do not judge tone, warmth, friendliness, empathy, or writing style.
+        content: `Question from the user:\n${question}\n\nCandidate answers:\n\n${answersBlock}\n\nRank these answers from best to worst for the user. Judge how well each helps the user: accuracy, clarity of reasoning, completeness, and usefulness for the substance of the question. Do not reward or penalize tone, warmth, friendliness, empathy, or writing style by themselves.
 
 Also write a short critique (1-3 sentences) of EACH answer from an analytical perspective only: what claims or reasoning were strong, what was weak or missing, and any factual or logical gaps. Do not comment on tone, warmth, friendliness, empathy, or style.
 
@@ -416,7 +444,7 @@ Reply with ONLY JSON in this exact shape:
             const reply = await withTimeout(
               completeWithMember(
                 member,
-                'You are an impartial analytical judge comparing AI answers. Focus only on accuracy, reasoning, and completeness—never on tone or warmth. Mark the most important critique points with **double asterisks**. Reply with only the JSON object.',
+                'You are an impartial judge comparing AI answers for the user. Rank by usefulness, accuracy, reasoning, and completeness—not by tone or warmth. Mark the most important critique points with **double asterisks**. Reply with only the JSON object.',
                 rankingPrompt,
                 RANKING_MAX_TOKENS
               ),
@@ -454,9 +482,18 @@ Reply with ONLY JSON in this exact shape:
       }
     }
 
-    const rankings = judgments.map((entry) => entry.judgment.ranking);
-    if (rankings.length > 0) {
-      rankedLabels = scoreCouncilRankings(rankings, validLabels);
+    if (judgments.length > 0) {
+      rankedLabels = scoreCouncilPeerRankings(
+        judgments.map((entry) => ({
+          memberId: entry.member.id,
+          ranking: entry.judgment.ranking,
+        })),
+        candidates.map((candidate) => ({
+          label: candidate.label,
+          memberId: candidate.member.id,
+        })),
+        validLabels
+      );
     }
   }
 
