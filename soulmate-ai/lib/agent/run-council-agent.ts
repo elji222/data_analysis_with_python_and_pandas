@@ -398,9 +398,9 @@ export async function runCouncilAgent(
     const rankingPrompt: ChatApiMessage[] = [
       {
         role: 'user',
-        content: `Question from the user:\n${question}\n\nCandidate answers:\n\n${answersBlock}\n\nRank these answers from best to worst for the user. Judge helpfulness, accuracy, warmth, and how well each fits the question.
+        content: `Question from the user:\n${question}\n\nCandidate answers:\n\n${answersBlock}\n\nRank these answers from best to worst for the user. Judge only analytical quality: accuracy, clarity of reasoning, completeness, and how well each addresses the substance of the question. Do not judge tone, warmth, friendliness, empathy, or writing style.
 
-Also write a short critique (1-3 sentences) of EACH answer: what it got right and what it missed.
+Also write a short critique (1-3 sentences) of EACH answer from an analytical perspective only: what claims or reasoning were strong, what was weak or missing, and any factual or logical gaps. Do not comment on tone, warmth, friendliness, empathy, or style.
 
 Reply with ONLY JSON in this exact shape:
 {"ranking":["B","A","C"],"critiques":{"A":"...","B":"...","C":"..."}}`,
@@ -414,7 +414,7 @@ Reply with ONLY JSON in this exact shape:
             const reply = await withTimeout(
               completeWithMember(
                 member,
-                'You are an impartial judge comparing AI answers. Reply with only the JSON object.',
+                'You are an impartial analytical judge comparing AI answers. Focus only on accuracy, reasoning, and completeness—never on tone or warmth. Reply with only the JSON object.',
                 rankingPrompt,
                 RANKING_MAX_TOKENS
               ),
