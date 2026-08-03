@@ -102,7 +102,9 @@ export function ChatComposer({
   const hasAttachments = attachments.length > 0;
   const isAtMaxHeight = inputHeight >= INPUT_MAX_HEIGHT - 1;
   const isExpanded = inputHeight > INPUT_MIN_HEIGHT + 2;
-  const modelLabel = modelId ? getChatModelById(modelId).label : null;
+  const activeModel = modelId ? getChatModelById(modelId) : null;
+  const modelLabel = activeModel?.label ?? null;
+  const modelBlurb = activeModel?.shortBlurb ?? null;
 
   function handleOpenModelPicker() {
     if (!onOpenModelPicker) return;
@@ -332,22 +334,34 @@ export function ChatComposer({
                     ref={modelPillRef}
                     style={({ pressed }) => [
                       styles.modelPill,
+                      Boolean(modelBlurb) && styles.modelPillWithBlurb,
                       isDark && styles.modelPillDark,
                       pressed && styles.modelPillPressed,
                     ]}
                     onPress={handleOpenModelPicker}
                     accessibilityRole="button"
-                    accessibilityLabel="Change AI model">
-                    <ThemedText
-                      style={[styles.modelPillText, isDark && styles.modelPillTextDark]}
-                      numberOfLines={1}>
-                      {modelLabel}
-                    </ThemedText>
-                    <Ionicons
-                      name="chevron-down"
-                      size={12}
-                      color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
-                    />
+                    accessibilityLabel={
+                      modelBlurb ? `Change AI model. ${modelLabel}: ${modelBlurb}` : 'Change AI model'
+                    }>
+                    <View style={styles.modelPillCopy}>
+                      <View style={styles.modelPillTitleRow}>
+                        <ThemedText
+                          style={[styles.modelPillText, isDark && styles.modelPillTextDark]}
+                          numberOfLines={1}>
+                          {modelLabel}
+                        </ThemedText>
+                        <Ionicons
+                          name="chevron-down"
+                          size={12}
+                          color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
+                        />
+                      </View>
+                      {modelBlurb ? (
+                        <ThemedText style={styles.modelPillBlurb} numberOfLines={1}>
+                          {modelBlurb}
+                        </ThemedText>
+                      ) : null}
+                    </View>
                   </Pressable>
                 ) : null}
                 {!isGenerating ? (
@@ -539,8 +553,7 @@ const styles = StyleSheet.create({
   modelPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    maxWidth: 110,
+    maxWidth: 128,
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 999,
@@ -548,11 +561,25 @@ const styles = StyleSheet.create({
     marginRight: 2,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as const) : {}),
   },
+  modelPillWithBlurb: {
+    borderRadius: 14,
+    paddingVertical: 6,
+    maxWidth: 148,
+  },
   modelPillDark: {
     backgroundColor: '#3A3A3A',
   },
   modelPillPressed: {
     opacity: 0.75,
+  },
+  modelPillCopy: {
+    flexShrink: 1,
+    gap: 1,
+  },
+  modelPillTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
   modelPillText: {
     fontSize: 13,
@@ -561,6 +588,11 @@ const styles = StyleSheet.create({
   },
   modelPillTextDark: {
     color: ChatTheme.sidebarTextDark,
+  },
+  modelPillBlurb: {
+    fontSize: 11,
+    lineHeight: 13,
+    color: '#8E8E93',
   },
   recordingActions: {
     flexDirection: 'row',
