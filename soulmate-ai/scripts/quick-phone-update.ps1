@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 $Base = "https://raw.githubusercontent.com/elji222/data_analysis_with_python_and_pandas/master/soulmate-ai"
-$CacheBust = "2026-08-02a"
+$CacheBust = "2026-08-03a"
 
 $Files = @(
     "app/_layout.tsx",
@@ -131,6 +131,7 @@ $Files = @(
     "supabase/migrations/20260728120000_app_settings.sql",
     "supabase/migrations/20260710120000_invite_access.sql",
     "supabase/migrations/20260709120000_user_profiles.sql",
+    "supabase/migrations/20260803060000_backfill_user_profiles.sql",
     "types/access.ts",
     "types/billing.ts",
     "types/admin-usage.ts",

@@ -3,6 +3,7 @@ import {
   buildAccessStatus,
   createInviteForUser,
 } from '@/lib/access/repository';
+import { ensureUserProfile } from '@/lib/matches/profile-repository';
 import {
   createSupabaseServiceClient,
   requireAuthenticatedUser,
@@ -45,6 +46,18 @@ export async function POST(request: Request) {
         email: auth.user.email ?? '',
         inviteCode,
       });
+
+      // Every launch passes through here, so members show up in Matches even if
+      // they never open that screen themselves. Profile upkeep must never
+      // block sign-in.
+      if (status.hasAccess) {
+        try {
+          await ensureUserProfile(auth.client, auth.user);
+        } catch {
+          // Ignore: the profile is retried on the next launch.
+        }
+      }
+
       return Response.json(status);
     }
 
