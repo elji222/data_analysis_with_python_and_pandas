@@ -22,6 +22,7 @@ $Files = @(
     "components/build-version-banner.tsx",
     "components/attach-popover.tsx",
     "components/chat-bubble.tsx",
+    "components/council-answers-panel.tsx",
     "components/chat-scroll-rail.tsx",
     "components/chat-composer.tsx",
     "components/scroll-to-bottom-button.tsx",

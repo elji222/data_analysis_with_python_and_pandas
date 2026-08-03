@@ -1,3 +1,5 @@
+import type { CouncilReview } from '@/types/chat';
+
 export type GeneratedImage = {
   id: string;
   url: string;
@@ -12,6 +14,7 @@ export type AgentStreamEvent =
   | { type: 'generated_image'; image: GeneratedImage }
   | { type: 'image_error'; error: string }
   | { type: 'text'; text: string }
+  | { type: 'council_review'; review: CouncilReview }
   | { type: 'error'; error: string }
   | { type: 'done'; fullReply: string };
 

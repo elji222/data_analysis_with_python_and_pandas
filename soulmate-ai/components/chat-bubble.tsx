@@ -14,6 +14,7 @@ import Animated, {
 
 import { FormattedMessageText } from '@/components/formatted-message-text';
 import { ArtifactCard } from '@/components/artifact-card';
+import { CouncilAnswersPanel } from '@/components/council-answers-panel';
 import { ShimmerText } from '@/components/shimmer-text';
 import { StreamingCursor } from '@/components/streaming-cursor';
 import { ThemedText } from '@/components/themed-text';
@@ -157,6 +158,8 @@ export function ChatBubble({
           onPress={() => onOpenPreview?.(artifact)}
         />
       ))}
+
+      {message.councilReview ? <CouncilAnswersPanel review={message.councilReview} /> : null}
     </View>
   );
 }
