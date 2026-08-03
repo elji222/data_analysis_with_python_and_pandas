@@ -80,10 +80,40 @@ describe('conversation cloud sync', () => {
           created_at: '2026-07-06T10:01:00.000Z',
           sort_order: 0,
         },
+        {
+          id: 'msg-2',
+          conversation_id: 'conv-1',
+          user_id: 'user-1',
+          role: 'assistant',
+          message_text: 'Council reply',
+          attachments: {
+            files: [],
+            councilReview: {
+              answers: [
+                {
+                  modelId: 'claude',
+                  modelLabel: 'Claude',
+                  rank: 1,
+                  answer: 'Best take',
+                  critiques: [
+                    {
+                      fromModelId: 'chatgpt',
+                      fromModelLabel: 'ChatGPT',
+                      text: 'Warm but light on detail.',
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+          created_at: '2026-07-06T10:02:00.000Z',
+          sort_order: 1,
+        },
       ]
     );
 
     expect(conversations[0].messages[0].text).toBe('Hi there');
+    expect(conversations[0].messages[1].councilReview?.answers[0].modelLabel).toBe('Claude');
     expect(conversations[0].updatedAt).toBe(new Date('2026-07-06T10:05:00.000Z').getTime());
   });
 

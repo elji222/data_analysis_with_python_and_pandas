@@ -47,7 +47,8 @@ export const CHAT_MODELS: ChatModelOption[] = [
     id: 'council',
     label: 'Council',
     maker: 'Claude + ChatGPT + Gemini',
-    tagline: 'All three answer and rank each other; you get the best',
+    tagline:
+      'All three models answer, then rank and critique each other so you get the strongest reply.',
     provider: 'council',
     apiModel: 'council',
     // The chairman who writes the final reply runs on Claude.

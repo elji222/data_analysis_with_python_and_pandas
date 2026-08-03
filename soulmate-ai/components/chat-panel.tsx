@@ -21,7 +21,7 @@ import { ChatComposer } from '@/components/chat-composer';
 import { ChatScrollRail } from '@/components/chat-scroll-rail';
 import { MobileChatHeader } from '@/components/mobile-chat-header';
 import { MobileQuickSuggestions } from '@/components/mobile-quick-suggestions';
-import { ModelPicker } from '@/components/model-picker';
+import { ModelPicker, type ModelPickerAnchor } from '@/components/model-picker';
 import { NativeMobileChatShell } from '@/components/native-mobile-chat-shell';
 import { ScrollToBottomButton } from '@/components/scroll-to-bottom-button';
 import { ThemedText } from '@/components/themed-text';
@@ -69,7 +69,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useBilling } from '@/hooks/use-billing';
 import { streamChatMessage } from '@/services/chat-api';
 import { fetchConversationTitle } from '@/services/title-api';
-import type { ChatAttachment, ChatMessage } from '@/types/chat';
+import type { ChatAttachment, ChatMessage, CouncilReview } from '@/types/chat';
 import type { Conversation } from '@/types/conversation';
 import type { PreviewArtifact } from '@/types/preview-artifact';
 
@@ -129,6 +129,7 @@ export function ChatPanel({
   const [isSearching, setIsSearching] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [councilStage, setCouncilStage] = useState<'answers' | 'ranking' | null>(null);
+  const [streamingCouncilReview, setStreamingCouncilReview] = useState<CouncilReview | null>(null);
   const [streamingAttachments, setStreamingAttachments] = useState<ChatAttachment[]>([]);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -146,6 +147,8 @@ export function ChatPanel({
   const abortControllerRef = useRef<AbortController | null>(null);
   const [chatModelId, setChatModelId] = useState<ChatModelId>(DEFAULT_CHAT_MODEL_ID);
   const [isModelPickerOpen, setIsModelPickerOpen] = useState(false);
+  const [modelPickerAnchor, setModelPickerAnchor] = useState<ModelPickerAnchor | null>(null);
+  const desktopModelButtonRef = useRef<View>(null);
 
   const {
     isRecording,
@@ -193,6 +196,7 @@ export function ChatPanel({
     setStreamingText(null);
     setIsLoading(false);
     setCouncilStage(null);
+    setStreamingCouncilReview(null);
     cancelRecording();
   }, [conversation?.id, cancelRecording]);
 
@@ -226,6 +230,22 @@ export function ChatPanel({
   const handleSelectModel = useCallback((modelId: ChatModelId) => {
     setChatModelId(modelId);
     void saveChatModelPreference(modelId);
+  }, []);
+
+  const openModelPicker = useCallback((anchor?: ModelPickerAnchor | null) => {
+    setModelPickerAnchor(anchor ?? null);
+    setIsModelPickerOpen(true);
+  }, []);
+
+  const openDesktopModelPicker = useCallback(() => {
+    desktopModelButtonRef.current?.measureInWindow((x, y, width, height) => {
+      openModelPicker({ x, y, width, height });
+    });
+  }, [openModelPicker]);
+
+  const closeModelPicker = useCallback(() => {
+    setIsModelPickerOpen(false);
+    setModelPickerAnchor(null);
   }, []);
 
   useEffect(() => {
@@ -376,6 +396,7 @@ export function ChatPanel({
     setIsSearching(false);
     setIsGeneratingImage(false);
     setCouncilStage(null);
+    setStreamingCouncilReview(null);
     setStreamingAttachments([]);
     setStreamingText(null);
     cancelRecording();
@@ -388,6 +409,7 @@ export function ChatPanel({
 
     try {
       const generatedAttachments: ChatAttachment[] = [];
+      let councilReview: CouncilReview | undefined;
 
       const reply = await streamChatMessage(
         nextMessages,
@@ -424,6 +446,10 @@ export function ChatPanel({
               setCouncilStage('ranking');
             }
           },
+          onCouncilReview: (review) => {
+            councilReview = review;
+            setStreamingCouncilReview(review);
+          },
           onGeneratedImage: (image) => {
             setIsGeneratingImage(false);
             const attachment: ChatAttachment = {
@@ -449,23 +475,34 @@ export function ChatPanel({
         role: 'assistant',
         createdAt: Date.now(),
         attachments: generatedAttachments.length > 0 ? generatedAttachments : undefined,
+        councilReview,
       };
+
+      // A stopped reply with nothing streamed yet leaves the thread untouched.
+      const wasStopped = abortController.signal.aborted;
+      if (wasStopped && !reply.trim() && generatedAttachments.length === 0) {
+        setStreamingText(null);
+        setIsSearching(false);
+        setIsGeneratingImage(false);
+        setCouncilStage(null);
+        setStreamingCouncilReview(null);
+        setStreamingAttachments([]);
+        setStatusMessage(null);
+        setIsLoading(false);
+        return;
+      }
+
+      // Persist first so the council panel never flashes away with streaming state.
+      await onUpdateMessages(conversation.id, [...nextMessages, assistantMessage]);
 
       setStreamingText(null);
       setIsSearching(false);
       setIsGeneratingImage(false);
       setCouncilStage(null);
+      setStreamingCouncilReview(null);
       setStreamingAttachments([]);
       setStatusMessage(null);
       setIsLoading(false);
-
-      // A stopped reply with nothing streamed yet leaves the thread untouched.
-      const wasStopped = abortController.signal.aborted;
-      if (wasStopped && !reply.trim() && generatedAttachments.length === 0) {
-        return;
-      }
-
-      await onUpdateMessages(conversation.id, [...nextMessages, assistantMessage]);
 
       if (isFirstExchange && onRenameConversation && !wasStopped) {
         void fetchConversationTitle(getMessagePreviewText(userMessage)).then((title) => {
@@ -477,6 +514,7 @@ export function ChatPanel({
       setIsSearching(false);
       setIsGeneratingImage(false);
       setCouncilStage(null);
+      setStreamingCouncilReview(null);
       setStreamingAttachments([]);
       setStatusMessage(null);
       setIsLoading(false);
@@ -529,6 +567,7 @@ export function ChatPanel({
         showGeneratingImage,
         showCouncil,
         streamingAttachments,
+        streamingCouncilReview: streamingCouncilReview ?? undefined,
       }),
     [
       messages,
@@ -539,6 +578,7 @@ export function ChatPanel({
       showGeneratingImage,
       showCouncil,
       streamingAttachments,
+      streamingCouncilReview,
     ]
   );
 
@@ -703,15 +743,16 @@ export function ChatPanel({
             <MobileChatHeader
               onOpenSidebar={onOpenSidebar}
               modelId={chatModelId}
-              onOpenModelPicker={() => setIsModelPickerOpen(true)}
+              onOpenModelPicker={openModelPicker}
             />
           ) : null}
 
           <ModelPicker
             visible={isModelPickerOpen}
             activeModelId={chatModelId}
+            anchor={modelPickerAnchor}
             onSelect={handleSelectModel}
-            onClose={() => setIsModelPickerOpen(false)}
+            onClose={closeModelPicker}
           />
 
           <NativeMobileChatShell
@@ -750,15 +791,17 @@ export function ChatPanel({
         <ModelPicker
           visible={isModelPickerOpen}
           activeModelId={chatModelId}
+          anchor={modelPickerAnchor}
           onSelect={handleSelectModel}
-          onClose={() => setIsModelPickerOpen(false)}
+          onClose={closeModelPicker}
         />
 
         {!isMobileChatLayout ? (
           <View style={styles.desktopModelBar}>
             <Pressable
+              ref={desktopModelButtonRef}
               style={({ pressed }) => [styles.desktopModelButton, pressed && styles.pressed]}
-              onPress={() => setIsModelPickerOpen(true)}
+              onPress={openDesktopModelPicker}
               accessibilityRole="button"
               accessibilityLabel="Change AI model">
               <ThemedText style={styles.desktopModelText}>
@@ -773,7 +816,7 @@ export function ChatPanel({
           <MobileChatHeader
             onOpenSidebar={onOpenSidebar}
             modelId={chatModelId}
-            onOpenModelPicker={() => setIsModelPickerOpen(true)}
+            onOpenModelPicker={openModelPicker}
           />
         ) : showSidebarToggle && onOpenSidebar ? (
         <View style={styles.header}>

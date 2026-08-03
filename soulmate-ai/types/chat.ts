@@ -12,12 +12,32 @@ export type ChatAttachment = {
   textPreview?: string;
 };
 
+export type CouncilCritique = {
+  fromModelId: string;
+  fromModelLabel: string;
+  text: string;
+};
+
+export type CouncilAnswer = {
+  modelId: string;
+  modelLabel: string;
+  rank: number;
+  answer: string;
+  critiques: CouncilCritique[];
+};
+
+export type CouncilReview = {
+  answers: CouncilAnswer[];
+};
+
 export type ChatMessage = {
   id: string;
   text: string;
   role: ChatRole;
   createdAt: number;
   attachments?: ChatAttachment[];
+  /** Present on Council-mode assistant replies. */
+  councilReview?: CouncilReview;
 };
 
 export type ApiTextBlock = {

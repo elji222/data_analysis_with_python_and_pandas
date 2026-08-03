@@ -214,6 +214,11 @@ export async function POST(request: Request) {
               return;
             }
 
+            if (event.type === 'council_review') {
+              enqueueEvent({ councilReview: event.review });
+              return;
+            }
+
             if (event.type === 'error') {
               streamError = event.error;
               enqueueEvent({ error: event.error });

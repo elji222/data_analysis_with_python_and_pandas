@@ -1,4 +1,4 @@
-import type { ChatAttachment, ChatMessage } from '@/types/chat';
+import type { ChatAttachment, ChatMessage, CouncilReview } from '@/types/chat';
 import type { Conversation } from '@/types/conversation';
 import {
   createConversationTitle,
@@ -15,16 +15,56 @@ type ConversationRow = {
   is_deleted: boolean;
 };
 
+type MessageAttachmentsPayload =
+  | ChatAttachment[]
+  | {
+      files?: ChatAttachment[];
+      councilReview?: CouncilReview;
+    };
+
 type MessageRow = {
   id: string;
   conversation_id: string;
   user_id: string;
   role: 'user' | 'assistant';
   message_text: string;
-  attachments: ChatAttachment[] | null;
+  attachments: MessageAttachmentsPayload | null;
   created_at: string;
   sort_order: number;
 };
+
+function serializeMessageAttachments(
+  message: ChatMessage
+): MessageAttachmentsPayload | null {
+  if (!message.councilReview) {
+    return message.attachments ?? null;
+  }
+
+  return {
+    files: message.attachments ?? [],
+    councilReview: message.councilReview,
+  };
+}
+
+function deserializeMessageAttachments(raw: MessageAttachmentsPayload | null | undefined): {
+  attachments?: ChatAttachment[];
+  councilReview?: CouncilReview;
+} {
+  if (!raw) return {};
+
+  if (Array.isArray(raw)) {
+    return raw.length > 0 ? { attachments: raw } : {};
+  }
+
+  if (typeof raw === 'object') {
+    return {
+      attachments: raw.files?.length ? raw.files : undefined,
+      councilReview: raw.councilReview,
+    };
+  }
+
+  return {};
+}
 
 export function conversationSignature(conversations: Conversation[]) {
   return JSON.stringify(
@@ -123,12 +163,14 @@ export function mapRowsToConversations(
   const messagesByConversation = new Map<string, ChatMessage[]>();
 
   for (const row of messageRows) {
+    const { attachments, councilReview } = deserializeMessageAttachments(row.attachments);
     const message: ChatMessage = {
       id: row.id,
       text: row.message_text,
       role: row.role,
       createdAt: new Date(row.created_at).getTime(),
-      attachments: row.attachments ?? undefined,
+      attachments,
+      councilReview,
     };
 
     const current = messagesByConversation.get(row.conversation_id) ?? [];
@@ -163,7 +205,7 @@ export function mapConversationToRows(userId: string, conversation: Conversation
       user_id: userId,
       role: message.role,
       message_text: message.text,
-      attachments: message.attachments ?? null,
+      attachments: serializeMessageAttachments(message),
       created_at: new Date(message.createdAt).toISOString(),
       sort_order: index,
     })),

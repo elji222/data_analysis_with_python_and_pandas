@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { buildChatApiMessages } from '@/lib/build-chat-api-messages';
 import { getApiUrl } from '@/lib/api-origin';
 import type { GeneratedImage } from '@/lib/agent/types';
-import type { ChatMessage } from '@/types/chat';
+import type { ChatMessage, CouncilReview } from '@/types/chat';
 
 export type ChatStreamStatus =
   | 'searching'
@@ -18,6 +18,7 @@ type SseStreamEvent = {
   savedMemories?: string[];
   status?: ChatStreamStatus;
   generatedImage?: GeneratedImage;
+  councilReview?: CouncilReview;
 };
 
 type SseEventHandlers = {
@@ -26,6 +27,7 @@ type SseEventHandlers = {
   onStatus?: (status: ChatStreamStatus) => void;
   onGeneratedImage?: (image: GeneratedImage) => void;
   onImageError?: (error: string) => void;
+  onCouncilReview?: (review: CouncilReview) => void;
 };
 
 export function toApiErrorMessage(text: string): string {
@@ -85,6 +87,9 @@ export function processSseDataLine(
     }
     if (parsed.generatedImage) {
       handlers.onGeneratedImage?.(parsed.generatedImage);
+    }
+    if (parsed.councilReview) {
+      handlers.onCouncilReview?.(parsed.councilReview);
     }
     if (parsed.imageError) {
       handlers.onImageError?.(parsed.imageError);
@@ -349,6 +354,7 @@ export type StreamChatOptions = {
   onStatus?: (status: ChatStreamStatus) => void;
   onGeneratedImage?: (image: GeneratedImage) => void;
   onImageError?: (error: string) => void;
+  onCouncilReview?: (review: CouncilReview) => void;
   signal?: AbortSignal | null;
 };
 
@@ -382,6 +388,7 @@ export async function streamChatMessage(
     onStatus: options.onStatus,
     onGeneratedImage: options.onGeneratedImage,
     onImageError: options.onImageError,
+    onCouncilReview: options.onCouncilReview,
   };
 
   if (Platform.OS !== 'web') {

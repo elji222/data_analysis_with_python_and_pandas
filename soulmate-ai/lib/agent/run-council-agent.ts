@@ -1,12 +1,12 @@
 import { MAX_OUTPUT_TOKENS } from '@/constants/ai';
-import type { ChatApiMessage } from '@/types/chat';
+import type { ChatApiMessage, CouncilCritique, CouncilReview } from '@/types/chat';
 
 import { toOpenAiMessages } from './run-openai-agent';
 import type { AgentStreamEvent } from './types';
 
 const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com/v1/messages';
 const CANDIDATE_MAX_TOKENS = 1024;
-const RANKING_MAX_TOKENS = 300;
+const RANKING_MAX_TOKENS = 900;
 const STAGE_TIMEOUT_MS = 60_000;
 
 export type CouncilMember = {
@@ -224,6 +224,51 @@ export function parseCouncilRanking(text: string, validLabels: string[]): string
   return seen;
 }
 
+export type CouncilJudgment = {
+  ranking: string[];
+  critiques: Record<string, string>;
+};
+
+/**
+ * Reads ranking + per-answer critiques from a judge reply. Critiques are keyed
+ * by the anonymous answer letter (A/B/C) so they can be remapped to real models.
+ */
+export function parseCouncilJudgment(text: string, validLabels: string[]): CouncilJudgment {
+  const critiques: Record<string, string> = {};
+
+  try {
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+      const parsed = JSON.parse(text.slice(start, end + 1)) as {
+        ranking?: unknown;
+        critiques?: Record<string, unknown>;
+      };
+
+      if (parsed.critiques && typeof parsed.critiques === 'object') {
+        for (const label of validLabels) {
+          const value = parsed.critiques[label] ?? parsed.critiques[label.toLowerCase()];
+          if (typeof value === 'string' && value.trim()) {
+            critiques[label] = value.trim();
+          }
+        }
+      }
+
+      if (Array.isArray(parsed.ranking)) {
+        const ranking = parseCouncilRanking(JSON.stringify(parsed.ranking), validLabels);
+        return { ranking, critiques };
+      }
+    }
+  } catch {
+    // Fall through to the ranking-only parser.
+  }
+
+  return {
+    ranking: parseCouncilRanking(text, validLabels),
+    critiques,
+  };
+}
+
 /**
  * Borda count: first place earns (n-1) points, last earns 0. Returns labels
  * sorted best-first; ties break by the original label order.
@@ -336,9 +381,14 @@ export async function runCouncilAgent(
   const validLabels = candidates.map((candidate) => candidate.label);
   const question = getLatestUserText(options.messages);
   let rankedLabels = validLabels;
+  const critiquesByLabel = new Map<string, CouncilCritique[]>();
+
+  for (const label of validLabels) {
+    critiquesByLabel.set(label, []);
+  }
 
   if (candidates.length > 1) {
-    // Stage 2: members rank the anonymized answers.
+    // Stage 2: members rank the anonymized answers and critique each one.
     options.onEvent({ type: 'status', status: 'council_ranking' });
 
     const answersBlock = candidates
@@ -348,31 +398,61 @@ export async function runCouncilAgent(
     const rankingPrompt: ChatApiMessage[] = [
       {
         role: 'user',
-        content: `Question from the user:\n${question}\n\nCandidate answers:\n\n${answersBlock}\n\nRank these answers from best to worst for the user. Judge helpfulness, accuracy, warmth, and how well each fits the question. Reply with ONLY a JSON array of the answer letters in order, best first, like ["B","A","C"].`,
+        content: `Question from the user:\n${question}\n\nCandidate answers:\n\n${answersBlock}\n\nRank these answers from best to worst for the user. Judge helpfulness, accuracy, warmth, and how well each fits the question.
+
+Also write a short critique (1-3 sentences) of EACH answer: what it got right and what it missed.
+
+Reply with ONLY JSON in this exact shape:
+{"ranking":["B","A","C"],"critiques":{"A":"...","B":"...","C":"..."}}`,
       },
     ];
 
-    const rankings = (
+    const judgments = (
       await Promise.all(
         options.members.map(async (member) => {
           try {
             const reply = await withTimeout(
               completeWithMember(
                 member,
-                'You are an impartial judge comparing AI answers. Reply with only the JSON array.',
+                'You are an impartial judge comparing AI answers. Reply with only the JSON object.',
                 rankingPrompt,
                 RANKING_MAX_TOKENS
               ),
               `${member.label} ranking`
             );
-            return parseCouncilRanking(reply, validLabels);
+            return {
+              member,
+              judgment: parseCouncilJudgment(reply, validLabels),
+            };
           } catch {
             return null;
           }
         })
       )
-    ).filter((ranking): ranking is string[] => ranking !== null);
+    ).filter(
+      (
+        entry
+      ): entry is {
+        member: CouncilMember;
+        judgment: CouncilJudgment;
+      } => entry !== null
+    );
 
+    for (const { member, judgment } of judgments) {
+      for (const [label, text] of Object.entries(judgment.critiques)) {
+        // A model does not critique its own anonymous answer.
+        const author = candidates.find((candidate) => candidate.label === label);
+        if (!author || author.member.id === member.id) continue;
+
+        critiquesByLabel.get(label)?.push({
+          fromModelId: member.id,
+          fromModelLabel: member.label,
+          text,
+        });
+      }
+    }
+
+    const rankings = judgments.map((entry) => entry.judgment.ranking);
     if (rankings.length > 0) {
       rankedLabels = scoreCouncilRankings(rankings, validLabels);
     }
@@ -382,6 +462,16 @@ export async function runCouncilAgent(
   const rankedCandidates = rankedLabels
     .map((label) => byLabel.get(label))
     .filter((candidate): candidate is (typeof candidates)[number] => Boolean(candidate));
+
+  const review: CouncilReview = {
+    answers: rankedCandidates.map((candidate, index) => ({
+      modelId: candidate.member.id,
+      modelLabel: candidate.member.label,
+      rank: index + 1,
+      answer: candidate.answer,
+      critiques: critiquesByLabel.get(candidate.label) ?? [],
+    })),
+  };
 
   // Stage 3: the chairman writes the reply the user sees, guided by the vote.
   const digest = rankedCandidates
@@ -406,7 +496,7 @@ export async function runCouncilAgent(
     },
   ];
 
-  let fullReply = await withTimeout(
+  const fullReply = await withTimeout(
     streamWithMember(chairman, options.systemPrompt, chairmanMessages, (text) =>
       options.onEvent({ type: 'text', text })
     ),
@@ -419,13 +509,8 @@ export async function runCouncilAgent(
     throw new Error(message);
   }
 
-  if (rankedCandidates.length > 1) {
-    const footer = `\n\n---\nCouncil vote: ${rankedCandidates
-      .map((candidate, index) => `${index + 1}. ${candidate.member.label}`)
-      .join(' · ')}`;
-
-    fullReply += footer;
-    options.onEvent({ type: 'text', text: footer });
+  if (review.answers.length > 0) {
+    options.onEvent({ type: 'council_review', review });
   }
 
   options.onEvent({ type: 'done', fullReply });

@@ -14,6 +14,7 @@ export type ChatListOptions = {
   showGeneratingImage?: boolean;
   showCouncil?: boolean;
   streamingAttachments?: ChatMessage['attachments'];
+  streamingCouncilReview?: ChatMessage['councilReview'];
 };
 
 export function getVisibleStreamingText(
@@ -104,6 +105,7 @@ export function buildChatListData(messages: ChatMessage[], options: ChatListOpti
         role: 'assistant',
         createdAt: Date.now(),
         attachments: options.streamingAttachments,
+        councilReview: options.streamingCouncilReview,
       },
     ];
   }
@@ -116,6 +118,7 @@ export function buildChatListData(messages: ChatMessage[], options: ChatListOpti
       role: 'assistant',
       createdAt: Date.now(),
       attachments: options.streamingAttachments?.length ? options.streamingAttachments : undefined,
+      councilReview: options.streamingCouncilReview,
     },
   ];
 }

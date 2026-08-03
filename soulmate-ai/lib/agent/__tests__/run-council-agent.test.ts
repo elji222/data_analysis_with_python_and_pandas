@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  parseCouncilJudgment,
   parseCouncilRanking,
   scoreCouncilRankings,
 } from '@/lib/agent/run-council-agent';
@@ -20,6 +21,45 @@ describe('parseCouncilRanking', () => {
 
   it('appends labels the model forgot', () => {
     expect(parseCouncilRanking('["C","A"]', ['A', 'B', 'C'])).toEqual(['C', 'A', 'B']);
+  });
+});
+
+describe('parseCouncilJudgment', () => {
+  it('reads ranking and critiques from a JSON object', () => {
+    expect(
+      parseCouncilJudgment(
+        '{"ranking":["B","A","C"],"critiques":{"A":"Too vague.","B":"Clear and warm.","C":"Missed the ask."}}',
+        ['A', 'B', 'C']
+      )
+    ).toEqual({
+      ranking: ['B', 'A', 'C'],
+      critiques: {
+        A: 'Too vague.',
+        B: 'Clear and warm.',
+        C: 'Missed the ask.',
+      },
+    });
+  });
+
+  it('falls back to ranking-only parsing when JSON is missing', () => {
+    expect(parseCouncilJudgment('Best is B, then A, then C.', ['A', 'B', 'C'])).toEqual({
+      ranking: ['B', 'A', 'C'],
+      critiques: {},
+    });
+  });
+
+  it('ignores empty critique strings', () => {
+    expect(
+      parseCouncilJudgment(
+        '{"ranking":["A","B","C"],"critiques":{"A":"Solid.","B":"  ","C":""}}',
+        ['A', 'B', 'C']
+      )
+    ).toEqual({
+      ranking: ['A', 'B', 'C'],
+      critiques: {
+        A: 'Solid.',
+      },
+    });
   });
 });
 
