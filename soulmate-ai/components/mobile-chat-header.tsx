@@ -1,15 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRef } from 'react';
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import type { ModelPickerAnchor } from '@/components/model-picker';
 import { getChatModelById, type ChatModelId } from '@/constants/chat-models';
 import { ChatTheme } from '@/constants/chat-theme';
 
 type MobileChatHeaderProps = {
   onOpenSidebar: () => void;
   modelId?: ChatModelId;
-  onOpenModelPicker?: () => void;
+  onOpenModelPicker?: (anchor: ModelPickerAnchor) => void;
 };
 
 export function MobileChatHeader({
@@ -18,7 +20,16 @@ export function MobileChatHeader({
   onOpenModelPicker,
 }: MobileChatHeaderProps) {
   const router = useRouter();
+  const modelButtonRef = useRef<View>(null);
   const modelLabel = modelId ? getChatModelById(modelId).label : null;
+
+  function handleOpenModelPicker() {
+    if (!onOpenModelPicker) return;
+
+    modelButtonRef.current?.measureInWindow((x, y, width, height) => {
+      onOpenModelPicker({ x, y, width, height });
+    });
+  }
 
   return (
     <View style={styles.header} testID="mobile-chat-header">
@@ -28,8 +39,9 @@ export function MobileChatHeader({
 
       {modelLabel && onOpenModelPicker ? (
         <Pressable
+          ref={modelButtonRef}
           style={({ pressed }) => [styles.titleButton, pressed && styles.titlePressed]}
-          onPress={onOpenModelPicker}
+          onPress={handleOpenModelPicker}
           accessibilityRole="button"
           accessibilityLabel="Change AI model">
           <ThemedText style={styles.title}>Soulmate AI</ThemedText>
