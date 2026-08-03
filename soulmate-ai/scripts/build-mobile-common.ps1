@@ -116,10 +116,60 @@ function Test-GitAvailable {
     return [bool](Get-Command git -ErrorAction SilentlyContinue)
 }
 
+function Ensure-EasIgnore {
+    $easIgnore = Join-Path $Root ".easignore"
+    if (Test-Path $easIgnore) {
+        return
+    }
+
+    Write-Host "Creating .easignore so EAS can skip node_modules when compressing..."
+    @(
+        "node_modules/"
+        ".expo/"
+        "dist/"
+        "web-build/"
+        "expo-env.d.ts"
+        ".metro-health-check*"
+        "/ios"
+        "/android"
+        ".kotlin/"
+        ".env"
+        ".env*.local"
+        "*.pem"
+        "*.jks"
+        "*.p8"
+        "*.p12"
+        "*.key"
+        "*.mobileprovision"
+        ".git/"
+        "npm-debug.*"
+        "yarn-debug.*"
+        "yarn-error.*"
+        "*.tsbuildinfo"
+        ".DS_Store"
+        "coverage/"
+        ".turbo/"
+        ".cache/"
+        "app-example"
+        "*.orig.*"
+    ) | Set-Content -Path $easIgnore -Encoding UTF8
+}
+
 function Ensure-GitRepo {
+    Ensure-EasIgnore
+
+    $rootPathLength = $Root.Length
+    if ($rootPathLength -gt 180 -or $Root -match 'Downloads\\.*-master\\.*-master') {
+        Write-Host ""
+        Write-Host "Warning: project path is long or nested under Downloads."
+        Write-Host "If EAS fails while compressing, move the soulmate-ai folder to a short path like C:\soulmate-ai"
+        Write-Host "Current path ($rootPathLength chars): $Root"
+        Write-Host ""
+    }
+
     if (-not (Test-GitAvailable)) {
-        Write-Host "Git is not installed. Continuing with EAS_NO_VCS=1."
-        Write-Host "Optional: install Git for Windows from https://git-scm.com/download/win"
+        Write-Host "Git is not installed. Continuing with EAS_NO_VCS=1 (uses .easignore)."
+        Write-Host "Recommended: install Git for Windows from https://git-scm.com/download/win"
         $env:EAS_NO_VCS = "1"
         return
     }
@@ -129,26 +179,49 @@ function Ensure-GitRepo {
     try {
         git rev-parse --is-inside-work-tree 2>$null | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            return
+            # Make sure there is at least one commit so EAS can archive the tree.
+            git rev-parse HEAD 2>$null | Out-Null
+            if ($LASTEXITCODE -eq 0) {
+                return
+            }
+
+            Write-Host "Git repo has no commits yet. Creating an EAS build snapshot commit..."
+            git config user.email "eas-build@local" 2>$null | Out-Null
+            git config user.name "EAS Build" 2>$null | Out-Null
+            git add -A
+            git commit -m "EAS build snapshot" --allow-empty 2>$null | Out-Null
+            if ($LASTEXITCODE -eq 0) {
+                return
+            }
         }
     } finally {
         $ErrorActionPreference = $prev
     }
 
     Write-Host "Initializing git repository (EAS Build requires git)..."
-    git init | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Could not initialize git. Continuing with EAS_NO_VCS=1."
-        $env:EAS_NO_VCS = "1"
-        return
-    }
+    $ErrorActionPreference = "Continue"
+    try {
+        git init | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Could not initialize git. Continuing with EAS_NO_VCS=1 (uses .easignore)."
+            $env:EAS_NO_VCS = "1"
+            return
+        }
 
-    git config user.email "eas-build@local"
-    git config user.name "EAS Build"
-    git add -A
-    git commit -m "EAS build snapshot" 2>$null | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        git commit -m "EAS build snapshot" --allow-empty | Out-Null
+        git config user.email "eas-build@local"
+        git config user.name "EAS Build"
+        git add -A
+        git commit -m "EAS build snapshot" 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            git commit -m "EAS build snapshot" --allow-empty | Out-Null
+        }
+
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Could not create git commit. Continuing with EAS_NO_VCS=1 (uses .easignore)."
+            $env:EAS_NO_VCS = "1"
+        }
+    } finally {
+        $ErrorActionPreference = $prev
     }
 }
 
@@ -185,14 +258,17 @@ function Invoke-Eas {
         [string[]]$EasArgs
     )
 
+    Ensure-EasIgnore
+
     $exitCode = Invoke-EasNative -EasBin (Get-EasBin) @EasArgs
     if ($exitCode -ne 0) {
         Write-Host ""
         Write-Host "Build failed. Common fixes:"
         Write-Host "  1. Run GET-LATEST.cmd"
         Write-Host "  2. Run DEPLOY.cmd (uploads env vars to Expo)"
-        Write-Host "  3. Install Git for Windows if you downloaded a ZIP folder"
-        Write-Host "  4. On first Android build, answer Yes when asked to create a keystore"
+        Write-Host "  3. Install Git for Windows: https://git-scm.com/download/win"
+        Write-Host "  4. If compress failed: move soulmate-ai to a short path like C:\soulmate-ai"
+        Write-Host "  5. On first Android build, answer Yes when asked to create a keystore"
         throw "EAS command failed: eas $($EasArgs -join ' ')"
     }
 }
