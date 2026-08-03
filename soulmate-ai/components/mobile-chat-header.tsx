@@ -3,14 +3,22 @@ import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { getChatModelById, type ChatModelId } from '@/constants/chat-models';
 import { ChatTheme } from '@/constants/chat-theme';
 
 type MobileChatHeaderProps = {
   onOpenSidebar: () => void;
+  modelId?: ChatModelId;
+  onOpenModelPicker?: () => void;
 };
 
-export function MobileChatHeader({ onOpenSidebar }: MobileChatHeaderProps) {
+export function MobileChatHeader({
+  onOpenSidebar,
+  modelId,
+  onOpenModelPicker,
+}: MobileChatHeaderProps) {
   const router = useRouter();
+  const modelLabel = modelId ? getChatModelById(modelId).label : null;
 
   return (
     <View style={styles.header} testID="mobile-chat-header">
@@ -18,7 +26,21 @@ export function MobileChatHeader({ onOpenSidebar }: MobileChatHeaderProps) {
         <Ionicons name="reorder-two" size={24} color={ChatTheme.sidebarText} />
       </Pressable>
 
-      <ThemedText style={styles.title}>Soulmate AI</ThemedText>
+      {modelLabel && onOpenModelPicker ? (
+        <Pressable
+          style={({ pressed }) => [styles.titleButton, pressed && styles.titlePressed]}
+          onPress={onOpenModelPicker}
+          accessibilityRole="button"
+          accessibilityLabel="Change AI model">
+          <ThemedText style={styles.title}>Soulmate AI</ThemedText>
+          <View style={styles.modelRow}>
+            <ThemedText style={styles.modelLabel}>{modelLabel}</ThemedText>
+            <Ionicons name="chevron-down" size={13} color={ChatTheme.sidebarMuted} />
+          </View>
+        </Pressable>
+      ) : (
+        <ThemedText style={[styles.title, styles.titleCentered]}>Soulmate AI</ThemedText>
+      )}
 
       <Pressable
         style={styles.iconButton}
@@ -47,11 +69,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 20,
   },
-  title: {
+  titleButton: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  titlePressed: {
+    opacity: 0.7,
+  },
+  title: {
     fontSize: 17,
     fontWeight: '600',
     color: ChatTheme.sidebarText,
     textAlign: 'center',
+  },
+  titleCentered: {
+    flex: 1,
+  },
+  modelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginTop: -1,
+  },
+  modelLabel: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: ChatTheme.sidebarMuted,
   },
 });

@@ -21,11 +21,17 @@ import { ChatComposer } from '@/components/chat-composer';
 import { ChatScrollRail } from '@/components/chat-scroll-rail';
 import { MobileChatHeader } from '@/components/mobile-chat-header';
 import { MobileQuickSuggestions } from '@/components/mobile-quick-suggestions';
+import { ModelPicker } from '@/components/model-picker';
 import { NativeMobileChatShell } from '@/components/native-mobile-chat-shell';
 import { ScrollToBottomButton } from '@/components/scroll-to-bottom-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { DEFAULT_CHAT_MODEL_ID, getChatModelById, type ChatModelId } from '@/constants/chat-models';
 import { ChatTheme, QUICK_ACTIONS } from '@/constants/chat-theme';
+import {
+  loadChatModelPreference,
+  saveChatModelPreference,
+} from '@/lib/chat-model-preference';
 import { useSmoothStreamingText } from '@/hooks/use-smooth-streaming-text';
 import {
   buildChatListData,
@@ -136,6 +142,8 @@ export function ChatPanel({
   const listDataRef = useRef<ChatMessage[]>([]);
   const pendingScrollUserIndexRef = useRef<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const [chatModelId, setChatModelId] = useState<ChatModelId>(DEFAULT_CHAT_MODEL_ID);
+  const [isModelPickerOpen, setIsModelPickerOpen] = useState(false);
 
   const {
     isRecording,
@@ -193,6 +201,25 @@ export function ChatPanel({
 
     // Warm up DNS + TLS so the first message doesn't pay for the handshake.
     void fetch(getApiUrl('/api/ping')).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void loadChatModelPreference().then((storedModelId) => {
+      if (!cancelled) {
+        setChatModelId(storedModelId);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSelectModel = useCallback((modelId: ChatModelId) => {
+    setChatModelId(modelId);
+    void saveChatModelPreference(modelId);
   }, []);
 
   useEffect(() => {
@@ -368,6 +395,7 @@ export function ChatPanel({
           accessToken: session?.access_token,
           conversationId: conversation.id,
           messageId: userMessage.id,
+          model: chatModelId,
           signal: abortController.signal,
           onSavedMemories: (savedMemories) => {
             if (savedMemories.length > 0) {
@@ -642,8 +670,19 @@ export function ChatPanel({
         style={styles.container}>
         <SafeAreaView style={styles.safeArea} edges={['top']}>
           {showSidebarToggle && onOpenSidebar ? (
-            <MobileChatHeader onOpenSidebar={onOpenSidebar} />
+            <MobileChatHeader
+              onOpenSidebar={onOpenSidebar}
+              modelId={chatModelId}
+              onOpenModelPicker={() => setIsModelPickerOpen(true)}
+            />
           ) : null}
+
+          <ModelPicker
+            visible={isModelPickerOpen}
+            activeModelId={chatModelId}
+            onSelect={handleSelectModel}
+            onClose={() => setIsModelPickerOpen(false)}
+          />
 
           <NativeMobileChatShell
             listData={listData}
@@ -678,8 +717,34 @@ export function ChatPanel({
       darkColor={ChatTheme.pageBgDark}
       style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <ModelPicker
+          visible={isModelPickerOpen}
+          activeModelId={chatModelId}
+          onSelect={handleSelectModel}
+          onClose={() => setIsModelPickerOpen(false)}
+        />
+
+        {!isMobileChatLayout ? (
+          <View style={styles.desktopModelBar}>
+            <Pressable
+              style={({ pressed }) => [styles.desktopModelButton, pressed && styles.pressed]}
+              onPress={() => setIsModelPickerOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Change AI model">
+              <ThemedText style={styles.desktopModelText}>
+                {getChatModelById(chatModelId).label}
+              </ThemedText>
+              <Ionicons name="chevron-down" size={14} color={ChatTheme.sidebarMuted} />
+            </Pressable>
+          </View>
+        ) : null}
+
         {isMobileChatLayout && showSidebarToggle && onOpenSidebar ? (
-          <MobileChatHeader onOpenSidebar={onOpenSidebar} />
+          <MobileChatHeader
+            onOpenSidebar={onOpenSidebar}
+            modelId={chatModelId}
+            onOpenModelPicker={() => setIsModelPickerOpen(true)}
+          />
         ) : showSidebarToggle && onOpenSidebar ? (
         <View style={styles.header}>
           <Pressable style={styles.headerButton} onPress={onOpenSidebar}>
@@ -1153,6 +1218,26 @@ const styles = StyleSheet.create({
   },
   inlineMessageMobile: {
     paddingHorizontal: 0,
+  },
+  desktopModelBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 2,
+  },
+  desktopModelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'transparent',
+  },
+  desktopModelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: ChatTheme.sidebarText,
   },
   bottomComposerArea: {
     paddingHorizontal: 4,

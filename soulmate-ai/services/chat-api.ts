@@ -338,6 +338,7 @@ export type StreamChatOptions = {
   accessToken?: string | null;
   conversationId?: string;
   messageId?: string;
+  model?: string;
   onSavedMemories?: (savedMemories: string[]) => void;
   onStatus?: (status: 'searching' | 'generating_image') => void;
   onGeneratedImage?: (image: GeneratedImage) => void;
@@ -366,6 +367,7 @@ export async function streamChatMessage(
     messages: apiMessages,
     conversationId: options.conversationId,
     messageId: latestUserMessage?.id ?? options.messageId,
+    model: options.model,
   });
 
   const handlers: SseEventHandlers = {
