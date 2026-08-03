@@ -680,6 +680,20 @@ function Sync-ProductionEnv {
         Write-Host ""
     }
 
+    $geminiKey = $EnvVars['GEMINI_API_KEY']
+    if ($geminiKey -and $geminiKey -notmatch 'your-gemini-key-here|your-key-here') {
+        Write-Host "Syncing production env: GEMINI_API_KEY"
+        Set-EasProductionVariable -Name "GEMINI_API_KEY" -Value $geminiKey -Visibility "sensitive"
+    } else {
+        Write-Host ""
+        Write-Host "Skipping GEMINI_API_KEY (missing or still the placeholder in .env)."
+        Write-Host "Claude and ChatGPT will work, but the Gemini model will be unavailable until you:"
+        Write-Host "  1. Get a key from https://aistudio.google.com/apikey"
+        Write-Host "  2. Put it in .env as GEMINI_API_KEY=..."
+        Write-Host "  3. Run scripts\deploy-live-site.cmd again"
+        Write-Host ""
+    }
+
     $openAiImageModel = $EnvVars['OPENAI_IMAGE_MODEL']
     if ($openAiImageModel -and $openAiImageModel -notmatch 'your-image-model-here') {
         Write-Host "Syncing production env: OPENAI_IMAGE_MODEL"

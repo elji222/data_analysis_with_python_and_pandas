@@ -1,6 +1,8 @@
 import { SOULMATE_SYSTEM_PROMPT } from '@/constants/ai';
+import { getChatModelById } from '@/constants/chat-models';
 import { runChatAgent } from '@/lib/agent/run-chat-agent';
-import type { AnthropicAgentMessage } from '@/lib/agent/types';
+import { runOpenAiAgent } from '@/lib/agent/run-openai-agent';
+import type { AgentStreamEvent, AnthropicAgentMessage } from '@/lib/agent/types';
 import { appendCurrentDateContext } from '@/lib/current-date';
 import { isLikelyImageGenerationRequest } from '@/lib/image-generation/intent';
 import { buildChatSystemPrompt } from '@/lib/memory/prompt';
@@ -93,9 +95,9 @@ async function resolveSystemPrompt(
 }
 
 export async function POST(request: Request) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
 
-  if (!apiKey) {
+  if (!anthropicApiKey) {
     return Response.json(
       { error: 'AI is not configured yet. Add ANTHROPIC_API_KEY to your environment.' },
       { status: 500 }
@@ -115,9 +117,22 @@ export async function POST(request: Request) {
     const conversationId = typeof body.conversationId === 'string' ? body.conversationId : null;
     const messageId = typeof body.messageId === 'string' ? body.messageId : null;
     const skipMemory = body.skipMemory === true;
+    const chatModel = getChatModelById(typeof body.model === 'string' ? body.model : null);
 
     if (!messages?.length) {
       return Response.json({ error: 'Please send at least one message.' }, { status: 400 });
+    }
+
+    const providerApiKey =
+      chatModel.provider === 'anthropic' ? anthropicApiKey : process.env[chatModel.apiKeyEnvVar];
+
+    if (!providerApiKey) {
+      return Response.json(
+        {
+          error: `${chatModel.label} is not set up yet. Add ${chatModel.apiKeyEnvVar} to your environment and deploy again, or switch back to Claude.`,
+        },
+        { status: 503 }
+      );
     }
 
     // Memory lookup only needs the authenticated user, so it overlaps with the
@@ -150,54 +165,69 @@ export async function POST(request: Request) {
           controller.enqueue(encoder.encode(sseLine(JSON.stringify(payload))));
         };
 
+        const toolContext = {
+          tavilyApiKey: process.env.TAVILY_API_KEY ?? null,
+          openaiApiKey: process.env.OPENAI_API_KEY ?? null,
+          openaiImageModel: process.env.OPENAI_IMAGE_MODEL ?? null,
+          imageServiceUrl,
+          authorizationHeader,
+        };
+
+        const handleAgentEvent = (event: AgentStreamEvent) => {
+          try {
+            if (event.type === 'status' && event.status === 'searching') {
+              enqueueEvent({ status: 'searching' });
+              return;
+            }
+
+            if (event.type === 'status' && event.status === 'generating_image') {
+              enqueueEvent({ status: 'generating_image' });
+              return;
+            }
+
+            if (event.type === 'generated_image') {
+              enqueueEvent({ generatedImage: event.image });
+              return;
+            }
+
+            if (event.type === 'image_error') {
+              enqueueEvent({ imageError: event.error });
+              return;
+            }
+
+            if (event.type === 'text' && event.text) {
+              enqueueEvent({ text: event.text });
+              return;
+            }
+
+            if (event.type === 'error') {
+              streamError = event.error;
+              enqueueEvent({ error: event.error });
+            }
+          } catch (eventError) {
+            console.error('Failed to stream chat event:', eventError);
+          }
+        };
+
         try {
-          const agentResult = await runChatAgent({
-            apiKey,
-            systemPrompt: finalSystemPrompt,
-            messages: agentMessages,
-            toolContext: {
-              tavilyApiKey: process.env.TAVILY_API_KEY ?? null,
-              openaiApiKey: process.env.OPENAI_API_KEY ?? null,
-              openaiImageModel: process.env.OPENAI_IMAGE_MODEL ?? null,
-              imageServiceUrl,
-              authorizationHeader,
-            },
-            onEvent: (event) => {
-              try {
-                if (event.type === 'status' && event.status === 'searching') {
-                  enqueueEvent({ status: 'searching' });
-                  return;
-                }
-
-                if (event.type === 'status' && event.status === 'generating_image') {
-                  enqueueEvent({ status: 'generating_image' });
-                  return;
-                }
-
-                if (event.type === 'generated_image') {
-                  enqueueEvent({ generatedImage: event.image });
-                  return;
-                }
-
-                if (event.type === 'image_error') {
-                  enqueueEvent({ imageError: event.error });
-                  return;
-                }
-
-                if (event.type === 'text' && event.text) {
-                  enqueueEvent({ text: event.text });
-                  return;
-                }
-
-                if (event.type === 'error') {
-                  streamError = event.error;
-                  enqueueEvent({ error: event.error });
-                }
-              } catch (eventError) {
-                console.error('Failed to stream chat event:', eventError);
-              }
-            },
-          });
+          const agentResult =
+            chatModel.provider === 'anthropic'
+              ? await runChatAgent({
+                  apiKey: providerApiKey,
+                  systemPrompt: finalSystemPrompt,
+                  messages: agentMessages,
+                  toolContext,
+                  onEvent: handleAgentEvent,
+                })
+              : await runOpenAiAgent({
+                  apiKey: providerApiKey,
+                  baseUrl: chatModel.baseUrl!,
+                  model: chatModel.apiModel,
+                  systemPrompt: finalSystemPrompt,
+                  messages,
+                  toolContext,
+                  onEvent: handleAgentEvent,
+                });
 
           fullReply = agentResult.fullReply;
           usedTools = agentResult.usedTools;
@@ -209,7 +239,7 @@ export async function POST(request: Request) {
                 [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
 
               const memoryResult = await processMessageMemory({
-                apiKey,
+                apiKey: anthropicApiKey,
                 client,
                 userId,
                 userMessage: getMessageText(latestUserMessage),
