@@ -1,14 +1,33 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ChatTheme } from '@/constants/chat-theme';
+import { parseCritiqueSegments } from '@/lib/parse-critique-segments';
 import type { CouncilAnswer, CouncilReview } from '@/types/chat';
 
 type CouncilAnswersPanelProps = {
   review: CouncilReview;
 };
+
+function CritiqueText({ text }: { text: string }) {
+  const segments = parseCritiqueSegments(text);
+
+  return (
+    <Text style={styles.critiqueText}>
+      {segments.map((segment, index) =>
+        segment.bold ? (
+          <Text key={`${index}-${segment.text.slice(0, 24)}`} style={styles.critiqueHighlight}>
+            {segment.text}
+          </Text>
+        ) : (
+          <Text key={`${index}-${segment.text.slice(0, 24)}`}>{segment.text}</Text>
+        )
+      )}
+    </Text>
+  );
+}
 
 function CouncilAnswerRow({ answer }: { answer: CouncilAnswer }) {
   const [expanded, setExpanded] = useState(false);
@@ -39,9 +58,11 @@ function CouncilAnswerRow({ answer }: { answer: CouncilAnswer }) {
             <View style={styles.critiques}>
               <ThemedText style={styles.critiquesTitle}>What the others said</ThemedText>
               {answer.critiques.map((critique) => (
-                <View key={`${critique.fromModelId}-${critique.text.slice(0, 24)}`} style={styles.critiqueCard}>
+                <View
+                  key={`${critique.fromModelId}-${critique.text.slice(0, 24)}`}
+                  style={styles.critiqueCard}>
                   <ThemedText style={styles.critiqueFrom}>{critique.fromModelLabel}</ThemedText>
-                  <ThemedText style={styles.critiqueText}>{critique.text}</ThemedText>
+                  <CritiqueText text={critique.text} />
                 </View>
               ))}
             </View>
@@ -146,6 +167,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: ChatTheme.sidebarMuted,
+  },
+  critiqueHighlight: {
+    fontWeight: '700',
+    color: ChatTheme.sidebarText,
   },
   noCritiques: {
     fontSize: 13,

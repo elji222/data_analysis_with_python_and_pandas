@@ -402,8 +402,10 @@ export async function runCouncilAgent(
 
 Also write a short critique (1-3 sentences) of EACH answer from an analytical perspective only: what claims or reasoning were strong, what was weak or missing, and any factual or logical gaps. Do not comment on tone, warmth, friendliness, empathy, or style.
 
+In each critique, wrap the 1-3 most important analytical points in double asterisks like **this**, so the key statements stand out. Keep the rest of the sentence normal.
+
 Reply with ONLY JSON in this exact shape:
-{"ranking":["B","A","C"],"critiques":{"A":"...","B":"...","C":"..."}}`,
+{"ranking":["B","A","C"],"critiques":{"A":"Strong on **X**, but missed **Y**.","B":"...","C":"..."}}`,
       },
     ];
 
@@ -414,7 +416,7 @@ Reply with ONLY JSON in this exact shape:
             const reply = await withTimeout(
               completeWithMember(
                 member,
-                'You are an impartial analytical judge comparing AI answers. Focus only on accuracy, reasoning, and completeness—never on tone or warmth. Reply with only the JSON object.',
+                'You are an impartial analytical judge comparing AI answers. Focus only on accuracy, reasoning, and completeness—never on tone or warmth. Mark the most important critique points with **double asterisks**. Reply with only the JSON object.',
                 rankingPrompt,
                 RANKING_MAX_TOKENS
               ),
