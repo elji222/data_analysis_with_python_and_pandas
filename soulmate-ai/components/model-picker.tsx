@@ -30,6 +30,7 @@ type ModelPickerProps = {
 
 const MENU_WIDTH = 260;
 const MENU_GAP = 8;
+const ESTIMATED_MENU_HEIGHT = 230;
 
 function CouncilTooltip({ text }: { text: string }) {
   return (
@@ -109,7 +110,16 @@ export function ModelPicker({
       return Math.max(72, viewportHeight * 0.12);
     }
 
-    return Math.min(anchor.y + anchor.height + MENU_GAP, viewportHeight - 280);
+    const below = anchor.y + anchor.height + MENU_GAP;
+    const above = anchor.y - MENU_GAP - ESTIMATED_MENU_HEIGHT;
+    const spaceBelow = viewportHeight - below;
+
+    // Composer sits at the bottom — open upward like ChatGPT when needed.
+    if (spaceBelow < ESTIMATED_MENU_HEIGHT && above >= 12) {
+      return above;
+    }
+
+    return Math.min(below, viewportHeight - ESTIMATED_MENU_HEIGHT - 12);
   })();
 
   return (

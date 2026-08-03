@@ -26,7 +26,7 @@ import { NativeMobileChatShell } from '@/components/native-mobile-chat-shell';
 import { ScrollToBottomButton } from '@/components/scroll-to-bottom-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { DEFAULT_CHAT_MODEL_ID, getChatModelById, type ChatModelId } from '@/constants/chat-models';
+import { DEFAULT_CHAT_MODEL_ID, type ChatModelId } from '@/constants/chat-models';
 import { ChatTheme, QUICK_ACTIONS } from '@/constants/chat-theme';
 import {
   loadChatModelPreference,
@@ -148,7 +148,6 @@ export function ChatPanel({
   const [chatModelId, setChatModelId] = useState<ChatModelId>(DEFAULT_CHAT_MODEL_ID);
   const [isModelPickerOpen, setIsModelPickerOpen] = useState(false);
   const [modelPickerAnchor, setModelPickerAnchor] = useState<ModelPickerAnchor | null>(null);
-  const desktopModelButtonRef = useRef<View>(null);
 
   const {
     isRecording,
@@ -236,12 +235,6 @@ export function ChatPanel({
     setModelPickerAnchor(anchor ?? null);
     setIsModelPickerOpen(true);
   }, []);
-
-  const openDesktopModelPicker = useCallback(() => {
-    desktopModelButtonRef.current?.measureInWindow((x, y, width, height) => {
-      openModelPicker({ x, y, width, height });
-    });
-  }, [openModelPicker]);
 
   const closeModelPicker = useCallback(() => {
     setIsModelPickerOpen(false);
@@ -688,6 +681,8 @@ export function ChatPanel({
     audioLevels,
     showCameraOption: shouldShowCameraOption(),
     layout: isMobileChatLayout ? ('mobile' as const) : ('default' as const),
+    modelId: chatModelId,
+    onOpenModelPicker: openModelPicker,
   };
 
   const renderChatItem = useCallback(
@@ -740,11 +735,7 @@ export function ChatPanel({
         style={styles.container}>
         <SafeAreaView style={styles.safeArea} edges={['top']}>
           {showSidebarToggle && onOpenSidebar ? (
-            <MobileChatHeader
-              onOpenSidebar={onOpenSidebar}
-              modelId={chatModelId}
-              onOpenModelPicker={openModelPicker}
-            />
+            <MobileChatHeader onOpenSidebar={onOpenSidebar} />
           ) : null}
 
           <ModelPicker
@@ -796,28 +787,8 @@ export function ChatPanel({
           onClose={closeModelPicker}
         />
 
-        {!isMobileChatLayout ? (
-          <View style={styles.desktopModelBar}>
-            <Pressable
-              ref={desktopModelButtonRef}
-              style={({ pressed }) => [styles.desktopModelButton, pressed && styles.pressed]}
-              onPress={openDesktopModelPicker}
-              accessibilityRole="button"
-              accessibilityLabel="Change AI model">
-              <ThemedText style={styles.desktopModelText}>
-                {getChatModelById(chatModelId).label}
-              </ThemedText>
-              <Ionicons name="chevron-down" size={14} color={ChatTheme.sidebarMuted} />
-            </Pressable>
-          </View>
-        ) : null}
-
         {isMobileChatLayout && showSidebarToggle && onOpenSidebar ? (
-          <MobileChatHeader
-            onOpenSidebar={onOpenSidebar}
-            modelId={chatModelId}
-            onOpenModelPicker={openModelPicker}
-          />
+          <MobileChatHeader onOpenSidebar={onOpenSidebar} />
         ) : showSidebarToggle && onOpenSidebar ? (
         <View style={styles.header}>
           <Pressable style={styles.headerButton} onPress={onOpenSidebar}>
@@ -1269,26 +1240,6 @@ const styles = StyleSheet.create({
   },
   inlineMessageMobile: {
     paddingHorizontal: 0,
-  },
-  desktopModelBar: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 2,
-  },
-  desktopModelButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: 'transparent',
-  },
-  desktopModelText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: ChatTheme.sidebarText,
   },
   bottomComposerArea: {
     paddingHorizontal: 4,
