@@ -21,6 +21,9 @@ if ($LASTEXITCODE -ne 0) {
 Write-Step "Starting EAS build: Android APK (profile: preview)..."
 Write-Host "This uses your Expo production environment variables."
 Write-Host "When it finishes, Expo shows a download/install link for testers."
+if ($env:EAS_NO_VCS -eq "1") {
+    Write-Host "Running without git (EAS_NO_VCS=1). .easignore excludes node_modules from the upload."
+}
 Write-Host ""
 
 Invoke-Eas build --platform android --profile preview

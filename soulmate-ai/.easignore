@@ -1,0 +1,45 @@
+# Used by EAS Build when uploading project files.
+# When this file exists, EAS uses it instead of .gitignore — keep it complete.
+
+# dependencies
+node_modules/
+
+# Expo / Metro
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.metro-health-check*
+
+# Native generated folders
+/ios
+/android
+.kotlin/
+
+# Secrets / local env
+.env
+.env*.local
+*.pem
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Git / VCS (local ZIP snapshots)
+.git/
+.gitignore
+
+# Debug / tooling artifacts
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.tsbuildinfo
+.DS_Store
+coverage/
+.turbo/
+.cache/
+
+# Local-only helpers that are not needed on the build server
+app-example
+*.orig.*
