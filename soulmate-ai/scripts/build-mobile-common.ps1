@@ -252,6 +252,154 @@ function Ensure-PackageLockSynced {
     }
 }
 
+function Get-FreeDiskGb {
+    param([string]$Path = $Root)
+
+    try {
+        $driveLetter = ([System.IO.Path]::GetPathRoot($Path)).TrimEnd('\')
+        $drive = Get-PSDrive -Name $driveLetter.TrimEnd(':') -ErrorAction SilentlyContinue
+        if ($drive -and $null -ne $drive.Free) {
+            return [math]::Round($drive.Free / 1GB, 1)
+        }
+    } catch {
+        # Best-effort only.
+    }
+    return $null
+}
+
+function Ensure-DiskSpaceForBuild {
+    $freeGb = Get-FreeDiskGb
+    if ($null -eq $freeGb) {
+        return
+    }
+
+    Write-Host "Free disk space: ${freeGb} GB"
+
+    if ($freeGb -lt 2) {
+        throw @"
+Not enough free disk space for an Android EAS build (about ${freeGb} GB free).
+
+Free at least a few GB, then try BUILD-ANDROID.cmd again:
+  1. Empty Recycle Bin
+  2. Delete old ZIP folders under Downloads
+  3. In CMD:  npm cache clean --force
+  4. Optional: delete soulmate-ai\node_modules (GET-LATEST / npm install later)
+"@
+    }
+}
+
+function Enable-ShortProjectDrive {
+    param([string]$DriveLetter = "S")
+
+    $driveRoot = $DriveLetter.TrimEnd(':')
+    $drive = $driveRoot + ':'
+
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        cmd /c "subst ${driveRoot}: /d" 2>$null | Out-Null
+        cmd /c "subst ${driveRoot}: `"$Root`""
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Could not map short drive $drive. Continuing from the long path."
+            return $null
+        }
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+
+    Write-Host "Mapped $drive -> project folder (avoids Windows path limits during compress)."
+    return $drive
+}
+
+function Disable-ShortProjectDrive {
+    param([string]$DriveLetter = "S")
+
+    $driveRoot = $DriveLetter.TrimEnd(':')
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        cmd /c "subst ${driveRoot}: /d" 2>$null | Out-Null
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+}
+
+function Test-NeedsShortBuildPath {
+    return (
+        $Root.Length -gt 120 -or
+        $Root -match 'Downloads' -or
+        $Root -match '-master\\.*-master'
+    )
+}
+
+function New-ShortEasBuildStaging {
+    <#
+      EAS compress often fails on long nested Downloads paths, and SUBST can be
+      resolved back to the real long path. Copy a lean project tree to C:\soulmate-eas.
+    #>
+    $stagingRoot = "C:\soulmate-eas"
+
+    Write-Host "Preparing short build folder at $stagingRoot ..."
+
+    if (Test-Path $stagingRoot) {
+        Remove-Item -LiteralPath $stagingRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    New-Item -ItemType Directory -Path $stagingRoot -Force | Out-Null
+
+    $excludeDirs = @(
+        "node_modules",
+        ".expo",
+        "dist",
+        "web-build",
+        ".git",
+        "coverage",
+        ".turbo",
+        ".cache",
+        "android",
+        "ios"
+    )
+
+    $robolog = Join-Path $env:TEMP "soulmate-eas-robocopy.log"
+    $xdArgs = @("/XD") + $excludeDirs
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & robocopy $Root $stagingRoot /E /NFL /NDL /NJH /NJS /NC /NS /NP @xdArgs /LOG:$robolog | Out-Null
+        $code = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+
+    # robocopy exit codes 0-7 are success/partial copy
+    if ($code -ge 8 -or -not (Test-Path (Join-Path $stagingRoot "package.json"))) {
+        throw @"
+Could not create short build folder at $stagingRoot.
+
+Free some disk space, or manually copy soulmate-ai to C:\soulmate-ai and run BUILD-ANDROID.cmd from there.
+Robocopy exit code: $code
+"@
+    }
+
+    # Keep local tooling available without copying huge node_modules into staging.
+    $nodeModules = Join-Path $Root "node_modules"
+    $stagingNodeModules = Join-Path $stagingRoot "node_modules"
+    if (Test-Path $nodeModules) {
+        cmd /c "mklink /J `"$stagingNodeModules`" `"$nodeModules`"" | Out-Null
+        if (-not (Test-Path $stagingNodeModules)) {
+            Write-Host "Could not link node_modules into staging; EAS upload will still work via .easignore."
+        }
+    }
+
+    # Ensure ignore file exists in the staged copy.
+    $stagedIgnore = Join-Path $stagingRoot ".easignore"
+    if (-not (Test-Path $stagedIgnore)) {
+        Copy-Item -LiteralPath (Join-Path $Root ".easignore") -Destination $stagedIgnore -ErrorAction SilentlyContinue
+    }
+
+    Write-Host "Short build folder ready: $stagingRoot"
+    return $stagingRoot
+}
+
 function Invoke-Eas {
     param(
         [Parameter(ValueFromRemainingArguments = $true)]
@@ -265,9 +413,9 @@ function Invoke-Eas {
         Write-Host ""
         Write-Host "Build failed. Common fixes:"
         Write-Host "  1. Run GET-LATEST.cmd"
-        Write-Host "  2. Run DEPLOY.cmd (uploads env vars to Expo)"
+        Write-Host "  2. Free disk space (compress fails when the drive is full)"
         Write-Host "  3. Install Git for Windows: https://git-scm.com/download/win"
-        Write-Host "  4. If compress failed: move soulmate-ai to a short path like C:\soulmate-ai"
+        Write-Host "  4. Move soulmate-ai to a short path like C:\soulmate-ai"
         Write-Host "  5. On first Android build, answer Yes when asked to create a keystore"
         throw "EAS command failed: eas $($EasArgs -join ' ')"
     }
