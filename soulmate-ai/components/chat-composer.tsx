@@ -15,6 +15,8 @@ import { AttachPopover } from '@/components/attach-popover';
 import { ComposerAttachments } from '@/components/composer-attachments';
 import { ThemedText } from '@/components/themed-text';
 import { VoiceWaveform } from '@/components/voice-waveform';
+import type { ModelPickerAnchor } from '@/components/model-picker';
+import { getChatModelById, type ChatModelId } from '@/constants/chat-models';
 import { ChatTheme } from '@/constants/chat-theme';
 import type { ChatAttachment } from '@/types/chat';
 
@@ -37,6 +39,8 @@ type ChatComposerProps = {
   showCameraOption?: boolean;
   variant?: 'hero' | 'bottom';
   layout?: 'default' | 'mobile';
+  modelId?: ChatModelId;
+  onOpenModelPicker?: (anchor: ModelPickerAnchor) => void;
 };
 
 type WebKeyDownEvent = {
@@ -83,6 +87,8 @@ export function ChatComposer({
   showCameraOption = false,
   variant = 'bottom',
   layout = 'default',
+  modelId,
+  onOpenModelPicker,
 }: ChatComposerProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
@@ -90,11 +96,21 @@ export function ChatComposer({
   const [isAttachMenuOpen, setIsAttachMenuOpen] = useState(false);
   const [inputHeight, setInputHeight] = useState(INPUT_MIN_HEIGHT);
   const inputRef = useRef<TextInput>(null);
+  const modelPillRef = useRef<View>(null);
   const canSend = (value.trim().length > 0 || attachments.length > 0) && !isLoading && !isRecording;
   const isHero = variant === 'hero';
   const hasAttachments = attachments.length > 0;
   const isAtMaxHeight = inputHeight >= INPUT_MAX_HEIGHT - 1;
   const isExpanded = inputHeight > INPUT_MIN_HEIGHT + 2;
+  const modelLabel = modelId ? getChatModelById(modelId).label : null;
+
+  function handleOpenModelPicker() {
+    if (!onOpenModelPicker) return;
+
+    modelPillRef.current?.measureInWindow((x, y, width, height) => {
+      onOpenModelPicker({ x, y, width, height });
+    });
+  }
 
   const syncInputHeight = useCallback(() => {
     if (Platform.OS === 'web') {
@@ -311,6 +327,29 @@ export function ChatComposer({
               </View>
             ) : (
               <View style={styles.trailingActions}>
+                {modelLabel && onOpenModelPicker ? (
+                  <Pressable
+                    ref={modelPillRef}
+                    style={({ pressed }) => [
+                      styles.modelPill,
+                      isDark && styles.modelPillDark,
+                      pressed && styles.modelPillPressed,
+                    ]}
+                    onPress={handleOpenModelPicker}
+                    accessibilityRole="button"
+                    accessibilityLabel="Change AI model">
+                    <ThemedText
+                      style={[styles.modelPillText, isDark && styles.modelPillTextDark]}
+                      numberOfLines={1}>
+                      {modelLabel}
+                    </ThemedText>
+                    <Ionicons
+                      name="chevron-down"
+                      size={12}
+                      color={isDark ? ChatTheme.sidebarMutedDark : ChatTheme.sidebarMuted}
+                    />
+                  </Pressable>
+                ) : null}
                 {!isGenerating ? (
                   <Pressable
                     style={({ pressed }) => [styles.iconSlot, pressed && styles.iconPressed]}
@@ -496,6 +535,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
+  },
+  modelPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    maxWidth: 110,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: '#F0F0F0',
+    marginRight: 2,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as const) : {}),
+  },
+  modelPillDark: {
+    backgroundColor: '#3A3A3A',
+  },
+  modelPillPressed: {
+    opacity: 0.75,
+  },
+  modelPillText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: ChatTheme.sidebarText,
+  },
+  modelPillTextDark: {
+    color: ChatTheme.sidebarTextDark,
   },
   recordingActions: {
     flexDirection: 'row',
