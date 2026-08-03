@@ -3,6 +3,7 @@ import type { ChatMessage } from '@/types/chat';
 export const THINKING_PLACEHOLDER_ID = 'thinking-placeholder';
 export const SEARCHING_PLACEHOLDER_ID = 'searching-placeholder';
 export const GENERATING_IMAGE_PLACEHOLDER_ID = 'generating-image-placeholder';
+export const COUNCIL_PLACEHOLDER_ID = 'council-placeholder';
 export const STREAMING_ASSISTANT_ID = 'streaming-assistant';
 
 export type ChatListOptions = {
@@ -11,6 +12,7 @@ export type ChatListOptions = {
   showThinking: boolean;
   showSearching?: boolean;
   showGeneratingImage?: boolean;
+  showCouncil?: boolean;
   streamingAttachments?: ChatMessage['attachments'];
 };
 
@@ -43,6 +45,18 @@ export function buildChatListData(messages: ChatMessage[], options: ChatListOpti
       ...messages,
       {
         id: GENERATING_IMAGE_PLACEHOLDER_ID,
+        text: '',
+        role: 'assistant',
+        createdAt: Date.now(),
+      },
+    ];
+  }
+
+  if (options.showCouncil) {
+    return [
+      ...messages,
+      {
+        id: COUNCIL_PLACEHOLDER_ID,
         text: '',
         role: 'assistant',
         createdAt: Date.now(),

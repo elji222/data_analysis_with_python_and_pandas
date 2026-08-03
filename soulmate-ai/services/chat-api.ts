@@ -5,19 +5,25 @@ import { getApiUrl } from '@/lib/api-origin';
 import type { GeneratedImage } from '@/lib/agent/types';
 import type { ChatMessage } from '@/types/chat';
 
+export type ChatStreamStatus =
+  | 'searching'
+  | 'generating_image'
+  | 'council_answers'
+  | 'council_ranking';
+
 type SseStreamEvent = {
   text?: string;
   error?: string;
   imageError?: string;
   savedMemories?: string[];
-  status?: 'searching' | 'generating_image';
+  status?: ChatStreamStatus;
   generatedImage?: GeneratedImage;
 };
 
 type SseEventHandlers = {
   onDelta: (fullText: string) => void;
   onSavedMemories?: (savedMemories: string[]) => void;
-  onStatus?: (status: 'searching' | 'generating_image') => void;
+  onStatus?: (status: ChatStreamStatus) => void;
   onGeneratedImage?: (image: GeneratedImage) => void;
   onImageError?: (error: string) => void;
 };
@@ -74,7 +80,7 @@ export function processSseDataLine(
     if (parsed.savedMemories?.length) {
       handlers.onSavedMemories?.(parsed.savedMemories);
     }
-    if (parsed.status === 'searching' || parsed.status === 'generating_image') {
+    if (parsed.status) {
       handlers.onStatus?.(parsed.status);
     }
     if (parsed.generatedImage) {
@@ -340,7 +346,7 @@ export type StreamChatOptions = {
   messageId?: string;
   model?: string;
   onSavedMemories?: (savedMemories: string[]) => void;
-  onStatus?: (status: 'searching' | 'generating_image') => void;
+  onStatus?: (status: ChatStreamStatus) => void;
   onGeneratedImage?: (image: GeneratedImage) => void;
   onImageError?: (error: string) => void;
   signal?: AbortSignal | null;

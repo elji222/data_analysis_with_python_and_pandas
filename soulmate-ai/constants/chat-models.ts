@@ -1,11 +1,11 @@
-export type ChatModelId = 'claude' | 'gpt' | 'gemini';
+export type ChatModelId = 'claude' | 'gpt' | 'gemini' | 'council';
 
 export type ChatModelOption = {
   id: ChatModelId;
   label: string;
   maker: string;
   tagline: string;
-  provider: 'anthropic' | 'openai-compatible';
+  provider: 'anthropic' | 'openai-compatible' | 'council';
   apiModel: string;
   /** Base URL for OpenAI-compatible providers. */
   baseUrl?: string;
@@ -42,6 +42,16 @@ export const CHAT_MODELS: ChatModelOption[] = [
     apiModel: 'gemini-3.6-flash',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
     apiKeyEnvVar: 'GEMINI_API_KEY',
+  },
+  {
+    id: 'council',
+    label: 'Council',
+    maker: 'Claude + ChatGPT + Gemini',
+    tagline: 'All three answer and rank each other; you get the best',
+    provider: 'council',
+    apiModel: 'council',
+    // The chairman who writes the final reply runs on Claude.
+    apiKeyEnvVar: 'ANTHROPIC_API_KEY',
   },
 ];
 

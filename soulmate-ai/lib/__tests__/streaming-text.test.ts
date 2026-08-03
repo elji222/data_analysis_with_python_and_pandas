@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildChatListData,
+  COUNCIL_PLACEHOLDER_ID,
   getVisibleStreamingText,
   SEARCHING_PLACEHOLDER_ID,
   THINKING_PLACEHOLDER_ID,
@@ -49,6 +50,18 @@ describe('buildChatListData', () => {
 
     expect(list).toHaveLength(2);
     expect(list[1].id).toBe(SEARCHING_PLACEHOLDER_ID);
+  });
+
+  it('shows the council placeholder while models are answering', () => {
+    const list = buildChatListData(baseMessages, {
+      isStreaming: false,
+      visibleStreamingText: '',
+      showThinking: true,
+      showCouncil: true,
+    });
+
+    expect(list).toHaveLength(2);
+    expect(list[1].id).toBe(COUNCIL_PLACEHOLDER_ID);
   });
 
   it('appends a temporary streaming assistant bubble', () => {

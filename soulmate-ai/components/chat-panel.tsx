@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ChatBubble, GeneratingImagePlaceholder, SearchingPlaceholder, StreamingPlaceholder } from '@/components/chat-bubble';
+import { ChatBubble, CouncilPlaceholder, GeneratingImagePlaceholder, SearchingPlaceholder, StreamingPlaceholder } from '@/components/chat-bubble';
 import { ChatComposer } from '@/components/chat-composer';
 import { ChatScrollRail } from '@/components/chat-scroll-rail';
 import { MobileChatHeader } from '@/components/mobile-chat-header';
@@ -35,6 +35,7 @@ import {
 import { useSmoothStreamingText } from '@/hooks/use-smooth-streaming-text';
 import {
   buildChatListData,
+  COUNCIL_PLACEHOLDER_ID,
   GENERATING_IMAGE_PLACEHOLDER_ID,
   getVisibleStreamingText,
   SEARCHING_PLACEHOLDER_ID,
@@ -127,6 +128,7 @@ export function ChatPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [councilStage, setCouncilStage] = useState<'answers' | 'ranking' | null>(null);
   const [streamingAttachments, setStreamingAttachments] = useState<ChatAttachment[]>([]);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -175,7 +177,10 @@ export function ChatPanel({
   const showSearching = isSearching && streamingText === null && streamingAttachments.length === 0;
   const showGeneratingImage =
     isGeneratingImage && streamingText === null && streamingAttachments.length === 0;
-  const showThinking = isLoading && streamingText === null && !showSearching && !showGeneratingImage;
+  const showCouncil =
+    councilStage !== null && streamingText === null && streamingAttachments.length === 0;
+  const showThinking =
+    isLoading && streamingText === null && !showSearching && !showGeneratingImage && !showCouncil;
   const isNewChat = isDefaultConversationTitle(conversation?.title ?? 'New chat');
   const showHeroEmpty =
     messages.length === 0 && !showThinking && !isStreaming && isNewChat;
@@ -187,6 +192,7 @@ export function ChatPanel({
     setStatusMessage(null);
     setStreamingText(null);
     setIsLoading(false);
+    setCouncilStage(null);
     cancelRecording();
   }, [conversation?.id, cancelRecording]);
 
@@ -369,6 +375,7 @@ export function ChatPanel({
     setIsLoading(true);
     setIsSearching(false);
     setIsGeneratingImage(false);
+    setCouncilStage(null);
     setStreamingAttachments([]);
     setStreamingText(null);
     cancelRecording();
@@ -389,6 +396,7 @@ export function ChatPanel({
           if (partialText) {
             setIsSearching(false);
             setIsGeneratingImage(false);
+            setCouncilStage(null);
           }
         },
         {
@@ -408,6 +416,12 @@ export function ChatPanel({
             }
             if (status === 'generating_image') {
               setIsGeneratingImage(true);
+            }
+            if (status === 'council_answers') {
+              setCouncilStage('answers');
+            }
+            if (status === 'council_ranking') {
+              setCouncilStage('ranking');
             }
           },
           onGeneratedImage: (image) => {
@@ -440,6 +454,7 @@ export function ChatPanel({
       setStreamingText(null);
       setIsSearching(false);
       setIsGeneratingImage(false);
+      setCouncilStage(null);
       setStreamingAttachments([]);
       setStatusMessage(null);
       setIsLoading(false);
@@ -461,6 +476,7 @@ export function ChatPanel({
       setStreamingText(null);
       setIsSearching(false);
       setIsGeneratingImage(false);
+      setCouncilStage(null);
       setStreamingAttachments([]);
       setStatusMessage(null);
       setIsLoading(false);
@@ -511,9 +527,19 @@ export function ChatPanel({
         showThinking,
         showSearching,
         showGeneratingImage,
+        showCouncil,
         streamingAttachments,
       }),
-    [messages, isStreaming, visibleStreamingText, showThinking, showSearching, showGeneratingImage, streamingAttachments]
+    [
+      messages,
+      isStreaming,
+      visibleStreamingText,
+      showThinking,
+      showSearching,
+      showGeneratingImage,
+      showCouncil,
+      streamingAttachments,
+    ]
   );
 
   listDataRef.current = listData;
@@ -638,6 +664,10 @@ export function ChatPanel({
         return <GeneratingImagePlaceholder visible />;
       }
 
+      if (item.id === COUNCIL_PLACEHOLDER_ID) {
+        return <CouncilPlaceholder visible stage={councilStage ?? 'answers'} />;
+      }
+
       return (
         <ChatBubble
           message={item}
@@ -648,7 +678,7 @@ export function ChatPanel({
         />
       );
     },
-    [activePreviewId, isMobileChatLayout, isStreaming, onOpenPreview]
+    [activePreviewId, councilStage, isMobileChatLayout, isStreaming, onOpenPreview]
   );
 
   const mobileComposerBlock = (
@@ -878,29 +908,7 @@ export function ChatPanel({
                         keyboardShouldPersistTaps="handled"
                         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                         ListFooterComponent={listFooter}
-                        renderItem={({ item }) => {
-                          if (item.id === THINKING_PLACEHOLDER_ID) {
-                            return <StreamingPlaceholder visible />;
-                          }
-
-                          if (item.id === SEARCHING_PLACEHOLDER_ID) {
-                            return <SearchingPlaceholder visible />;
-                          }
-
-                          if (item.id === GENERATING_IMAGE_PLACEHOLDER_ID) {
-                            return <GeneratingImagePlaceholder visible />;
-                          }
-
-                          return (
-                            <ChatBubble
-                              message={item}
-                              isStreaming={item.id === STREAMING_ASSISTANT_ID && isStreaming}
-                              activePreviewId={activePreviewId}
-                              onOpenPreview={onOpenPreview}
-                              layout={isMobileChatLayout ? 'mobile' : 'default'}
-                            />
-                          );
-                        }}
+                        renderItem={renderChatItem}
                       />
 
                       <ScrollToBottomButton visible={showJumpToBottom} onPress={scrollToEnd} />

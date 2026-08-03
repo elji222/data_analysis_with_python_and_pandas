@@ -1,6 +1,7 @@
 import { SOULMATE_SYSTEM_PROMPT } from '@/constants/ai';
-import { getChatModelById } from '@/constants/chat-models';
+import { CHAT_MODELS, getChatModelById } from '@/constants/chat-models';
 import { runChatAgent } from '@/lib/agent/run-chat-agent';
+import { runCouncilAgent, type CouncilMember } from '@/lib/agent/run-council-agent';
 import { runOpenAiAgent } from '@/lib/agent/run-openai-agent';
 import type { AgentStreamEvent, AnthropicAgentMessage } from '@/lib/agent/types';
 import { appendCurrentDateContext } from '@/lib/current-date';
@@ -124,7 +125,9 @@ export async function POST(request: Request) {
     }
 
     const providerApiKey =
-      chatModel.provider === 'anthropic' ? anthropicApiKey : process.env[chatModel.apiKeyEnvVar];
+      chatModel.provider === 'anthropic' || chatModel.provider === 'council'
+        ? anthropicApiKey
+        : process.env[chatModel.apiKeyEnvVar];
 
     if (!providerApiKey) {
       return Response.json(
@@ -133,6 +136,22 @@ export async function POST(request: Request) {
         },
         { status: 503 }
       );
+    }
+
+    if (chatModel.provider === 'council') {
+      const configuredMembers = CHAT_MODELS.filter(
+        (model) => model.provider !== 'council' && process.env[model.apiKeyEnvVar]
+      );
+
+      if (configuredMembers.length < 2) {
+        return Response.json(
+          {
+            error:
+              'Council needs at least two models configured. Add OPENAI_API_KEY and/or GEMINI_API_KEY, deploy again, or switch to Claude.',
+          },
+          { status: 503 }
+        );
+      }
     }
 
     // Memory lookup only needs the authenticated user, so it overlaps with the
@@ -175,13 +194,8 @@ export async function POST(request: Request) {
 
         const handleAgentEvent = (event: AgentStreamEvent) => {
           try {
-            if (event.type === 'status' && event.status === 'searching') {
-              enqueueEvent({ status: 'searching' });
-              return;
-            }
-
-            if (event.type === 'status' && event.status === 'generating_image') {
-              enqueueEvent({ status: 'generating_image' });
+            if (event.type === 'status') {
+              enqueueEvent({ status: event.status });
               return;
             }
 
@@ -209,25 +223,46 @@ export async function POST(request: Request) {
           }
         };
 
+        // Council members are every individual model whose API key is configured.
+        const councilMembers: CouncilMember[] = CHAT_MODELS.filter(
+          (model) => model.provider !== 'council'
+        )
+          .map((model) => ({
+            id: model.id,
+            label: model.label,
+            provider: model.provider as CouncilMember['provider'],
+            apiModel: model.apiModel,
+            baseUrl: model.baseUrl,
+            apiKey: process.env[model.apiKeyEnvVar] ?? '',
+          }))
+          .filter((member) => member.apiKey);
+
         try {
           const agentResult =
-            chatModel.provider === 'anthropic'
-              ? await runChatAgent({
-                  apiKey: providerApiKey,
-                  systemPrompt: finalSystemPrompt,
-                  messages: agentMessages,
-                  toolContext,
-                  onEvent: handleAgentEvent,
-                })
-              : await runOpenAiAgent({
-                  apiKey: providerApiKey,
-                  baseUrl: chatModel.baseUrl!,
-                  model: chatModel.apiModel,
+            chatModel.provider === 'council'
+              ? await runCouncilAgent({
+                  members: councilMembers,
                   systemPrompt: finalSystemPrompt,
                   messages,
-                  toolContext,
                   onEvent: handleAgentEvent,
-                });
+                })
+              : chatModel.provider === 'anthropic'
+                ? await runChatAgent({
+                    apiKey: providerApiKey,
+                    systemPrompt: finalSystemPrompt,
+                    messages: agentMessages,
+                    toolContext,
+                    onEvent: handleAgentEvent,
+                  })
+                : await runOpenAiAgent({
+                    apiKey: providerApiKey,
+                    baseUrl: chatModel.baseUrl!,
+                    model: chatModel.apiModel,
+                    systemPrompt: finalSystemPrompt,
+                    messages,
+                    toolContext,
+                    onEvent: handleAgentEvent,
+                  });
 
           fullReply = agentResult.fullReply;
           usedTools = agentResult.usedTools;
