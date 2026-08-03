@@ -5,6 +5,8 @@ export type ChatModelOption = {
   label: string;
   maker: string;
   tagline: string;
+  /** Optional 3–5 word line shown under the label in the picker/composer. */
+  shortBlurb?: string;
   provider: 'anthropic' | 'openai-compatible' | 'council';
   apiModel: string;
   /** Base URL for OpenAI-compatible providers. */
@@ -47,6 +49,7 @@ export const CHAT_MODELS: ChatModelOption[] = [
     id: 'council',
     label: 'Council',
     maker: 'Claude + ChatGPT + Gemini',
+    shortBlurb: 'Best of three models',
     tagline:
       'All three models answer, then rank and critique each other so you get the strongest reply.',
     provider: 'council',

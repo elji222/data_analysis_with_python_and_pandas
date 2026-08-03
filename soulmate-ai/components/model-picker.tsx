@@ -30,15 +30,7 @@ type ModelPickerProps = {
 
 const MENU_WIDTH = 260;
 const MENU_GAP = 8;
-const ESTIMATED_MENU_HEIGHT = 230;
-
-function CouncilTooltip({ text }: { text: string }) {
-  return (
-    <View style={styles.tooltip} pointerEvents="none">
-      <ThemedText style={styles.tooltipText}>{text}</ThemedText>
-    </View>
-  );
-}
+const ESTIMATED_MENU_HEIGHT = 280;
 
 function ModelRow({
   model,
@@ -50,40 +42,30 @@ function ModelRow({
   onSelect: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const [tooltipVisible, setTooltipVisible] = useState(false);
-  const showTooltip =
-    model.id === 'council' && (Platform.OS === 'web' ? hovered : tooltipVisible);
 
   return (
-    <View style={styles.rowWrap}>
-      <Pressable
-        style={[styles.row, hovered && styles.rowHovered]}
-        onPress={onSelect}
-        onHoverIn={() => setHovered(true)}
-        onHoverOut={() => setHovered(false)}
-        onLongPress={
-          model.id === 'council' && Platform.OS !== 'web'
-            ? () => setTooltipVisible(true)
-            : undefined
-        }
-        delayLongPress={350}
-        onPressOut={() => {
-          if (Platform.OS !== 'web') setTooltipVisible(false);
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={
-          model.id === 'council' ? `Use Council. ${model.tagline}` : `Use ${model.label}`
-        }
-        accessibilityState={{ selected: isActive }}>
+    <Pressable
+      style={[styles.row, hovered && styles.rowHovered]}
+      onPress={onSelect}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      accessibilityRole="button"
+      accessibilityLabel={
+        model.shortBlurb ? `Use ${model.label}. ${model.shortBlurb}` : `Use ${model.label}`
+      }
+      accessibilityState={{ selected: isActive }}>
+      <View style={styles.rowCopy}>
         <ThemedText style={styles.rowLabel}>{model.label}</ThemedText>
-        {isActive ? (
-          <Ionicons name="checkmark" size={18} color={ChatTheme.sidebarText} />
-        ) : (
-          <View style={styles.checkSpacer} />
-        )}
-      </Pressable>
-      {showTooltip ? <CouncilTooltip text={model.tagline} /> : null}
-    </View>
+        {model.shortBlurb ? (
+          <ThemedText style={styles.rowBlurb}>{model.shortBlurb}</ThemedText>
+        ) : null}
+      </View>
+      {isActive ? (
+        <Ionicons name="checkmark" size={18} color={ChatTheme.sidebarText} />
+      ) : (
+        <View style={styles.checkSpacer} />
+      )}
+    </Pressable>
   );
 }
 
@@ -175,7 +157,6 @@ const styles = StyleSheet.create({
     borderColor: ChatTheme.inputBorder,
     paddingVertical: 8,
     paddingHorizontal: 6,
-    overflow: 'visible',
     shadowColor: '#000',
     shadowOpacity: 0.14,
     shadowRadius: 24,
@@ -194,11 +175,6 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 8,
   },
-  rowWrap: {
-    position: 'relative',
-    zIndex: 1,
-    overflow: 'visible',
-  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -212,35 +188,22 @@ const styles = StyleSheet.create({
   rowHovered: {
     backgroundColor: ChatTheme.sidebarHover,
   },
-  rowLabel: {
+  rowCopy: {
     flex: 1,
+    gap: 1,
+  },
+  rowLabel: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: '600',
     color: ChatTheme.sidebarText,
+  },
+  rowBlurb: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#8E8E93',
   },
   checkSpacer: {
     width: 18,
     height: 18,
-  },
-  tooltip: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    top: '100%',
-    marginTop: 6,
-    width: undefined,
-    backgroundColor: '#2F2F2F',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    zIndex: 20,
-    ...(Platform.OS === 'web'
-      ? ({ boxShadow: '0 8px 20px rgba(0,0,0,0.18)' } as const)
-      : {}),
-  },
-  tooltipText: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#F5F5F5',
   },
 });
