@@ -240,6 +240,28 @@ export function GeneratingImagePlaceholder({ visible }: SearchingPlaceholderProp
   );
 }
 
+type CouncilPlaceholderProps = {
+  visible: boolean;
+  stage?: 'answers' | 'ranking';
+};
+
+export function CouncilPlaceholder({ visible, stage = 'answers' }: CouncilPlaceholderProps) {
+  if (!visible) return null;
+
+  const text =
+    stage === 'ranking'
+      ? 'The council is ranking the answers'
+      : 'Asking Claude, ChatGPT and Gemini';
+
+  return (
+    <View style={styles.assistantRow}>
+      <View style={styles.searchingRow}>
+        <ShimmerText style={styles.searchingText}>{text}</ShimmerText>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   userRow: {
     width: '100%',
