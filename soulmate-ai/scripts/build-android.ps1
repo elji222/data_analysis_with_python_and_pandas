@@ -6,6 +6,7 @@ Write-Step "============================================================"
 Write-Step " BUILD ANDROID APK (internal install link)"
 Write-Step "============================================================"
 
+Ensure-DiskSpaceForBuild
 Ensure-NodeModules
 Ensure-PackageLockSynced
 Ensure-GitRepo
@@ -26,7 +27,31 @@ if ($env:EAS_NO_VCS -eq "1") {
 }
 Write-Host ""
 
-Invoke-Eas build --platform android --profile preview
+# Long nested Downloads paths break EAS "Compressing project files" on Windows.
+# Copy a lean tree to C:\soulmate-eas (real short path) before uploading.
+$previousLocation = Get-Location
+$buildRoot = $Root
+$usedStaging = $false
+
+try {
+    if (Test-NeedsShortBuildPath) {
+        $buildRoot = New-ShortEasBuildStaging
+        $usedStaging = $true
+        # Staging has no git history; use .easignore-based upload.
+        $env:EAS_NO_VCS = "1"
+        Write-Host "Using EAS_NO_VCS=1 for the short staging folder."
+    }
+
+    Set-Location $buildRoot
+    Write-Host "Running EAS compress/upload from: $buildRoot"
+    Invoke-Eas build --platform android --profile preview
+}
+finally {
+    Set-Location $previousLocation
+    if ($usedStaging -and (Test-Path "C:\soulmate-eas")) {
+        Write-Host "Leaving C:\soulmate-eas in place for the next build (safe to delete later)."
+    }
+}
 
 Write-Step "Done."
 Write-Host "Share the install link from the Expo build page with Android users."
