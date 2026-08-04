@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildRecentUsageRows,
+  buildTokenUsageRows,
   countDistinctUsers,
   countMessagesByUser,
 } from '@/lib/admin/usage-stats';
@@ -47,5 +48,34 @@ describe('usage stats helpers', () => {
     expect(rows[0]?.userId).toBe('a');
     expect(rows[0]?.messagesToday).toBe(2);
     expect(rows[1]?.userId).toBe('b');
+  });
+
+  it('attaches emails to token usage summaries', () => {
+    const rows = buildTokenUsageRows({
+      users: [
+        { id: 'a', email: 'a@test.com' },
+        { id: 'b', email: 'b@test.com' },
+      ],
+      summaries: [
+        {
+          userId: 'b',
+          inputTokens: 100,
+          outputTokens: 50,
+          totalTokens: 150,
+          requestCount: 2,
+        },
+        {
+          userId: 'a',
+          inputTokens: 10,
+          outputTokens: 5,
+          totalTokens: 15,
+          requestCount: 1,
+        },
+      ],
+    });
+
+    expect(rows[0]?.email).toBe('b@test.com');
+    expect(rows[0]?.totalTokens).toBe(150);
+    expect(rows[1]?.email).toBe('a@test.com');
   });
 });

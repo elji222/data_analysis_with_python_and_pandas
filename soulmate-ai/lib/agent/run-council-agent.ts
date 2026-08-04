@@ -2,7 +2,7 @@ import { MAX_OUTPUT_TOKENS } from '@/constants/ai';
 import type { ChatApiMessage, CouncilCritique, CouncilReview } from '@/types/chat';
 
 import { toOpenAiMessages } from './run-openai-agent';
-import type { AgentStreamEvent } from './types';
+import type { AgentStreamEvent, AgentTokenUsage } from './types';
 
 const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com/v1/messages';
 // Match the room other providers get (they reject max_tokens on GPT-5-era APIs).
@@ -29,6 +29,13 @@ export type RunCouncilAgentOptions = {
 export type RunCouncilAgentResult = {
   fullReply: string;
   usedTools: boolean;
+  usage: AgentTokenUsage;
+};
+
+const EMPTY_USAGE: AgentTokenUsage = {
+  inputTokens: 0,
+  outputTokens: 0,
+  totalTokens: 0,
 };
 
 function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
@@ -369,7 +376,7 @@ export async function runCouncilAgent(
     }
 
     options.onEvent({ type: 'done', fullReply });
-    return { fullReply, usedTools: false };
+    return { fullReply, usedTools: false, usage: EMPTY_USAGE };
   }
 
   // Stage 1: every member answers independently, in parallel.
@@ -558,5 +565,6 @@ Reply with ONLY JSON in this exact shape:
   }
 
   options.onEvent({ type: 'done', fullReply });
-  return { fullReply, usedTools: false };
+  // Council makes many provider calls; chat API estimates tokens when usage is 0.
+  return { fullReply, usedTools: false, usage: EMPTY_USAGE };
 }

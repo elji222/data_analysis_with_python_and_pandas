@@ -21,8 +21,11 @@ import { useAuth } from '@/contexts/auth-context';
 import { useBilling } from '@/hooks/use-billing';
 import { useMobileChatLayout } from '@/hooks/use-mobile-chat-layout';
 import { openBillingPortal, startCheckout, updateFreeAccessForAll } from '@/services/billing-api';
+import { formatTokenCount } from '@/lib/usage/tokens';
 import { fetchAdminUsageStats } from '@/services/admin-api';
 import type { AdminUsageStats } from '@/types/admin-usage';
+
+const USAGE_POLL_MS = 8000;
 
 function formatRenewalDate(value: string | null | undefined) {
   if (!value) return null;
@@ -40,6 +43,15 @@ function formatUsageTimestamp(value: string | null | undefined) {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+  });
+}
+
+function formatLiveUpdatedAt(value: string | null | undefined) {
+  if (!value) return null;
+  return new Date(value).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
   });
 }
 
@@ -70,36 +82,48 @@ export default function SettingsScreen() {
     const accessToken = session?.access_token;
     if (!accessToken || !status?.isAdmin) {
       setUsageStats(null);
+      setUsageError(null);
+      setIsUsageLoading(false);
       return;
     }
 
     let cancelled = false;
 
-    async function loadUsage() {
+    async function loadUsage(isInitial: boolean) {
       try {
-        setIsUsageLoading(true);
-        setUsageError(null);
+        if (isInitial) {
+          setIsUsageLoading(true);
+          setUsageError(null);
+        }
         const stats = await fetchAdminUsageStats(accessToken);
         if (!cancelled) {
           setUsageStats(stats);
+          setUsageError(null);
         }
       } catch (loadError) {
         if (!cancelled) {
           const message =
             loadError instanceof Error ? loadError.message : 'Could not load usage stats.';
-          setUsageError(message);
+          // Keep the last good snapshot on live refresh failures.
+          if (isInitial) {
+            setUsageError(message);
+          }
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && isInitial) {
           setIsUsageLoading(false);
         }
       }
     }
 
-    void loadUsage();
+    void loadUsage(true);
+    const intervalId = setInterval(() => {
+      void loadUsage(false);
+    }, USAGE_POLL_MS);
 
     return () => {
       cancelled = true;
+      clearInterval(intervalId);
     };
   }, [session?.access_token, status?.isAdmin]);
 
@@ -330,6 +354,78 @@ export default function SettingsScreen() {
 
           {isAdmin ? (
             <View style={styles.card}>
+              <View style={styles.liveHeader}>
+                <ThemedText style={styles.cardTitle}>Tokens · last 24 hours</ThemedText>
+                <View style={styles.liveBadge}>
+                  <View style={styles.liveDot} />
+                  <ThemedText style={styles.liveBadgeText}>Live</ThemedText>
+                </View>
+              </View>
+              <ThemedText style={styles.cardText}>
+                Token usage per user from chat replies. Updates every few seconds.
+              </ThemedText>
+              {usageStats?.generatedAt ? (
+                <ThemedText style={styles.helperText}>
+                  Updated {formatLiveUpdatedAt(usageStats.generatedAt)}
+                </ThemedText>
+              ) : null}
+
+              {isUsageLoading && !usageStats ? (
+                <View style={styles.loadingBlock}>
+                  <ActivityIndicator color={ChatTheme.accent} style={styles.loader} />
+                  <ThemedText style={styles.loadingText}>Loading token usage...</ThemedText>
+                </View>
+              ) : usageError && !usageStats ? (
+                <ThemedText style={styles.errorText}>{usageError}</ThemedText>
+              ) : usageStats ? (
+                <>
+                  <View style={styles.statsGrid}>
+                    <View style={styles.statTile}>
+                      <ThemedText style={styles.statValue}>
+                        {formatTokenCount(usageStats.tokensLast24Hours ?? 0)}
+                      </ThemedText>
+                      <ThemedText style={styles.statLabel}>Tokens (24h)</ThemedText>
+                    </View>
+                    <View style={styles.statTile}>
+                      <ThemedText style={styles.statValue}>
+                        {usageStats.tokenUsersLast24Hours ?? 0}
+                      </ThemedText>
+                      <ThemedText style={styles.statLabel}>Users (24h)</ThemedText>
+                    </View>
+                  </View>
+
+                  <ThemedText style={styles.sectionLabel}>By user</ThemedText>
+                  {(usageStats.tokenUsageLast24Hours ?? []).length === 0 ? (
+                    <ThemedText style={styles.helperText}>
+                      No token usage recorded in the last 24 hours.
+                    </ThemedText>
+                  ) : (
+                    (usageStats.tokenUsageLast24Hours ?? []).map((row) => (
+                      <View key={row.userId} style={styles.usageRow}>
+                        <View style={styles.usageRowCopy}>
+                          <ThemedText style={styles.usageEmail}>{row.email ?? 'Unknown user'}</ThemedText>
+                          <ThemedText style={styles.helperText}>
+                            {row.requestCount} {row.requestCount === 1 ? 'request' : 'requests'} ·{' '}
+                            {formatTokenCount(row.inputTokens)} in ·{' '}
+                            {formatTokenCount(row.outputTokens)} out
+                          </ThemedText>
+                        </View>
+                        <View style={styles.usageCounts}>
+                          <ThemedText style={styles.usageCount}>
+                            {formatTokenCount(row.totalTokens)}
+                          </ThemedText>
+                          <ThemedText style={styles.helperText}>tokens</ThemedText>
+                        </View>
+                      </View>
+                    ))
+                  )}
+                </>
+              ) : null}
+            </View>
+          ) : null}
+
+          {isAdmin ? (
+            <View style={styles.card}>
               <ThemedText style={styles.cardTitle}>Admin access mode</ThemedText>
               <ThemedText style={styles.cardText}>
                 Turn on free access for everyone while keeping Stripe subscriptions available in
@@ -479,6 +575,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: ChatTheme.sidebarText,
     marginTop: 4,
+  },
+  liveHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#2F9E44',
+  },
+  liveBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2F9E44',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   usageRow: {
     flexDirection: 'row',

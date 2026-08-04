@@ -93,6 +93,11 @@ type OpenAiStreamChunk = {
     };
     finish_reason?: string | null;
   }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
   error?: { message?: string };
 };
 
@@ -154,6 +159,11 @@ export type RunOpenAiAgentOptions = {
 export type RunOpenAiAgentResult = {
   fullReply: string;
   usedTools: boolean;
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
 };
 
 const IMAGE_ONLY_REPLY = "Here's your generated image.";
@@ -169,6 +179,9 @@ export async function runOpenAiAgent(
   let usedTools = false;
   let generatedImageCount = 0;
   let imageGenerationAttempted = false;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  const supportsUsageStream = options.baseUrl.includes('api.openai.com');
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
     const isFinalAllowedRound = round === MAX_TOOL_ROUNDS;
@@ -186,6 +199,7 @@ export async function runOpenAiAgent(
         messages: conversation,
         tools: isFinalAllowedRound ? undefined : buildOpenAiTools(),
         stream: true,
+        ...(supportsUsageStream ? { stream_options: { include_usage: true } } : {}),
       }),
     });
 
@@ -214,6 +228,11 @@ export async function runOpenAiAgent(
     const handleChunk = (chunk: OpenAiStreamChunk) => {
       if (chunk.error?.message) {
         throw new Error(chunk.error.message);
+      }
+
+      if (chunk.usage) {
+        inputTokens += chunk.usage.prompt_tokens ?? 0;
+        outputTokens += chunk.usage.completion_tokens ?? 0;
       }
 
       const choice = chunk.choices?.[0];
@@ -279,7 +298,15 @@ export async function runOpenAiAgent(
       }
 
       options.onEvent({ type: 'done', fullReply });
-      return { fullReply, usedTools };
+      return {
+        fullReply,
+        usedTools,
+        usage: {
+          inputTokens,
+          outputTokens,
+          totalTokens: inputTokens + outputTokens,
+        },
+      };
     }
 
     usedTools = true;

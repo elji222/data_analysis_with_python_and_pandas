@@ -10,6 +10,8 @@ function createState() {
     currentToolName: null as string | null,
     currentToolInputJson: '',
     stopReason: null as string | null,
+    inputTokens: 0,
+    outputTokens: 0,
   };
 }
 
@@ -89,5 +91,6 @@ describe('runChatAgent streaming', () => {
     expect(textEvents.map((event) => event.text)).toEqual(['Hel', 'lo!']);
     expect(result.fullReply).toBe('Hello!');
     expect(result.usedTools).toBe(false);
+    expect(result.usage).toEqual({ inputTokens: 0, outputTokens: 0, totalTokens: 0 });
   });
 });

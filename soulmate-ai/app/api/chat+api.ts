@@ -18,6 +18,8 @@ import {
   ensurePaidAccess,
   requireAuthenticatedUser,
 } from '@/lib/supabase-server';
+import { recordTokenUsage } from '@/lib/usage/repository';
+import { estimateTokenUsage, type TokenUsageSource } from '@/lib/usage/tokens';
 import type { ApiContentBlock, ApiTextBlock, ChatApiMessage } from '@/types/chat';
 
 function sseLine(payload: string) {
@@ -271,6 +273,44 @@ export async function POST(request: Request) {
 
           fullReply = agentResult.fullReply;
           usedTools = agentResult.usedTools;
+
+          if (userId && accessToken && fullReply.trim()) {
+            try {
+              const providerUsage = agentResult.usage;
+              let usage = providerUsage;
+              let source: TokenUsageSource = 'provider';
+
+              if (!usage || usage.totalTokens <= 0) {
+                const latestUserMessage =
+                  [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
+                usage = estimateTokenUsage(getMessageText(latestUserMessage), fullReply);
+
+                // Council runs candidate answers + ranking + a final synthesis.
+                if (chatModel.provider === 'council') {
+                  const multiplier = Math.max(councilMembers.length, 2) + 2;
+                  usage = {
+                    inputTokens: usage.inputTokens * multiplier,
+                    outputTokens: usage.outputTokens * multiplier,
+                    totalTokens: usage.totalTokens * multiplier,
+                  };
+                }
+
+                source = 'estimated';
+              }
+
+              const client = createSupabaseServerClient(accessToken);
+              await recordTokenUsage(client, {
+                userId,
+                modelId: chatModel.id,
+                usage,
+                source,
+                conversationId,
+                messageId,
+              });
+            } catch (usageError) {
+              console.error('Failed to record token usage:', usageError);
+            }
+          }
 
           if (userId && accessToken && memoryEnabled && !skipMemory && !usedTools) {
             try {
