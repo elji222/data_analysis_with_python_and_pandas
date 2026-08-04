@@ -1,6 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { AdminUsageStats, AdminUsageUserRow } from '@/types/admin-usage';
+import {
+  aggregateTokenUsageByUser,
+  fetchTokenUsageSince,
+} from '@/lib/usage/repository';
+import type {
+  AdminTokenUsageUserRow,
+  AdminUsageStats,
+  AdminUsageUserRow,
+} from '@/types/admin-usage';
 
 type MessageRow = {
   user_id: string;
@@ -59,11 +67,38 @@ export function buildRecentUsageRows(params: {
     .slice(0, limit);
 }
 
+export function buildTokenUsageRows(params: {
+  users: Array<{ id: string; email?: string | null }>;
+  summaries: Array<{
+    userId: string;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    requestCount: number;
+  }>;
+  limit?: number;
+}): AdminTokenUsageUserRow[] {
+  const emails = new Map(params.users.map((user) => [user.id, user.email ?? null]));
+  const limit = params.limit ?? 50;
+
+  return params.summaries
+    .map((summary) => ({
+      userId: summary.userId,
+      email: emails.get(summary.userId) ?? null,
+      inputTokens: summary.inputTokens,
+      outputTokens: summary.outputTokens,
+      totalTokens: summary.totalTokens,
+      requestCount: summary.requestCount,
+    }))
+    .slice(0, limit);
+}
+
 export async function fetchAdminUsageStats(
   serviceClient: SupabaseClient
 ): Promise<AdminUsageStats> {
   const todayIso = startOfUtcDay().toISOString();
   const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const twentyFourHoursAgoIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
   const [{ data: usersData, error: usersError }, todayResult, weekResult] = await Promise.all([
     serviceClient.auth.admin.listUsers({ page: 1, perPage: 1000 }),
@@ -87,6 +122,20 @@ export async function fetchAdminUsageStats(
   const messagesLast7Days = (weekResult.data ?? []) as MessageRow[];
   const users = usersData.users ?? [];
 
+  let tokenUsageLast24Hours: AdminTokenUsageUserRow[] = [];
+  let tokensLast24Hours = 0;
+  let tokenUsersLast24Hours = 0;
+
+  try {
+    const tokenRows = await fetchTokenUsageSince(serviceClient, twentyFourHoursAgoIso);
+    const summaries = aggregateTokenUsageByUser(tokenRows);
+    tokenUsageLast24Hours = buildTokenUsageRows({ users, summaries });
+    tokensLast24Hours = summaries.reduce((sum, row) => sum + row.totalTokens, 0);
+    tokenUsersLast24Hours = summaries.length;
+  } catch {
+    // Migration may not be applied yet; keep message stats available.
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     totalUsers: users.length,
@@ -99,5 +148,8 @@ export async function fetchAdminUsageStats(
       messagesToday,
       messagesLast7Days,
     }),
+    tokensLast24Hours,
+    tokenUsersLast24Hours,
+    tokenUsageLast24Hours,
   };
 }

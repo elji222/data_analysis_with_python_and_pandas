@@ -26,6 +26,8 @@ type StreamState = {
   currentToolName: string | null;
   currentToolInputJson: string;
   stopReason: string | null;
+  inputTokens: number;
+  outputTokens: number;
 };
 
 function createStreamState(): StreamState {
@@ -36,6 +38,8 @@ function createStreamState(): StreamState {
     currentToolName: null,
     currentToolInputJson: '',
     stopReason: null,
+    inputTokens: 0,
+    outputTokens: 0,
   };
 }
 
@@ -80,11 +84,25 @@ function buildAssistantContent(state: StreamState): AnthropicContentBlock[] {
 
 type AnthropicStreamEvent = {
   type?: string;
+  message?: { usage?: { input_tokens?: number; output_tokens?: number } };
+  usage?: { input_tokens?: number; output_tokens?: number };
   content_block?: { type?: string; id?: string; name?: string };
   delta?: { type?: string; text?: string; partial_json?: string; stop_reason?: string };
 };
 
 export function applyAnthropicStreamEvent(state: StreamState, event: AnthropicStreamEvent) {
+  if (event.type === 'message_start' && event.message?.usage) {
+    state.inputTokens = event.message.usage.input_tokens ?? state.inputTokens;
+    state.outputTokens = event.message.usage.output_tokens ?? state.outputTokens;
+  }
+
+  if (event.type === 'message_delta' && event.usage) {
+    state.outputTokens = event.usage.output_tokens ?? state.outputTokens;
+    if (typeof event.usage.input_tokens === 'number') {
+      state.inputTokens = event.usage.input_tokens;
+    }
+  }
+
   if (event.type === 'content_block_start') {
     if (event.content_block?.type === 'tool_use') {
       finalizeCurrentToolUse(state);
@@ -175,6 +193,11 @@ export type RunChatAgentOptions = {
 export type RunChatAgentResult = {
   fullReply: string;
   usedTools: boolean;
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
 };
 
 const IMAGE_ONLY_REPLY = "Here's your generated image.";
@@ -186,6 +209,8 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<RunCha
   let generatedImageCount = 0;
   let usedTools = false;
   let imageGenerationAttempted = false;
+  let inputTokens = 0;
+  let outputTokens = 0;
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
     const isFinalAllowedRound = round === MAX_TOOL_ROUNDS;
@@ -244,6 +269,9 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<RunCha
       }
     }
 
+    inputTokens += roundState.inputTokens;
+    outputTokens += roundState.outputTokens;
+
     const toolUses = roundState.toolUses;
     const shouldRunTools = toolUses.length > 0 && !isFinalAllowedRound;
 
@@ -260,7 +288,15 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<RunCha
       }
 
       options.onEvent({ type: 'done', fullReply });
-      return { fullReply, usedTools };
+      return {
+        fullReply,
+        usedTools,
+        usage: {
+          inputTokens,
+          outputTokens,
+          totalTokens: inputTokens + outputTokens,
+        },
+      };
     }
 
     usedTools = true;

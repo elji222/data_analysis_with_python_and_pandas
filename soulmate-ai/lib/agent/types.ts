@@ -18,6 +18,12 @@ export type AgentStreamEvent =
   | { type: 'error'; error: string }
   | { type: 'done'; fullReply: string };
 
+export type AgentTokenUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+};
+
 export type AnthropicTextBlock = {
   type: 'text';
   text: string;
